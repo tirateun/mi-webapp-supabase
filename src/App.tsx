@@ -7,15 +7,15 @@ function App() {
 
   const callApi = async () => {
     setStatus("⏳ Enviando solicitud...");
+
     try {
       const response = await fetch(
-        "https://ylekwhaeyullcrkzbzty.supabase.co/functions/v1/super-api",
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/super-api`, // 👈 URL desde variable de entorno
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization:
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlsZWt3aGFleXVsbGNya3pienR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1OTk1NzIsImV4cCI6MjA3MzE3NTU3Mn0.riHlrigLN3OWinW2iTFUeNl8qMcupMxmj_Sh0FWQ_KU",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // 👈 Token desde variable de entorno
           },
           body: JSON.stringify({ mensaje: "hola desde React" }),
         }
@@ -35,8 +35,21 @@ function App() {
   };
 
   return (
-    <div style={{ padding: 40, fontFamily: "sans-serif", background: "#f4f6f8", minHeight: "100vh" }}>
-      <h1 style={{ textAlign: "center", marginBottom: "30px", color: "#333" }}>
+    <div
+      style={{
+        padding: 40,
+        fontFamily: "sans-serif",
+        background: "#f4f6f8",
+        minHeight: "100vh",
+      }}
+    >
+      <h1
+        style={{
+          textAlign: "center",
+          marginBottom: "30px",
+          color: "#333",
+        }}
+      >
         Mi WebApp con Supabase 🚀
       </h1>
 
@@ -71,7 +84,14 @@ function App() {
           boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
         }}
       >
-        <h2 style={{ marginTop: 0, marginBottom: "15px", fontSize: "18px", color: "#444" }}>
+        <h2
+          style={{
+            marginTop: 0,
+            marginBottom: "15px",
+            fontSize: "18px",
+            color: "#444",
+          }}
+        >
           Resultado
         </h2>
         <p>{status}</p>
@@ -91,6 +111,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
