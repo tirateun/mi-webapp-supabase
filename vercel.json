@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/functions/v1/(.*)",
+      "destination": "https://ylekwhaeyullcrkzbzty.supabase.co/functions/v1/$1"
+    }
+  ]
+}
