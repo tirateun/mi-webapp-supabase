@@ -1,12 +1,12 @@
-// src/supabaseClient.ts
 import { createClient } from "@supabase/supabase-js";
 
-// ✅ Usar variables de entorno configuradas en Vercel
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// ✅ Variables de entorno (cargadas desde Vercel o .env.local en desarrollo)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// 🔎 Debug para verificar (solo en desarrollo)
+// 🔎 Debug para confirmar que las variables llegan bien
 console.log("🌍 VITE_SUPABASE_URL =", supabaseUrl);
 console.log("🔑 VITE_SUPABASE_ANON_KEY =", supabaseAnonKey ? "Cargada ✅" : "No encontrada ❌");
 
+// 👉 Crear cliente de Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
