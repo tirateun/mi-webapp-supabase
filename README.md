@@ -71,3 +71,7 @@ export default defineConfig([
   },
 ])
 ```
+---
+
+### 🚀 Dummy commit
+Este commit es solo para forzar un redeploy limpio en Vercel sin caché.
