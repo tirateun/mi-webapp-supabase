@@ -1,93 +1,93 @@
-export default function Sidebar({
-  onLogout,
-  setActivePage,
-}: {
+// src/Sidebar.tsx
+import React from "react";
+
+interface SidebarProps {
   onLogout: () => void;
-  setActivePage: (page: "users" | "agreements") => void;
-}) {
+  setActivePage: (page: "agreements" | "users") => void;
+}
+
+export default function Sidebar({ onLogout, setActivePage }: SidebarProps) {
   return (
     <div
       style={{
         width: "250px",
-        height: "100vh",
-        background: "#1e293b",
+        background: "#1e3a8a",
         color: "white",
+        minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        alignItems: "center",
         padding: "20px",
-        boxSizing: "border-box",
       }}
     >
-      <div>
-        <div style={{ textAlign: "center", marginBottom: "40px" }}>
-          <img
-            src="/Escudo UNMSM.jpg"
-            alt="Escudo UNMSM"
-            style={{ width: "60px", borderRadius: "50%", marginBottom: "10px" }}
-          />
-          <img
-            src="/Escudo SF.jpg"
-            alt="Escudo SF"
-            style={{ width: "60px", borderRadius: "50%", marginLeft: "10px" }}
-          />
-          <h2 style={{ fontSize: "16px", fontWeight: "bold", marginTop: "10px" }}>
-            Facultad de Medicina - UNMSM
-          </h2>
-        </div>
-
-        <nav>
-          <button
-            onClick={() => setActivePage("users")}
-            style={{
-              display: "block",
-              width: "100%",
-              padding: "10px 15px",
-              color: "white",
-              textAlign: "left",
-              background: "transparent",
-              border: "none",
-              borderRadius: "6px",
-              marginBottom: "5px",
-              cursor: "pointer",
-            }}
-          >
-            👥 Usuarios
-          </button>
-
-          <button
-            onClick={() => setActivePage("agreements")}
-            style={{
-              display: "block",
-              width: "100%",
-              padding: "10px 15px",
-              color: "white",
-              textAlign: "left",
-              background: "transparent",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
-          >
-            📑 Convenios
-          </button>
-        </nav>
+      {/* Encabezado con escudos */}
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+        <img
+          src="/Escudo_UNMSM.jpg"
+          alt="Escudo UNMSM"
+          style={{ width: "80px", borderRadius: "50%", marginBottom: "10px" }}
+        />
+        <img
+          src="/Escudo_SF.jpg"
+          alt="Escudo Facultad"
+          style={{ width: "80px", borderRadius: "50%" }}
+        />
+        <h3 style={{ marginTop: "10px", fontSize: "16px" }}>Gestión de Convenios</h3>
       </div>
 
+      {/* Menú */}
+      <button
+        onClick={() => setActivePage("agreements")}
+        style={{
+          width: "100%",
+          padding: "10px",
+          background: "transparent",
+          border: "none",
+          color: "white",
+          textAlign: "left",
+          cursor: "pointer",
+          marginBottom: "10px",
+          fontSize: "16px",
+        }}
+      >
+        📑 Convenios
+      </button>
+
+      <button
+        onClick={() => setActivePage("users")}
+        style={{
+          width: "100%",
+          padding: "10px",
+          background: "transparent",
+          border: "none",
+          color: "white",
+          textAlign: "left",
+          cursor: "pointer",
+          marginBottom: "20px",
+          fontSize: "16px",
+        }}
+      >
+        👤 Usuarios
+      </button>
+
+      {/* Cerrar sesión */}
       <button
         onClick={onLogout}
         style={{
+          marginTop: "auto",
           padding: "10px",
-          background: "#ef4444",
+          background: "#dc2626",
           border: "none",
-          borderRadius: "6px",
+          borderRadius: "8px",
           color: "white",
           cursor: "pointer",
+          width: "100%",
         }}
       >
-        🔒 Cerrar sesión
+        🚪 Cerrar sesión
       </button>
     </div>
   );
 }
+
 
