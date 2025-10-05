@@ -1,94 +1,76 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function Login() {
+interface LoginProps {
+  onLogin: (user: any) => void;
+}
+
+export default function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
+    setLoading(false);
+
     if (error) {
-      setError("❌ Credenciales inválidas");
-    } else {
-      setError("");
+      setError(error.message);
+    } else if (data.user) {
+      onLogin(data.user);
     }
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#f4f6f8",
-      }}
-    >
-      <div
-        style={{
-          background: "white",
-          padding: "30px",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          width: "350px",
-        }}
-      >
-        <h2 style={{ textAlign: "center" }}>🔐 Iniciar sesión</h2>
-
+    <div style={{ padding: 40, fontFamily: "sans-serif", textAlign: "center" }}>
+      <h2>🔐 Iniciar sesión</h2>
+      <form onSubmit={handleLogin}>
         <input
           type="email"
-          placeholder="Correo"
+          placeholder="Correo electrónico"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{
-            marginTop: "15px",
-            padding: "10px",
-            width: "100%",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-          }}
+          required
+          style={{ display: "block", margin: "10px auto", padding: "8px" }}
         />
-
         <input
           type="password"
           placeholder="Contraseña"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{
-            marginTop: "10px",
-            padding: "10px",
-            width: "100%",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-          }}
+          required
+          style={{ display: "block", margin: "10px auto", padding: "8px" }}
         />
-
         <button
-          onClick={handleLogin}
+          type="submit"
+          disabled={loading}
           style={{
-            marginTop: "15px",
-            width: "100%",
-            padding: "10px",
             background: "#3b82f6",
             color: "white",
+            padding: "8px 16px",
             border: "none",
             borderRadius: "6px",
             cursor: "pointer",
           }}
         >
-          Entrar
+          {loading ? "Ingresando..." : "Entrar"}
         </button>
+      </form>
 
-        {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
-      </div>
+      {error && <p style={{ color: "red" }}>{error}</p>}
     </div>
   );
 }
+
 
 
 
