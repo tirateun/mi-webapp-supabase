@@ -1,5 +1,3 @@
-import { supabase } from "./supabaseClient";
-
 export default function Sidebar({ onLogout }: { onLogout: () => void }) {
   return (
     <div
@@ -70,6 +68,3 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
-
-
-
