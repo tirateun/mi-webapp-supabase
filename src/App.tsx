@@ -60,11 +60,25 @@ export default function App() {
   if (loading) return <p>Cargando...</p>;
 
   // 🔹 Si no hay sesión, mostrar login
-  if (!session) return <Login onLogin={handleLogin} />;
+  if (!session)
+  return (
+    <Login
+      onLogin={handleLogin}
+      onRequirePasswordChange={(user) => {
+        setMustChangePassword(true);
+        setSession({ user });
+      }}
+    />
+  );
 
   // 🔹 Si el usuario debe cambiar la contraseña
-  if (mustChangePassword) {
-    return <ChangePassword onPasswordChanged={() => setMustChangePassword(false)} />;
+  if (mustChangePassword && session?.user) {
+    return (
+      <ChangePassword
+        user={session.user}
+        onPasswordChanged={() => setMustChangePassword(false)}
+      />
+    );
   }
 
   // 🔹 Si está logueado normalmente

@@ -1,126 +1,82 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function ChangePassword({
-  user,
-  onPasswordChanged,
-}: {
+interface ChangePasswordProps {
   user: any;
   onPasswordChanged: () => void;
-}) {
+}
+
+export default function ChangePassword({ user, onPasswordChanged }: ChangePasswordProps) {
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setMessage("");
-
-    if (newPassword !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres.");
+  const handleChangePassword = async () => {
+    if (newPassword !== confirm) {
+      setMessage("❌ Las contraseñas no coinciden.");
       return;
     }
 
     setLoading(true);
+    setMessage("");
 
-    try {
-      // 🔐 1. Actualiza la contraseña en Supabase Auth
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
 
-      if (updateError) throw updateError;
-
-      // 🧱 2. Marca que ya no necesita cambiar contraseña en `profiles`
-      const { error: profileError } = await supabase
+    if (error) {
+      setMessage("❌ Error al actualizar contraseña.");
+    } else {
+      // 🔹 Actualizamos el campo must_change_password a false
+      await supabase
         .from("profiles")
         .update({ must_change_password: false })
         .eq("id", user.id);
 
-      if (profileError) throw profileError;
-
-      setMessage("✅ Contraseña actualizada correctamente.");
-      onPasswordChanged(); // 🔁 Regresa al panel principal
-    } catch (err: any) {
-      console.error("❌ Error al cambiar contraseña:", err.message);
-      setError(err.message || "Error al actualizar contraseña");
-    } finally {
-      setLoading(false);
+      setMessage("✅ Contraseña cambiada correctamente.");
+      setTimeout(onPasswordChanged, 1500);
     }
+
+    setLoading(false);
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "400px",
-        margin: "100px auto",
-        textAlign: "center",
-        border: "1px solid #ddd",
-        padding: "30px",
-        borderRadius: "10px",
-        boxShadow: "0 4px 10px rgba(0,0,0,0.05)",
-      }}
-    >
+    <div style={{ padding: "40px", textAlign: "center" }}>
       <h2>🔑 Cambiar Contraseña</h2>
-      <p style={{ color: "#555", marginBottom: "20px" }}>
-        Debes actualizar tu contraseña para continuar.
-      </p>
+      <p>Por favor, actualiza tu contraseña temporal.</p>
 
-      <form
-        onSubmit={handleChangePassword}
-        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+      <input
+        type="password"
+        placeholder="Nueva contraseña"
+        value={newPassword}
+        onChange={(e) => setNewPassword(e.target.value)}
+        style={{ display: "block", margin: "10px auto", padding: "8px" }}
+      />
+      <input
+        type="password"
+        placeholder="Confirmar contraseña"
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        style={{ display: "block", margin: "10px auto", padding: "8px" }}
+      />
+
+      <button
+        onClick={handleChangePassword}
+        disabled={loading}
+        style={{
+          background: "#10b981",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          padding: "10px 20px",
+          cursor: "pointer",
+        }}
       >
-        <input
-          type="password"
-          placeholder="Nueva contraseña"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-          style={{
-            padding: "10px",
-            borderRadius: "5px",
-            border: "1px solid #ccc",
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Confirmar contraseña"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          style={{
-            padding: "10px",
-            borderRadius: "5px",
-            border: "1px solid #ccc",
-          }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: "10px",
-            backgroundColor: "#16a34a",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
-          }}
-        >
-          {loading ? "Guardando..." : "Actualizar Contraseña"}
-        </button>
-      </form>
+        {loading ? "Actualizando..." : "Guardar nueva contraseña"}
+      </button>
 
-      {error && <p style={{ color: "red", marginTop: "10px" }}>❌ {error}</p>}
-      {message && <p style={{ color: "green", marginTop: "10px" }}>{message}</p>}
+      {message && <p style={{ marginTop: "15px" }}>{message}</p>}
     </div>
   );
 }
