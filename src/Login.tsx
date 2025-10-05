@@ -1,89 +1,59 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     setLoading(true);
     setError("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setError(error.message);
-    } else if (data.user) {
-      onLogin(data.user);
-    }
-
+    if (error) setError(error.message);
     setLoading(false);
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "400px",
-        margin: "100px auto",
-        padding: "20px",
-        border: "1px solid #ccc",
-        borderRadius: "10px",
-        textAlign: "center",
-        background: "#fff",
-        boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-      }}
-    >
-      <h2>🔐 Iniciar Sesión</h2>
-      <form
-        onSubmit={handleLogin}
-        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+    <div style={{ padding: "40px", textAlign: "center", fontFamily: "sans-serif" }}>
+      <h2>🔐 Iniciar sesión</h2>
+      <p>Esta aplicación requiere autenticación de Supabase.</p>
+      <input
+        type="email"
+        placeholder="Correo"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        style={{ margin: "10px", padding: "10px", width: "250px" }}
+      />
+      <input
+        type="password"
+        placeholder="Contraseña"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        style={{ margin: "10px", padding: "10px", width: "250px" }}
+      />
+      <br />
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{
+          background: "#3b82f6",
+          color: "white",
+          border: "none",
+          borderRadius: "8px",
+          padding: "10px 20px",
+          cursor: "pointer",
+          marginTop: "10px",
+        }}
       >
-        <input
-          type="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{
-            padding: "8px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-          }}
-        />
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={{
-            padding: "8px",
-            borderRadius: "6px",
-            border: "1px solid #ccc",
-          }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            background: "#3b82f6",
-            color: "white",
-            border: "none",
-            padding: "10px",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "Ingresando..." : "Iniciar sesión"}
-        </button>
-      </form>
+        {loading ? "Ingresando..." : "Entrar"}
+      </button>
+
       {error && <p style={{ color: "red" }}>❌ {error}</p>}
     </div>
   );
 }
+
