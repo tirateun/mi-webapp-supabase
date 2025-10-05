@@ -1,5 +1,4 @@
 // src/Sidebar.tsx
-import React from "react";
 
 interface SidebarProps {
   onLogout: () => void;
