@@ -10,41 +10,31 @@ export default function Users() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // 🔹 Cargar usuarios desde la tabla profiles
+  // 📌 Cargar usuarios existentes desde la tabla profiles
   const fetchUsers = async () => {
     const { data, error } = await supabase.from("profiles").select("*");
-    if (error) {
-      console.error("Error cargando usuarios:", error.message);
-    } else {
-      setUsers(data || []);
-    }
+    if (!error) setUsers(data || []);
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // 🔹 Crear nuevo usuario con contraseña provisional
+  // 📌 Crear nuevo usuario con contraseña temporal y flag de cambio
   const handleAddUser = async () => {
-    if (!email || !fullName) {
-      setError("Por favor completa todos los campos.");
-      return;
-    }
-
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      const provisionalPassword = "Temporal123!";
-
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-      if (!token) throw new Error("No hay sesión activa. Inicia sesión como administrador.");
+      if (!token) throw new Error("No hay sesión activa.");
 
-      console.log("🔑 Token de sesión:", token);
+      // Contraseña temporal generada automáticamente
+      const tempPassword = "Temporal123!";
 
-      // Llamar a la función Edge de Supabase para crear usuario
+      // ✅ 1. Llamar a la Edge Function `create-user`
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
         {
@@ -55,35 +45,33 @@ export default function Users() {
           },
           body: JSON.stringify({
             email,
-            password: provisionalPassword,
+            password: tempPassword,
             full_name: fullName,
             role,
-            user_metadata: {
-              must_change_password: true, // 👈 marca para forzar cambio al primer login
-            },
           }),
         }
       );
 
-      const resultText = await response.text();
-      console.log("📦 Respuesta bruta:", resultText);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Error en create-user");
 
-      let result: any;
-      try {
-        result = JSON.parse(resultText);
-      } catch {
-        throw new Error("Respuesta inválida del servidor.");
-      }
+      // ✅ 2. Actualizar el perfil en la tabla "profiles" con `must_change_password = true`
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("email", email);
 
-      if (!response.ok) throw new Error(result.error || "Error al crear usuario.");
+      if (updateError) throw updateError;
 
-      setSuccess(`✅ Usuario creado con contraseña provisional: ${provisionalPassword}`);
+      setSuccess(
+        `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
+      );
+
       setFullName("");
       setEmail("");
       setRole("internal");
       fetchUsers();
     } catch (err: any) {
-      console.error("❌ Error al crear usuario:", err.message);
       setError(err.message);
     }
 
@@ -94,7 +82,7 @@ export default function Users() {
     <div id="usuarios">
       <h2>👤 Lista de Usuarios</h2>
 
-      {/* Formulario para crear usuario */}
+      {/* Formulario para agregar nuevo usuario */}
       <div
         style={{
           marginTop: "20px",
@@ -114,7 +102,7 @@ export default function Users() {
         />
         <input
           type="email"
-          placeholder="Correo electrónico"
+          placeholder="Correo"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={{ margin: "5px", padding: "8px", width: "100%" }}
@@ -128,7 +116,6 @@ export default function Users() {
           <option value="internal">Interno</option>
           <option value="external">Externo</option>
         </select>
-
         <button
           onClick={handleAddUser}
           disabled={loading}
@@ -164,24 +151,40 @@ export default function Users() {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Correo</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Rol</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Actualizado</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              ¿Debe cambiar contraseña?
+            </th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              Actualizado
+            </th>
           </tr>
         </thead>
         <tbody>
           {users.length === 0 ? (
             <tr>
-              <td colSpan={4} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={5} style={{ textAlign: "center", padding: "10px" }}>
                 No hay usuarios registrados.
               </td>
             </tr>
           ) : (
             users.map((u) => (
               <tr key={u.id}>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{u.full_name}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{u.email}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{u.role}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {u.updated_at ? new Date(u.updated_at).toLocaleString() : "-"}
+                  {u.full_name}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.email}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.role}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.must_change_password ? "✅ Sí" : "❌ No"}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.updated_at
+                    ? new Date(u.updated_at).toLocaleString()
+                    : "-"}
                 </td>
               </tr>
             ))
@@ -191,3 +194,4 @@ export default function Users() {
     </div>
   );
 }
+

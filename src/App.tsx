@@ -1,66 +1,59 @@
-import { useState, useEffect } from "react";
-import { supabase } from "./supabaseClient";
+import { useState } from "react";
 import Login from "./Login";
-import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Agreements from "./Agreements";
+import Sidebar from "./Sidebar";
 import ChangePassword from "./ChangePassword";
+import { supabase } from "./supabaseClient";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
+  const [requirePasswordChange, setRequirePasswordChange] = useState(false); // ✅ Nuevo estado
   const [activePage, setActivePage] = useState<"users" | "agreements">("users");
-  const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
+  // 🔐 Manejo de login
+  const handleLogin = (user: any) => {
+    setSession(user);
+    setRequirePasswordChange(false);
+  };
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+  // 🚨 Si necesita cambiar la contraseña
+  const handleRequirePasswordChange = (user: any) => {
+    setSession(user);
+    setRequirePasswordChange(true); // ✅ Ir a ChangePassword
+  };
 
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (session) {
-      // 🚨 Detectar si el usuario tiene la contraseña provisional
-      // Aquí asumimos que si el email contiene "Temporal" o un flag de metadata,
-      // puedes adaptarlo según tu base de datos o un campo `force_password_change`.
-      const checkProvisional = async () => {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("must_change_password")
-          .eq("id", session.user.id)
-          .single();
-
-        if (!error && data?.must_change_password) {
-          setMustChangePassword(true);
-        }
-      };
-      checkProvisional();
-    }
-  }, [session]);
-
+  // 🔑 Cerrar sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setRequirePasswordChange(false);
   };
 
-  if (!session) return <Login onLogin={(user) => setSession(user)} />;
-  if (mustChangePassword)
-    return <ChangePassword onPasswordChanged={() => setMustChangePassword(false)} />;
+  // 🧩 Renderizado condicional
+  if (!session) {
+    // Si no hay sesión → pantalla de login
+    return <Login onLogin={handleLogin} onRequirePasswordChange={handleRequirePasswordChange} />;
+  }
 
+  if (requirePasswordChange) {
+    // Si debe cambiar la contraseña → pantalla ChangePassword
+    return <ChangePassword user={session} onLogout={handleLogout} />;
+  }
+
+  // 🏠 Pantalla principal
   return (
-    <div style={{ display: "flex" }}>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar onLogout={handleLogout} setActivePage={setActivePage} />
-      <div style={{ flex: 1, padding: "20px" }}>
-        {activePage === "users" ? <Users /> : <Agreements />}
-      </div>
+
+      <main style={{ flex: 1, padding: "20px" }}>
+        {activePage === "users" && <Users />}
+        {activePage === "agreements" && <Agreements />}
+      </main>
     </div>
   );
 }
+
 
 
 
