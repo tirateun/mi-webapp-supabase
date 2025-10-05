@@ -1,4 +1,10 @@
-export default function Sidebar({ onLogout }: { onLogout: () => void }) {
+export default function Sidebar({
+  onLogout,
+  setActivePage,
+}: {
+  onLogout: () => void;
+  setActivePage: (page: "users" | "agreements") => void;
+}) {
   return (
     <div
       style={{
@@ -16,39 +22,55 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
       <div>
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
           <img
-            src="/logo.png"
-            alt="Logo"
-            style={{ width: "100px", borderRadius: "8px", marginBottom: "10px" }}
+            src="/Escudo UNMSM.jpg"
+            alt="Escudo UNMSM"
+            style={{ width: "60px", borderRadius: "50%", marginBottom: "10px" }}
           />
-          <h2 style={{ fontSize: "18px", fontWeight: "bold" }}>Mi WebApp</h2>
+          <img
+            src="/Escudo SF.jpg"
+            alt="Escudo SF"
+            style={{ width: "60px", borderRadius: "50%", marginLeft: "10px" }}
+          />
+          <h2 style={{ fontSize: "16px", fontWeight: "bold", marginTop: "10px" }}>
+            Facultad de Medicina - UNMSM
+          </h2>
         </div>
 
         <nav>
-          <a
-            href="#usuarios"
+          <button
+            onClick={() => setActivePage("users")}
             style={{
               display: "block",
+              width: "100%",
               padding: "10px 15px",
               color: "white",
-              textDecoration: "none",
+              textAlign: "left",
+              background: "transparent",
+              border: "none",
               borderRadius: "6px",
               marginBottom: "5px",
+              cursor: "pointer",
             }}
           >
             👥 Usuarios
-          </a>
-          <a
-            href="#convenios"
+          </button>
+
+          <button
+            onClick={() => setActivePage("agreements")}
             style={{
               display: "block",
+              width: "100%",
               padding: "10px 15px",
               color: "white",
-              textDecoration: "none",
+              textAlign: "left",
+              background: "transparent",
+              border: "none",
               borderRadius: "6px",
+              cursor: "pointer",
             }}
           >
             📑 Convenios
-          </a>
+          </button>
         </nav>
       </div>
 
@@ -68,3 +90,4 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
+
