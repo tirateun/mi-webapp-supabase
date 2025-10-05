@@ -1,41 +1,75 @@
-// src/Sidebar.tsx
-import { Link, useLocation } from "react-router-dom";
+import { supabase } from "./supabaseClient";
 
-export default function Sidebar() {
-  const location = useLocation();
-
-  const links = [
-    { path: "/users", label: "👤 Usuarios" },
-    { path: "/agreements", label: "📄 Convenios" },
-  ];
-
+export default function Sidebar({ onLogout }: { onLogout: () => void }) {
   return (
     <div
       style={{
-        width: "220px",
+        width: "250px",
+        height: "100vh",
         background: "#1e293b",
         color: "white",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "space-between",
         padding: "20px",
+        boxSizing: "border-box",
       }}
     >
-      <h2 style={{ marginBottom: "30px" }}>⚙️ Dashboard</h2>
-      {links.map((link) => (
-        <Link
-          key={link.path}
-          to={link.path}
-          style={{
-            color: location.pathname === link.path ? "#3b82f6" : "white",
-            textDecoration: "none",
-            marginBottom: "15px",
-            fontWeight: "bold",
-          }}
-        >
-          {link.label}
-        </Link>
-      ))}
+      <div>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            style={{ width: "100px", borderRadius: "8px", marginBottom: "10px" }}
+          />
+          <h2 style={{ fontSize: "18px", fontWeight: "bold" }}>Mi WebApp</h2>
+        </div>
+
+        <nav>
+          <a
+            href="#usuarios"
+            style={{
+              display: "block",
+              padding: "10px 15px",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "6px",
+              marginBottom: "5px",
+            }}
+          >
+            👥 Usuarios
+          </a>
+          <a
+            href="#convenios"
+            style={{
+              display: "block",
+              padding: "10px 15px",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "6px",
+            }}
+          >
+            📑 Convenios
+          </a>
+        </nav>
+      </div>
+
+      <button
+        onClick={onLogout}
+        style={{
+          padding: "10px",
+          background: "#ef4444",
+          border: "none",
+          borderRadius: "6px",
+          color: "white",
+          cursor: "pointer",
+        }}
+      >
+        🔒 Cerrar sesión
+      </button>
     </div>
   );
 }
+
+
 

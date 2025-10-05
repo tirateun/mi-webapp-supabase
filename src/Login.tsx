@@ -4,73 +4,52 @@ import { supabase } from "./supabaseClient";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      if (!data.session) throw new Error("No se pudo iniciar sesión.");
-
-      // ✅ Guardar sesión local
-      localStorage.setItem("supabaseSession", JSON.stringify(data.session));
-
-      // 🔁 Recargar para activar las rutas protegidas
-      window.location.reload();
-    } catch (err: any) {
-      console.error("❌ Error al iniciar sesión:", err.message);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (error) {
+      setError("❌ Credenciales inválidas");
+    } else {
+      setError("");
     }
   };
 
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
         height: "100vh",
-        background: "#f1f5f9",
-        fontFamily: "sans-serif",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        background: "#f4f6f8",
       }}
     >
-      <form
-        onSubmit={handleLogin}
+      <div
         style={{
           background: "white",
-          padding: "40px",
+          padding: "30px",
           borderRadius: "12px",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-          width: "100%",
-          maxWidth: "400px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+          width: "350px",
         }}
       >
-        <h2 style={{ textAlign: "center", marginBottom: "25px" }}>
-          🔐 Iniciar sesión
-        </h2>
+        <h2 style={{ textAlign: "center" }}>🔐 Iniciar sesión</h2>
 
         <input
           type="email"
-          placeholder="Correo electrónico"
+          placeholder="Correo"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          required
           style={{
-            width: "100%",
+            marginTop: "15px",
             padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "8px",
+            width: "100%",
+            borderRadius: "6px",
             border: "1px solid #ccc",
           }}
         />
@@ -80,41 +59,36 @@ export default function Login() {
           placeholder="Contraseña"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
           style={{
-            width: "100%",
+            marginTop: "10px",
             padding: "10px",
-            marginBottom: "15px",
-            borderRadius: "8px",
+            width: "100%",
+            borderRadius: "6px",
             border: "1px solid #ccc",
           }}
         />
 
         <button
-          type="submit"
-          disabled={loading}
+          onClick={handleLogin}
           style={{
+            marginTop: "15px",
             width: "100%",
             padding: "10px",
             background: "#3b82f6",
             color: "white",
             border: "none",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
-            fontSize: "16px",
           }}
         >
-          {loading ? "Ingresando..." : "Entrar"}
+          Entrar
         </button>
 
-        {error && (
-          <p style={{ color: "red", marginTop: "15px", textAlign: "center" }}>
-            ❌ {error}
-          </p>
-        )}
-      </form>
+        {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+      </div>
     </div>
   );
 }
+
 
 
