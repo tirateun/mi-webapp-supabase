@@ -1,32 +1,30 @@
-import { useState, useEffect } from "react";
-import { supabase } from "./supabaseClient";
-import Login from "./Login";
+// src/App.tsx
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import Sidebar from "./Sidebar";
 import Users from "./Users";
+import Agreements from "./Agreements";
+import Login from "./Login";
+import "./App.css";
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
+  const isLoggedIn = localStorage.getItem("supabaseSession");
 
-  useEffect(() => {
-    // ✅ Detectar si ya hay sesión iniciada
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-
-    // ✅ Escuchar cambios de autenticación (login / logout)
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  // 🔐 Si no hay sesión → mostrar Login
-  if (!session) {
-    return <Login />;
-  }
-
-  // 👤 Si hay sesión → mostrar lista de usuarios
-  return <Users />;
+  return (
+    <Router>
+      {isLoggedIn ? (
+        <div style={{ display: "flex", minHeight: "100vh" }}>
+          <Sidebar />
+          <div style={{ flex: 1, padding: "20px" }}>
+            <Routes>
+              <Route path="/users" element={<Users />} />
+              <Route path="/agreements" element={<Agreements />} />
+              <Route path="*" element={<Navigate to="/users" />} />
+            </Routes>
+          </div>
+        </div>
+      ) : (
+        <Login />
+      )}
+    </Router>
+  );
 }

@@ -1,4 +1,14 @@
+// src/Sidebar.tsx
+import { Link, useLocation } from "react-router-dom";
+
 export default function Sidebar() {
+  const location = useLocation();
+
+  const links = [
+    { path: "/users", label: "👤 Usuarios" },
+    { path: "/agreements", label: "📄 Convenios" },
+  ];
+
   return (
     <div
       style={{
@@ -10,35 +20,22 @@ export default function Sidebar() {
         padding: "20px",
       }}
     >
-      <h2 style={{ marginBottom: "20px", textAlign: "center" }}>📑 Convenios</h2>
-      <a
-        href="#convenios"
-        style={{
-          color: "white",
-          textDecoration: "none",
-          marginBottom: "10px",
-          padding: "10px",
-          borderRadius: "8px",
-          background: "#3b82f6",
-          textAlign: "center",
-        }}
-      >
-        Convenios
-      </a>
-      <a
-        href="#usuarios"
-        style={{
-          color: "white",
-          textDecoration: "none",
-          marginBottom: "10px",
-          padding: "10px",
-          borderRadius: "8px",
-          background: "#3b82f6",
-          textAlign: "center",
-        }}
-      >
-        Usuarios
-      </a>
+      <h2 style={{ marginBottom: "30px" }}>⚙️ Dashboard</h2>
+      {links.map((link) => (
+        <Link
+          key={link.path}
+          to={link.path}
+          style={{
+            color: location.pathname === link.path ? "#3b82f6" : "white",
+            textDecoration: "none",
+            marginBottom: "15px",
+            fontWeight: "bold",
+          }}
+        >
+          {link.label}
+        </Link>
+      ))}
     </div>
   );
 }
+
