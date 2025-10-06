@@ -3,233 +3,250 @@ import { supabase } from "./supabaseClient";
 
 export default function Agreements({ user }: { user: any }) {
   const [agreements, setAgreements] = useState<any[]>([]);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [name, setName] = useState("");
-  const [hospital, setHospital] = useState("");
-  const [internalResponsible, setInternalResponsible] = useState("");
-  const [externalResponsible, setExternalResponsible] = useState("");
-  const [signatureDate, setSignatureDate] = useState("");
-  const [durationYears, setDurationYears] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // 🧠 Determinar si el usuario es admin
-  const isAdmin = user?.user_metadata?.role === "admin" || user?.role === "admin";
+  // Campos del formulario
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    hospital: "",
+    external_responsible: "",
+    signature_date: "",
+    duration_years: 1,
+  });
 
-  // 📌 Traer convenios según el rol
+  // 🔹 Cargar convenios y rol del usuario
   const fetchAgreements = async () => {
-    setError("");
-    let query = supabase.from("agreements").select(`
-      id,
-      name,
-      hospital,
-      signature_date,
-      duration_years,
-      expiration_date,
-      internal_responsible:internal_responsible(full_name, id),
-      external_responsible:external_responsible(full_name, id)
+    const { data, error } = await supabase.from("agreements").select(`
+      id, name, hospital, signature_date, duration_years, expiration_date,
+      external_responsible:profiles!agreements_external_responsible_fkey(full_name),
+      internal_responsible
     `);
 
-    if (!isAdmin) {
-      query = query.or(
-        `internal_responsible.eq.${user.id},external_responsible.eq.${user.id}`
-      );
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      console.error("❌ Error al traer convenios:", error.message);
-      setError(error.message);
-    } else {
-      setAgreements(data || []);
-    }
+    if (!error) setAgreements(data || []);
+    setLoading(false);
   };
 
-  // 📌 Cargar usuarios disponibles
-  const fetchProfiles = async () => {
-    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
-    if (!error) setProfiles(data || []);
+  const fetchRole = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (data?.role === "admin") setIsAdmin(true);
   };
 
   useEffect(() => {
-    fetchProfiles();
     fetchAgreements();
+    fetchRole();
   }, []);
 
-  // 📌 Crear un nuevo convenio
-  const handleAddAgreement = async () => {
-    setLoading(true);
-    setError("");
-    setSuccess("");
+  // 🔹 Crear o actualizar convenio
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { name, hospital, external_responsible, signature_date, duration_years } =
+      formData;
 
-    try {
+    if (!name || !hospital || !external_responsible || !signature_date)
+      return alert("Todos los campos son obligatorios.");
+
+    if (editingId) {
+      // 🔄 Editar convenio
+      const { error } = await supabase
+        .from("agreements")
+        .update({
+          name,
+          hospital,
+          external_responsible,
+          signature_date,
+          duration_years,
+        })
+        .eq("id", editingId);
+      if (error) return alert("Error al actualizar convenio");
+      alert("✅ Convenio actualizado correctamente");
+    } else {
+      // 🆕 Crear convenio
       const { error } = await supabase.from("agreements").insert([
         {
           name,
           hospital,
-          internal_responsible: internalResponsible,
-          external_responsible: externalResponsible,
-          signature_date: signatureDate,
-          duration_years: durationYears,
+          external_responsible,
+          signature_date,
+          duration_years,
+          internal_responsible: user.id,
         },
       ]);
-
-      if (error) throw error;
-
-      setSuccess("✅ Convenio agregado correctamente");
-      setName("");
-      setHospital("");
-      setInternalResponsible("");
-      setExternalResponsible("");
-      setSignatureDate("");
-      setDurationYears(1);
-      fetchAgreements();
-    } catch (err: any) {
-      setError(err.message);
+      if (error) return alert("Error al crear convenio");
+      alert("✅ Convenio creado correctamente");
     }
 
-    setLoading(false);
+    setFormData({
+      name: "",
+      hospital: "",
+      external_responsible: "",
+      signature_date: "",
+      duration_years: 1,
+    });
+    setEditingId(null);
+    fetchAgreements();
   };
 
-  // 📌 Eliminar convenio (solo admin)
+  // 🔹 Editar convenio existente
+  const handleEdit = (agreement: any) => {
+    setEditingId(agreement.id);
+    setFormData({
+      name: agreement.name,
+      hospital: agreement.hospital,
+      external_responsible: agreement.external_responsible?.full_name || "",
+      signature_date: agreement.signature_date,
+      duration_years: agreement.duration_years,
+    });
+  };
+
+  // 🔹 Eliminar convenio
   const handleDelete = async (id: string) => {
     if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
     const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) {
-      alert("❌ Error al eliminar: " + error.message);
-    } else {
-      fetchAgreements();
-    }
+    if (error) return alert("Error al eliminar convenio");
+    alert("🗑️ Convenio eliminado");
+    fetchAgreements();
   };
 
+  if (loading) return <p>Cargando convenios...</p>;
+
   return (
-    <div id="convenios" style={{ padding: "20px" }}>
+    <div id="convenios">
       <h2>📑 Lista de Convenios</h2>
 
-      {/* Solo admin puede crear convenios */}
+      {/* 🧾 Formulario solo visible para admin */}
       {isAdmin && (
-        <div
+        <form
+          onSubmit={handleSubmit}
           style={{
-            marginTop: "20px",
+            background: "#f9fafb",
             padding: "20px",
-            border: "1px solid #ccc",
-            borderRadius: "10px",
+            borderRadius: "12px",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+            marginBottom: "20px",
             maxWidth: "600px",
           }}
         >
-          <h3>➕ Agregar Convenio</h3>
+          <h3>{editingId ? "✏️ Editar Convenio" : "➕ Nuevo Convenio"}</h3>
           <input
             type="text"
             placeholder="Nombre del convenio"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
           <input
             type="text"
             placeholder="Hospital"
-            value={hospital}
-            onChange={(e) => setHospital(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
+            value={formData.hospital}
+            onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
-
-          <label>Responsable Interno:</label>
-          <select
-            value={internalResponsible}
-            onChange={(e) => setInternalResponsible(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="">-- Selecciona interno --</option>
-            {profiles
-              .filter((p) => p.role === "internal" || p.role === "admin")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
-          </select>
-
-          <label>Responsable Externo:</label>
-          <select
-            value={externalResponsible}
-            onChange={(e) => setExternalResponsible(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="">-- Selecciona externo --</option>
-            {profiles
-              .filter((p) => p.role === "external")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
-          </select>
-
+          <input
+            type="text"
+            placeholder="Responsable externo"
+            value={formData.external_responsible}
+            onChange={(e) =>
+              setFormData({ ...formData, external_responsible: e.target.value })
+            }
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+          />
           <label>Fecha de firma:</label>
           <input
             type="date"
-            value={signatureDate}
-            onChange={(e) => setSignatureDate(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
+            value={formData.signature_date}
+            onChange={(e) =>
+              setFormData({ ...formData, signature_date: e.target.value })
+            }
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
-
-          <label>Duración (años):</label>
+          <label>Años de duración:</label>
           <input
             type="number"
             min={1}
-            value={durationYears}
-            onChange={(e) => setDurationYears(Number(e.target.value))}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
+            value={formData.duration_years}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                duration_years: parseInt(e.target.value, 10),
+              })
+            }
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
-
           <button
-            onClick={handleAddAgreement}
-            disabled={loading}
+            type="submit"
             style={{
-              marginTop: "10px",
-              padding: "10px",
               background: "#3b82f6",
               color: "white",
+              padding: "10px 15px",
               border: "none",
               borderRadius: "8px",
               cursor: "pointer",
-              width: "100%",
             }}
           >
-            {loading ? "Guardando..." : "Guardar"}
+            {editingId ? "Actualizar" : "Crear"}
           </button>
-          {error && <p style={{ color: "red" }}>❌ {error}</p>}
-          {success && <p style={{ color: "green" }}>{success}</p>}
-        </div>
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null);
+                setFormData({
+                  name: "",
+                  hospital: "",
+                  external_responsible: "",
+                  signature_date: "",
+                  duration_years: 1,
+                });
+              }}
+              style={{
+                marginLeft: "10px",
+                padding: "10px 15px",
+                background: "#ef4444",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+          )}
+        </form>
       )}
 
-      <h3 style={{ marginTop: "30px" }}>Convenios Registrados</h3>
+      {/* 📋 Tabla de convenios */}
       <table
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          marginTop: "10px",
+          background: "white",
+          borderRadius: "12px",
+          overflow: "hidden",
+          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
         }}
       >
         <thead>
           <tr style={{ background: "#f1f1f1" }}>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Hospital</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Interno</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Externo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Firma</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración (años)</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
-            {isAdmin && (
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acción</th>
-            )}
+            {isAdmin && <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>}
           </tr>
         </thead>
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={8} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={isAdmin ? 7 : 6} style={{ textAlign: "center", padding: "10px" }}>
                 No hay convenios registrados.
               </td>
             </tr>
@@ -239,28 +256,38 @@ export default function Agreements({ user }: { user: any }) {
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.hospital}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {a.internal_responsible?.full_name || "-"}
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                   {a.external_responsible?.full_name || "-"}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.signature_date}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.duration_years}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.expiration_date}</td>
                 {isAdmin && (
-                  <td style={{ border: "1px solid #ccc", padding: "8px", textAlign: "center" }}>
+                  <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                    <button
+                      onClick={() => handleEdit(a)}
+                      style={{
+                        background: "#facc15",
+                        border: "none",
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        marginRight: "6px",
+                      }}
+                    >
+                      ✏️
+                    </button>
                     <button
                       onClick={() => handleDelete(a.id)}
                       style={{
                         background: "#ef4444",
-                        color: "white",
                         border: "none",
-                        borderRadius: "5px",
-                        padding: "5px 10px",
+                        padding: "6px 10px",
+                        borderRadius: "6px",
                         cursor: "pointer",
+                        color: "white",
                       }}
                     >
-                      Eliminar
+                      🗑️
                     </button>
                   </td>
                 )}
