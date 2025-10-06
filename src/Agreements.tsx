@@ -6,11 +6,9 @@ export default function Agreements({ user }: { user: any }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Listas de usuarios para los selects
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
   const [externalUsers, setExternalUsers] = useState<any[]>([]);
 
-  // Campos del formulario
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -21,10 +19,10 @@ export default function Agreements({ user }: { user: any }) {
     duration_years: 1,
   });
 
-  // 🔹 Cargar convenios, rol y usuarios
   useEffect(() => {
     const fetchAll = async () => {
-      await Promise.all([fetchAgreements(), fetchRole(), fetchUsers()]);
+      await Promise.all([fetchRole(), fetchUsers()]);
+      await fetchAgreements();
       setLoading(false);
     };
     fetchAll();
@@ -36,17 +34,24 @@ export default function Agreements({ user }: { user: any }) {
       .select("role")
       .eq("id", user.id)
       .single();
-
     if (data?.role === "admin") setIsAdmin(true);
   };
 
   const fetchAgreements = async () => {
-    const { data, error } = await supabase.from("agreements").select(`
+    let query = supabase.from("agreements").select(`
       id, name, hospital, signature_date, duration_years, expiration_date,
-      internal_responsible:profiles!agreements_internal_responsible_fkey(full_name),
-      external_responsible:profiles!agreements_external_responsible_fkey(full_name)
+      internal_responsible:profiles!agreements_internal_responsible_fkey(full_name, id),
+      external_responsible:profiles!agreements_external_responsible_fkey(full_name, id)
     `);
 
+    // Si no es admin, solo ver convenios donde participa
+    if (!isAdmin) {
+      query = query.or(
+        `internal_responsible.id.eq.${user.id},external_responsible.id.eq.${user.id}`
+      );
+    }
+
+    const { data, error } = await query;
     if (!error) setAgreements(data || []);
   };
 
@@ -54,16 +59,16 @@ export default function Agreements({ user }: { user: any }) {
     const { data: users } = await supabase
       .from("profiles")
       .select("id, full_name, role");
-
     if (users) {
       setInternalUsers(users.filter((u) => u.role === "internal"));
       setExternalUsers(users.filter((u) => u.role === "external"));
     }
   };
 
-  // 🔹 Crear o actualizar convenio
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return alert("No tienes permisos para esta acción.");
+
     const {
       name,
       hospital,
@@ -122,8 +127,8 @@ export default function Agreements({ user }: { user: any }) {
     });
   };
 
-  // 🔹 Editar convenio existente
   const handleEdit = (agreement: any) => {
+    if (!isAdmin) return alert("No tienes permisos para editar.");
     setEditingId(agreement.id);
     setFormData({
       name: agreement.name,
@@ -135,8 +140,8 @@ export default function Agreements({ user }: { user: any }) {
     });
   };
 
-  // 🔹 Eliminar convenio
   const handleDelete = async (id: string) => {
+    if (!isAdmin) return alert("No tienes permisos para eliminar.");
     if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
     const { error } = await supabase.from("agreements").delete().eq("id", id);
     if (error) return alert("Error al eliminar convenio");
@@ -150,7 +155,7 @@ export default function Agreements({ user }: { user: any }) {
     <div id="convenios">
       <h2>📑 Lista de Convenios</h2>
 
-      {/* 🧾 Formulario solo visible para admin */}
+      {/* 🧾 Solo admin puede ver el formulario */}
       {isAdmin && (
         <form
           onSubmit={handleSubmit}
@@ -164,6 +169,7 @@ export default function Agreements({ user }: { user: any }) {
           }}
         >
           <h3>{editingId ? "✏️ Editar Convenio" : "➕ Nuevo Convenio"}</h3>
+
           <input
             type="text"
             placeholder="Nombre del convenio"
@@ -283,18 +289,23 @@ export default function Agreements({ user }: { user: any }) {
           <tr style={{ background: "#f1f1f1" }}>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Hospital</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Interno</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Externo</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Interno</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Externo</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
-            {isAdmin && <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>}
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vence</th>
+            {isAdmin && (
+              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
+            )}
           </tr>
         </thead>
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={isAdmin ? 8 : 7} style={{ textAlign: "center", padding: "10px" }}>
+              <td
+                colSpan={isAdmin ? 8 : 7}
+                style={{ textAlign: "center", padding: "10px" }}
+              >
                 No hay convenios registrados.
               </td>
             </tr>
@@ -350,6 +361,7 @@ export default function Agreements({ user }: { user: any }) {
     </div>
   );
 }
+
 
 
 
