@@ -6,27 +6,29 @@ export default function Agreements({ user }: { user: any }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Listas de usuarios para los selects
+  const [internalUsers, setInternalUsers] = useState<any[]>([]);
+  const [externalUsers, setExternalUsers] = useState<any[]>([]);
+
   // Campos del formulario
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     hospital: "",
+    internal_responsible: "",
     external_responsible: "",
     signature_date: "",
     duration_years: 1,
   });
 
-  // 🔹 Cargar convenios y rol del usuario
-  const fetchAgreements = async () => {
-    const { data, error } = await supabase.from("agreements").select(`
-      id, name, hospital, signature_date, duration_years, expiration_date,
-      external_responsible:profiles!agreements_external_responsible_fkey(full_name),
-      internal_responsible
-    `);
-
-    if (!error) setAgreements(data || []);
-    setLoading(false);
-  };
+  // 🔹 Cargar convenios, rol y usuarios
+  useEffect(() => {
+    const fetchAll = async () => {
+      await Promise.all([fetchAgreements(), fetchRole(), fetchUsers()]);
+      setLoading(false);
+    };
+    fetchAll();
+  }, []);
 
   const fetchRole = async () => {
     const { data } = await supabase
@@ -38,59 +40,86 @@ export default function Agreements({ user }: { user: any }) {
     if (data?.role === "admin") setIsAdmin(true);
   };
 
-  useEffect(() => {
-    fetchAgreements();
-    fetchRole();
-  }, []);
+  const fetchAgreements = async () => {
+    const { data, error } = await supabase.from("agreements").select(`
+      id, name, hospital, signature_date, duration_years, expiration_date,
+      internal_responsible:profiles!agreements_internal_responsible_fkey(full_name),
+      external_responsible:profiles!agreements_external_responsible_fkey(full_name)
+    `);
+
+    if (!error) setAgreements(data || []);
+  };
+
+  const fetchUsers = async () => {
+    const { data: users } = await supabase
+      .from("profiles")
+      .select("id, full_name, role");
+
+    if (users) {
+      setInternalUsers(users.filter((u) => u.role === "internal"));
+      setExternalUsers(users.filter((u) => u.role === "external"));
+    }
+  };
 
   // 🔹 Crear o actualizar convenio
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { name, hospital, external_responsible, signature_date, duration_years } =
-      formData;
+    const {
+      name,
+      hospital,
+      internal_responsible,
+      external_responsible,
+      signature_date,
+      duration_years,
+    } = formData;
 
-    if (!name || !hospital || !external_responsible || !signature_date)
-      return alert("Todos los campos son obligatorios.");
+    if (
+      !name ||
+      !hospital ||
+      !internal_responsible ||
+      !external_responsible ||
+      !signature_date
+    ) {
+      alert("Todos los campos son obligatorios.");
+      return;
+    }
+
+    const payload = {
+      name,
+      hospital,
+      internal_responsible,
+      external_responsible,
+      signature_date,
+      duration_years,
+    };
 
     if (editingId) {
-      // 🔄 Editar convenio
       const { error } = await supabase
         .from("agreements")
-        .update({
-          name,
-          hospital,
-          external_responsible,
-          signature_date,
-          duration_years,
-        })
+        .update(payload)
         .eq("id", editingId);
       if (error) return alert("Error al actualizar convenio");
       alert("✅ Convenio actualizado correctamente");
     } else {
-      // 🆕 Crear convenio
-      const { error } = await supabase.from("agreements").insert([
-        {
-          name,
-          hospital,
-          external_responsible,
-          signature_date,
-          duration_years,
-          internal_responsible: user.id,
-        },
-      ]);
+      const { error } = await supabase.from("agreements").insert([payload]);
       if (error) return alert("Error al crear convenio");
       alert("✅ Convenio creado correctamente");
     }
 
+    resetForm();
+    fetchAgreements();
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
     setFormData({
       name: "",
       hospital: "",
+      internal_responsible: "",
       external_responsible: "",
       signature_date: "",
       duration_years: 1,
     });
-    setEditingId(null);
-    fetchAgreements();
   };
 
   // 🔹 Editar convenio existente
@@ -99,7 +128,8 @@ export default function Agreements({ user }: { user: any }) {
     setFormData({
       name: agreement.name,
       hospital: agreement.hospital,
-      external_responsible: agreement.external_responsible?.full_name || "",
+      internal_responsible: agreement.internal_responsible?.id || "",
+      external_responsible: agreement.external_responsible?.id || "",
       signature_date: agreement.signature_date,
       duration_years: agreement.duration_years,
     });
@@ -148,15 +178,39 @@ export default function Agreements({ user }: { user: any }) {
             onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
             style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
-          <input
-            type="text"
-            placeholder="Responsable externo"
+
+          <label>Responsable interno:</label>
+          <select
+            value={formData.internal_responsible}
+            onChange={(e) =>
+              setFormData({ ...formData, internal_responsible: e.target.value })
+            }
+            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+          >
+            <option value="">Seleccionar...</option>
+            {internalUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name}
+              </option>
+            ))}
+          </select>
+
+          <label>Responsable externo:</label>
+          <select
             value={formData.external_responsible}
             onChange={(e) =>
               setFormData({ ...formData, external_responsible: e.target.value })
             }
             style={{ width: "100%", padding: "8px", margin: "5px 0" }}
-          />
+          >
+            <option value="">Seleccionar...</option>
+            {externalUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name}
+              </option>
+            ))}
+          </select>
+
           <label>Fecha de firma:</label>
           <input
             type="date"
@@ -166,6 +220,7 @@ export default function Agreements({ user }: { user: any }) {
             }
             style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
+
           <label>Años de duración:</label>
           <input
             type="number"
@@ -179,6 +234,7 @@ export default function Agreements({ user }: { user: any }) {
             }
             style={{ width: "100%", padding: "8px", margin: "5px 0" }}
           />
+
           <button
             type="submit"
             style={{
@@ -195,16 +251,7 @@ export default function Agreements({ user }: { user: any }) {
           {editingId && (
             <button
               type="button"
-              onClick={() => {
-                setEditingId(null);
-                setFormData({
-                  name: "",
-                  hospital: "",
-                  external_responsible: "",
-                  signature_date: "",
-                  duration_years: 1,
-                });
-              }}
+              onClick={resetForm}
               style={{
                 marginLeft: "10px",
                 padding: "10px 15px",
@@ -236,9 +283,10 @@ export default function Agreements({ user }: { user: any }) {
           <tr style={{ background: "#f1f1f1" }}>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Hospital</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Interno</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Externo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Firma</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración (años)</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
             {isAdmin && <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>}
           </tr>
@@ -246,7 +294,7 @@ export default function Agreements({ user }: { user: any }) {
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={isAdmin ? 7 : 6} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={isAdmin ? 8 : 7} style={{ textAlign: "center", padding: "10px" }}>
                 No hay convenios registrados.
               </td>
             </tr>
@@ -255,6 +303,9 @@ export default function Agreements({ user }: { user: any }) {
               <tr key={a.id}>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.hospital}</td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.internal_responsible?.full_name || "-"}
+                </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                   {a.external_responsible?.full_name || "-"}
                 </td>
@@ -299,5 +350,6 @@ export default function Agreements({ user }: { user: any }) {
     </div>
   );
 }
+
 
 
