@@ -9,6 +9,7 @@ import Login from "./Login";
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
   const [activePage, setActivePage] = useState<"agreements" | "users">("agreements");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,12 +23,13 @@ export default function App() {
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, must_change_password")
+          .select("role, must_change_password, full_name")
           .eq("id", currentSession.user.id)
           .single();
 
         if (profile) {
           setRole(profile.role);
+          setUserName(profile.full_name || "Usuario");
           if (profile.must_change_password) {
             setMustChangePassword(true);
           }
@@ -50,12 +52,13 @@ export default function App() {
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, must_change_password")
+      .select("role, must_change_password, full_name")
       .eq("id", user.id)
       .single();
 
     if (profile) {
       setRole(profile.role);
+      setUserName(profile.full_name || "Usuario");
       setMustChangePassword(profile.must_change_password || false);
     }
 
@@ -68,6 +71,7 @@ export default function App() {
     setSession(null);
     setMustChangePassword(false);
     setRole("");
+    setUserName("");
   };
 
   if (loading) return <p>Cargando...</p>;
@@ -97,7 +101,12 @@ export default function App() {
   // 🔹 Si está logueado normalmente
   return (
     <div style={{ display: "flex" }}>
-      <Sidebar onLogout={handleLogout} setActivePage={setActivePage} role={role} />
+      <Sidebar
+        onLogout={handleLogout}
+        setActivePage={setActivePage}
+        role={role}
+        userName={userName}
+      />
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreements" && <Agreements role={role} />}
         {activePage === "users" && <Users />}
@@ -105,6 +114,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
