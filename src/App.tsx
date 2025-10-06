@@ -86,7 +86,7 @@ export default function App() {
     <div style={{ display: "flex" }}>
       <Sidebar onLogout={handleLogout} setActivePage={setActivePage} />
       <div style={{ flex: 1, padding: "20px" }}>
-        {activePage === "agreements" ? <Agreements /> : <Users />}
+      {activePage === "agreements" && <Agreements user={user} />}
       </div>
     </div>
   );
