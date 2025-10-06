@@ -227,7 +227,9 @@ export default function Agreements({ role }: AgreementsProps) {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha de Firma</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Años Duración</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Vencimiento</th>
-            {role === "admin" && <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>}
+            {role === "admin" && (
+              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -277,7 +279,6 @@ export default function Agreements({ role }: AgreementsProps) {
   );
 }
 
-};
 
 
 
