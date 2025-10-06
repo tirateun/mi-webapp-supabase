@@ -17,6 +17,7 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
+
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -28,6 +29,7 @@ export default function App() {
           setMustChangePassword(true);
         }
       }
+
       setLoading(false);
     });
 
@@ -61,15 +63,15 @@ export default function App() {
 
   // 🔹 Si no hay sesión, mostrar login
   if (!session)
-  return (
-    <Login
-      onLogin={handleLogin}
-      onRequirePasswordChange={(user) => {
-        setMustChangePassword(true);
-        setSession({ user });
-      }}
-    />
-  );
+    return (
+      <Login
+        onLogin={handleLogin}
+        onRequirePasswordChange={(user) => {
+          setMustChangePassword(true);
+          setSession({ user });
+        }}
+      />
+    );
 
   // 🔹 Si el usuario debe cambiar la contraseña
   if (mustChangePassword && session?.user) {
@@ -86,11 +88,13 @@ export default function App() {
     <div style={{ display: "flex" }}>
       <Sidebar onLogout={handleLogout} setActivePage={setActivePage} />
       <div style={{ flex: 1, padding: "20px" }}>
-      {activePage === "agreements" && <Agreements user={user} />}
+        {activePage === "agreements" && <Agreements user={session.user} />}
+        {activePage === "users" && <Users />}
       </div>
     </div>
   );
 }
+
 
 
 
