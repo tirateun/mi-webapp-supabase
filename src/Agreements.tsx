@@ -38,19 +38,28 @@ export default function Agreements({ user }: { user: any }) {
   };
 
   const fetchAgreements = async () => {
+    // ✅ Esperamos primero el rol real del usuario
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+  
+    const isUserAdmin = profile?.role === "admin";
+  
     let query = supabase.from("agreements").select(`
       id, name, hospital, signature_date, duration_years, expiration_date,
       internal_responsible:profiles!agreements_internal_responsible_fkey(full_name, id),
       external_responsible:profiles!agreements_external_responsible_fkey(full_name, id)
     `);
-
-    // Si no es admin, solo ver convenios donde participa
-    if (!isAdmin) {
+  
+    if (!isUserAdmin) {
+      // Solo los convenios donde participa
       query = query.or(
         `internal_responsible.id.eq.${user.id},external_responsible.id.eq.${user.id}`
       );
     }
-
+  
     const { data, error } = await query;
     if (!error) setAgreements(data || []);
   };

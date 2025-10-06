@@ -1,86 +1,65 @@
-// src/Sidebar.tsx
-
 interface SidebarProps {
   onLogout: () => void;
   setActivePage: (page: "agreements" | "users") => void;
+  userRole: string; // 👈 nuevo
 }
 
-export default function Sidebar({ onLogout, setActivePage }: SidebarProps) {
+export default function Sidebar({ onLogout, setActivePage, userRole }: SidebarProps) {
   return (
     <div
       style={{
-        width: "250px",
-        background: "#1e3a8a",
+        width: "240px",
+        background: "#1e293b",
         color: "white",
-        minHeight: "100vh",
+        height: "100vh",
+        padding: "20px",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        padding: "20px",
       }}
     >
-      {/* Encabezado con escudos */}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
-        <img
-          src="/Escudo_UNMSM.jpg"
-          alt="Escudo UNMSM"
-          style={{ width: "80px", borderRadius: "50%", marginBottom: "10px" }}
-        />
-        <img
-          src="/Escudo_SF.jpg"
-          alt="Escudo Facultad"
-          style={{ width: "80px", borderRadius: "50%" }}
-        />
-        <h3 style={{ marginTop: "10px", fontSize: "16px" }}>Gestión de Convenios</h3>
-      </div>
+      <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>📁 Panel</h2>
 
-      {/* Menú */}
       <button
         onClick={() => setActivePage("agreements")}
         style={{
-          width: "100%",
-          padding: "10px",
           background: "transparent",
-          border: "none",
           color: "white",
+          border: "none",
           textAlign: "left",
+          padding: "10px",
           cursor: "pointer",
-          marginBottom: "10px",
-          fontSize: "16px",
         }}
       >
         📑 Convenios
       </button>
 
-      <button
-        onClick={() => setActivePage("users")}
-        style={{
-          width: "100%",
-          padding: "10px",
-          background: "transparent",
-          border: "none",
-          color: "white",
-          textAlign: "left",
-          cursor: "pointer",
-          marginBottom: "20px",
-          fontSize: "16px",
-        }}
-      >
-        👤 Usuarios
-      </button>
+      {userRole === "admin" && ( // 👈 solo admins
+        <button
+          onClick={() => setActivePage("users")}
+          style={{
+            background: "transparent",
+            color: "white",
+            border: "none",
+            textAlign: "left",
+            padding: "10px",
+            cursor: "pointer",
+          }}
+        >
+          👤 Usuarios
+        </button>
+      )}
 
-      {/* Cerrar sesión */}
+      <div style={{ flexGrow: 1 }}></div>
+
       <button
         onClick={onLogout}
         style={{
-          marginTop: "auto",
-          padding: "10px",
-          background: "#dc2626",
-          border: "none",
-          borderRadius: "8px",
+          background: "#ef4444",
           color: "white",
+          border: "none",
+          padding: "10px",
+          borderRadius: "8px",
           cursor: "pointer",
-          width: "100%",
         }}
       >
         🚪 Cerrar sesión
@@ -88,5 +67,6 @@ export default function Sidebar({ onLogout, setActivePage }: SidebarProps) {
     </div>
   );
 }
+
 
 

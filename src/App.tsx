@@ -10,9 +10,10 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [activePage, setActivePage] = useState<"agreements" | "users">("agreements");
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [userRole, setUserRole] = useState<string>(""); // 👈 Rol del usuario
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Cargar sesión activa
+  // 🔹 Cargar sesión activa y obtener el rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -21,12 +22,15 @@ export default function App() {
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("must_change_password")
+          .select("role, must_change_password")
           .eq("id", currentSession.user.id)
           .single();
 
-        if (profile?.must_change_password) {
-          setMustChangePassword(true);
+        if (profile) {
+          setUserRole(profile.role);
+          if (profile.must_change_password) {
+            setMustChangePassword(true);
+          }
         }
       }
 
@@ -42,21 +46,28 @@ export default function App() {
     };
   }, []);
 
+  // 🔹 Manejar inicio de sesión
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("must_change_password")
+      .select("role, must_change_password")
       .eq("id", user.id)
       .single();
 
-    setMustChangePassword(profile?.must_change_password || false);
+    if (profile) {
+      setUserRole(profile.role);
+      setMustChangePassword(profile.must_change_password || false);
+    }
+
     setSession({ user });
   };
 
+  // 🔹 Cerrar sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
+    setUserRole("");
   };
 
   if (loading) return <p>Cargando...</p>;
@@ -86,10 +97,10 @@ export default function App() {
   // 🔹 Si está logueado normalmente
   return (
     <div style={{ display: "flex" }}>
-      <Sidebar onLogout={handleLogout} setActivePage={setActivePage} />
+      <Sidebar onLogout={handleLogout} setActivePage={setActivePage} role={userRole} />
       <div style={{ flex: 1, padding: "20px" }}>
-        {activePage === "agreements" && <Agreements user={session.user} />}
-        {activePage === "users" && <Users />}
+        {activePage === "agreements" && <Agreements user={session.user} role={userRole} />}
+        {activePage === "users" && userRole === "admin" && <Users />}
       </div>
     </div>
   );
