@@ -1,93 +1,80 @@
-import { supabase } from "./supabaseClient";
-
 interface SidebarProps {
   onLogout: () => void;
   setActivePage: (page: "agreements" | "users") => void;
-  userName?: string;
-  role?: string;
+  userName: string;
+  role: string;
 }
 
 export default function Sidebar({ onLogout, setActivePage, userName, role }: SidebarProps) {
   return (
     <div
       style={{
-        width: "250px",
+        width: "220px",
         backgroundColor: "#1e293b",
         color: "white",
-        minHeight: "100vh",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        boxShadow: "2px 0 8px rgba(0,0,0,0.2)",
+        padding: "20px",
       }}
     >
-      {/* 🔹 Header con logo y nombre del sistema */}
-      <div style={{ padding: "20px", borderBottom: "1px solid #334155", textAlign: "center" }}>
-        <img
-          src="/logo.png"
-          alt="Logo"
-          style={{ width: "80px", height: "80px", borderRadius: "50%", marginBottom: "10px" }}
-        />
-        <h2 style={{ fontSize: "18px", margin: 0 }}>Gestión de Convenios</h2>
-      </div>
-
-      {/* 🔹 Navegación */}
       <div>
+        <h2 style={{ color: "#38bdf8", textAlign: "center" }}>🌟 Gestión de Convenios</h2>
+        <p style={{ textAlign: "center", fontSize: "14px", color: "#cbd5e1" }}>
+          {userName} ({role})
+        </p>
+
+        <hr style={{ border: "1px solid #334155", margin: "15px 0" }} />
+
         <button
           onClick={() => setActivePage("agreements")}
-          style={buttonStyle}
+          style={{
+            background: "none",
+            border: "none",
+            color: "white",
+            padding: "10px",
+            width: "100%",
+            textAlign: "left",
+            cursor: "pointer",
+          }}
         >
           📄 Convenios
         </button>
-        {role === "admin" && (
-          <button
-            onClick={() => setActivePage("users")}
-            style={buttonStyle}
-          >
-            👥 Usuarios
-          </button>
-        )}
-      </div>
 
-      {/* 🔹 Información del usuario y botón logout */}
-      <div style={{ padding: "20px", borderTop: "1px solid #334155" }}>
-        <p style={{ marginBottom: "10px", fontSize: "14px" }}>
-          <strong>{userName || "Usuario"}</strong> <br />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>{role || "Rol no definido"}</span>
-        </p>
         <button
-          onClick={onLogout}
+          onClick={() => setActivePage("users")}
           style={{
-            backgroundColor: "#ef4444",
-            color: "white",
+            background: "none",
             border: "none",
-            borderRadius: "6px",
+            color: "white",
             padding: "10px",
             width: "100%",
+            textAlign: "left",
             cursor: "pointer",
-            fontWeight: "bold",
           }}
         >
-          🔒 Cerrar sesión
+          👥 Usuarios
         </button>
       </div>
+
+      <button
+        onClick={onLogout}
+        style={{
+          backgroundColor: "#ef4444",
+          color: "white",
+          border: "none",
+          padding: "10px",
+          borderRadius: "8px",
+          cursor: "pointer",
+        }}
+      >
+        🔒 Cerrar sesión
+      </button>
     </div>
   );
 }
 
-const buttonStyle = {
-  display: "block",
-  width: "100%",
-  background: "none",
-  border: "none",
-  color: "white",
-  textAlign: "left" as const,
-  padding: "15px 20px",
-  cursor: "pointer",
-  fontSize: "16px",
-  borderBottom: "1px solid #334155",
-  transition: "background 0.2s",
-};
 
 
 
