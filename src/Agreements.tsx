@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function Agreements({ user }: { user: any }) {
+interface AgreementsProps {
+  user: any;
+  role: string;
+}
+
+export default function Agreements({ user, role }: AgreementsProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
-  const [externalUsers, setExternalUsers] = useState<any[]>([]);
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     name: "",
     hospital: "",
     internal_responsible: "",
@@ -18,280 +17,176 @@ export default function Agreements({ user }: { user: any }) {
     signature_date: "",
     duration_years: 1,
   });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      await Promise.all([fetchRole(), fetchUsers()]);
-      await fetchAgreements();
-      setLoading(false);
-    };
-    fetchAll();
-  }, []);
-
-  const fetchRole = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    if (data?.role === "admin") setIsAdmin(true);
-  };
-
+  // Cargar convenios según rol
   const fetchAgreements = async () => {
-    // ✅ Esperamos primero el rol real del usuario
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-  
-    const isUserAdmin = profile?.role === "admin";
-  
     let query = supabase.from("agreements").select(`
-      id, name, hospital, signature_date, duration_years, expiration_date,
-      internal_responsible:profiles!agreements_internal_responsible_fkey(full_name, id),
-      external_responsible:profiles!agreements_external_responsible_fkey(full_name, id)
+      *,
+      profiles:internal_responsible(full_name)
     `);
-  
-    if (!isUserAdmin) {
-      // Solo los convenios donde participa
+
+    if (role !== "admin") {
       query = query.or(
-        `internal_responsible.id.eq.${user.id},external_responsible.id.eq.${user.id}`
+        `internal_responsible.eq.${user.id},external_responsible.eq.${user.id}`
       );
     }
-  
+
     const { data, error } = await query;
     if (!error) setAgreements(data || []);
   };
 
-  const fetchUsers = async () => {
-    const { data: users } = await supabase
+  // Cargar responsables internos
+  const fetchInternalUsers = async () => {
+    const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, role");
-    if (users) {
-      setInternalUsers(users.filter((u) => u.role === "internal"));
-      setExternalUsers(users.filter((u) => u.role === "external"));
-    }
+      .select("id, full_name")
+      .eq("role", "internal");
+    if (!error) setInternalUsers(data || []);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAdmin) return alert("No tienes permisos para esta acción.");
-
-    const {
-      name,
-      hospital,
-      internal_responsible,
-      external_responsible,
-      signature_date,
-      duration_years,
-    } = formData;
-
-    if (
-      !name ||
-      !hospital ||
-      !internal_responsible ||
-      !external_responsible ||
-      !signature_date
-    ) {
-      alert("Todos los campos son obligatorios.");
-      return;
-    }
-
-    const payload = {
-      name,
-      hospital,
-      internal_responsible,
-      external_responsible,
-      signature_date,
-      duration_years,
-    };
-
-    if (editingId) {
-      const { error } = await supabase
-        .from("agreements")
-        .update(payload)
-        .eq("id", editingId);
-      if (error) return alert("Error al actualizar convenio");
-      alert("✅ Convenio actualizado correctamente");
-    } else {
-      const { error } = await supabase.from("agreements").insert([payload]);
-      if (error) return alert("Error al crear convenio");
-      alert("✅ Convenio creado correctamente");
-    }
-
-    resetForm();
+  useEffect(() => {
     fetchAgreements();
+    fetchInternalUsers();
+  }, []);
+
+  // Crear convenio (solo admin)
+  const handleAddAgreement = async () => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const { error } = await supabase.from("agreements").insert([
+        {
+          name: form.name,
+          hospital: form.hospital,
+          internal_responsible: form.internal_responsible,
+          external_responsible: user.id,
+          signature_date: form.signature_date,
+          duration_years: form.duration_years,
+        },
+      ]);
+      if (error) throw error;
+
+      setSuccess("✅ Convenio agregado exitosamente");
+      setForm({
+        name: "",
+        hospital: "",
+        internal_responsible: "",
+        external_responsible: "",
+        signature_date: "",
+        duration_years: 1,
+      });
+      fetchAgreements();
+    } catch (err: any) {
+      setError(err.message);
+    }
+
+    setLoading(false);
   };
 
-  const resetForm = () => {
-    setEditingId(null);
-    setFormData({
-      name: "",
-      hospital: "",
-      internal_responsible: "",
-      external_responsible: "",
-      signature_date: "",
-      duration_years: 1,
-    });
-  };
-
-  const handleEdit = (agreement: any) => {
-    if (!isAdmin) return alert("No tienes permisos para editar.");
-    setEditingId(agreement.id);
-    setFormData({
-      name: agreement.name,
-      hospital: agreement.hospital,
-      internal_responsible: agreement.internal_responsible?.id || "",
-      external_responsible: agreement.external_responsible?.id || "",
-      signature_date: agreement.signature_date,
-      duration_years: agreement.duration_years,
-    });
-  };
-
+  // Eliminar convenio (solo admin)
   const handleDelete = async (id: string) => {
-    if (!isAdmin) return alert("No tienes permisos para eliminar.");
-    if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
-    const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) return alert("Error al eliminar convenio");
-    alert("🗑️ Convenio eliminado");
-    fetchAgreements();
-  };
+    if (!confirm("¿Deseas eliminar este convenio?")) return;
 
-  if (loading) return <p>Cargando convenios...</p>;
+    const { error } = await supabase.from("agreements").delete().eq("id", id);
+    if (!error) {
+      setAgreements(agreements.filter((a) => a.id !== id));
+    } else {
+      alert("Error al eliminar convenio");
+    }
+  };
 
   return (
     <div id="convenios">
       <h2>📑 Lista de Convenios</h2>
 
-      {/* 🧾 Solo admin puede ver el formulario */}
-      {isAdmin && (
-        <form
-          onSubmit={handleSubmit}
+      {role === "admin" && (
+        <div
           style={{
-            background: "#f9fafb",
+            marginTop: "20px",
             padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-            marginBottom: "20px",
+            border: "1px solid #ccc",
+            borderRadius: "10px",
             maxWidth: "600px",
           }}
         >
-          <h3>{editingId ? "✏️ Editar Convenio" : "➕ Nuevo Convenio"}</h3>
-
+          <h3>➕ Agregar Convenio</h3>
           <input
             type="text"
             placeholder="Nombre del convenio"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
           <input
             type="text"
             placeholder="Hospital"
-            value={formData.hospital}
-            onChange={(e) => setFormData({ ...formData, hospital: e.target.value })}
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+            value={form.hospital}
+            onChange={(e) => setForm({ ...form, hospital: e.target.value })}
+            style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
-
-          <label>Responsable interno:</label>
           <select
-            value={formData.internal_responsible}
+            value={form.internal_responsible}
             onChange={(e) =>
-              setFormData({ ...formData, internal_responsible: e.target.value })
+              setForm({ ...form, internal_responsible: e.target.value })
             }
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+            style={{ margin: "5px", padding: "8px", width: "100%" }}
           >
-            <option value="">Seleccionar...</option>
+            <option value="">Seleccionar responsable interno</option>
             {internalUsers.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.full_name}
               </option>
             ))}
           </select>
-
-          <label>Responsable externo:</label>
-          <select
-            value={formData.external_responsible}
-            onChange={(e) =>
-              setFormData({ ...formData, external_responsible: e.target.value })
-            }
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
-          >
-            <option value="">Seleccionar...</option>
-            {externalUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.full_name}
-              </option>
-            ))}
-          </select>
-
-          <label>Fecha de firma:</label>
           <input
             type="date"
-            value={formData.signature_date}
+            value={form.signature_date}
             onChange={(e) =>
-              setFormData({ ...formData, signature_date: e.target.value })
+              setForm({ ...form, signature_date: e.target.value })
             }
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+            style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
-
-          <label>Años de duración:</label>
           <input
             type="number"
-            min={1}
-            value={formData.duration_years}
+            placeholder="Duración (años)"
+            value={form.duration_years}
             onChange={(e) =>
-              setFormData({
-                ...formData,
-                duration_years: parseInt(e.target.value, 10),
-              })
+              setForm({ ...form, duration_years: Number(e.target.value) })
             }
-            style={{ width: "100%", padding: "8px", margin: "5px 0" }}
+            style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
-
           <button
-            type="submit"
+            onClick={handleAddAgreement}
+            disabled={loading}
             style={{
+              marginTop: "10px",
+              padding: "10px",
               background: "#3b82f6",
               color: "white",
-              padding: "10px 15px",
               border: "none",
               borderRadius: "8px",
               cursor: "pointer",
+              width: "100%",
             }}
           >
-            {editingId ? "Actualizar" : "Crear"}
+            {loading ? "Guardando..." : "Guardar"}
           </button>
-          {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              style={{
-                marginLeft: "10px",
-                padding: "10px 15px",
-                background: "#ef4444",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              Cancelar
-            </button>
-          )}
-        </form>
+          {error && <p style={{ color: "red" }}>❌ {error}</p>}
+          {success && <p style={{ color: "green" }}>{success}</p>}
+        </div>
       )}
 
-      {/* 📋 Tabla de convenios */}
+      <h3 style={{ marginTop: "30px" }}>Convenios Registrados</h3>
       <table
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          background: "white",
-          borderRadius: "12px",
-          overflow: "hidden",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+          marginTop: "10px",
         }}
       >
         <thead>
@@ -299,11 +194,10 @@ export default function Agreements({ user }: { user: any }) {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Hospital</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Interno</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Externo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Firma</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vence</th>
-            {isAdmin && (
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
+            {role === "admin" && (
               <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
             )}
           </tr>
@@ -311,10 +205,7 @@ export default function Agreements({ user }: { user: any }) {
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td
-                colSpan={isAdmin ? 8 : 7}
-                style={{ textAlign: "center", padding: "10px" }}
-              >
+              <td colSpan={role === "admin" ? 7 : 6} style={{ textAlign: "center", padding: "10px" }}>
                 No hay convenios registrados.
               </td>
             </tr>
@@ -324,41 +215,25 @@ export default function Agreements({ user }: { user: any }) {
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.hospital}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {a.internal_responsible?.full_name || "-"}
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {a.external_responsible?.full_name || "-"}
+                  {a.profiles?.full_name || "-"}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.signature_date}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.duration_years}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.expiration_date}</td>
-                {isAdmin && (
+                {role === "admin" && (
                   <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                    <button
-                      onClick={() => handleEdit(a)}
-                      style={{
-                        background: "#facc15",
-                        border: "none",
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        marginRight: "6px",
-                      }}
-                    >
-                      ✏️
-                    </button>
                     <button
                       onClick={() => handleDelete(a.id)}
                       style={{
                         background: "#ef4444",
-                        border: "none",
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        cursor: "pointer",
                         color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        padding: "6px 10px",
+                        cursor: "pointer",
                       }}
                     >
-                      🗑️
+                      🗑️ Eliminar
                     </button>
                   </td>
                 )}
@@ -370,6 +245,7 @@ export default function Agreements({ user }: { user: any }) {
     </div>
   );
 }
+
 
 
 

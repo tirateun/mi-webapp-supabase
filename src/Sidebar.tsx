@@ -1,72 +1,103 @@
+import { useState } from "react";
+
 interface SidebarProps {
   onLogout: () => void;
   setActivePage: (page: "agreements" | "users") => void;
-  userRole: string; // 👈 nuevo
+  role: string;
 }
 
-export default function Sidebar({ onLogout, setActivePage, userRole }: SidebarProps) {
+export default function Sidebar({ onLogout, setActivePage, role }: SidebarProps) {
+  const [active, setActive] = useState("agreements");
+
+  const handlePageChange = (page: "agreements" | "users") => {
+    setActive(page);
+    setActivePage(page);
+  };
+
   return (
     <div
       style={{
-        width: "240px",
+        width: "250px",
         background: "#1e293b",
         color: "white",
         height: "100vh",
-        padding: "20px",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "space-between",
       }}
     >
-      <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>📁 Panel</h2>
-
-      <button
-        onClick={() => setActivePage("agreements")}
-        style={{
-          background: "transparent",
-          color: "white",
-          border: "none",
-          textAlign: "left",
-          padding: "10px",
-          cursor: "pointer",
-        }}
-      >
-        📑 Convenios
-      </button>
-
-      {userRole === "admin" && ( // 👈 solo admins
-        <button
-          onClick={() => setActivePage("users")}
+      <div>
+        <div
           style={{
-            background: "transparent",
-            color: "white",
-            border: "none",
-            textAlign: "left",
-            padding: "10px",
-            cursor: "pointer",
+            textAlign: "center",
+            padding: "20px",
+            borderBottom: "1px solid #334155",
+            fontSize: "18px",
+            fontWeight: "bold",
           }}
         >
-          👤 Usuarios
+          ⚕️ Gestión de Convenios
+        </div>
+
+        <nav style={{ marginTop: "20px" }}>
+          <button
+            onClick={() => handlePageChange("agreements")}
+            style={{
+              display: "block",
+              width: "100%",
+              padding: "12px 16px",
+              background: active === "agreements" ? "#3b82f6" : "transparent",
+              color: "white",
+              border: "none",
+              textAlign: "left",
+              cursor: "pointer",
+              fontWeight: active === "agreements" ? "bold" : "normal",
+            }}
+          >
+            📑 Convenios
+          </button>
+
+          {role === "admin" && (
+            <button
+              onClick={() => handlePageChange("users")}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px 16px",
+                background: active === "users" ? "#3b82f6" : "transparent",
+                color: "white",
+                border: "none",
+                textAlign: "left",
+                cursor: "pointer",
+                fontWeight: active === "users" ? "bold" : "normal",
+              }}
+            >
+              👤 Usuarios
+            </button>
+          )}
+        </nav>
+      </div>
+
+      <div style={{ padding: "20px", borderTop: "1px solid #334155" }}>
+        <button
+          onClick={onLogout}
+          style={{
+            background: "#ef4444",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            padding: "10px 16px",
+            cursor: "pointer",
+            width: "100%",
+          }}
+        >
+          🚪 Cerrar sesión
         </button>
-      )}
-
-      <div style={{ flexGrow: 1 }}></div>
-
-      <button
-        onClick={onLogout}
-        style={{
-          background: "#ef4444",
-          color: "white",
-          border: "none",
-          padding: "10px",
-          borderRadius: "8px",
-          cursor: "pointer",
-        }}
-      >
-        🚪 Cerrar sesión
-      </button>
+      </div>
     </div>
   );
 }
+
 
 
 
