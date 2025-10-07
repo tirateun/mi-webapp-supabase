@@ -1,129 +1,121 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-// Props que recibe el componente
 interface AgreementsProps {
-  user: any; // session.user del Supabase (contiene id)
+  user: any;
   role: string;
 }
 
 export default function Agreements({ user, role }: AgreementsProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [internalUsers, setInternalUsers] = useState<any[]>([]);
+  const [externalUsers, setExternalUsers] = useState<any[]>([]);
 
   // Formulario
   const [name, setName] = useState("");
   const [hospital, setHospital] = useState("");
-  const [externalResponsible, setExternalResponsible] = useState("");
+  const [selectedInternal, setSelectedInternal] = useState<string | null>(null);
+  const [selectedExternal, setSelectedExternal] = useState<string | null>(null);
   const [signatureDate, setSignatureDate] = useState("");
   const [durationYears, setDurationYears] = useState(1);
-  const [selectedInternal, setSelectedInternal] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Cargar convenios
+  // 🧭 Cargar convenios
   const fetchAgreements = async () => {
     const { data, error } = await supabase
       .from("agreements")
       .select("*")
       .order("created_at", { ascending: false });
-
     if (!error && data) setAgreements(data);
-    // no mostramos error aquí para no molestar al usuario (si quieres, lo muestras)
   };
 
-  // Cargar usuarios internos (para el select)
+  // 🧭 Cargar usuarios internos
   const fetchInternalUsers = async () => {
-    // Tomamos usuarios con rol internal o admin para poder asignarlos
     const { data, error } = await supabase
       .from("profiles")
       .select("id,full_name,role")
       .in("role", ["internal", "admin"])
       .order("full_name", { ascending: true });
-
     if (!error && data) setInternalUsers(data);
+  };
+
+  // 🧭 Cargar usuarios externos
+  const fetchExternalUsers = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,full_name,role")
+      .eq("role", "external")
+      .order("full_name", { ascending: true });
+    if (!error && data) setExternalUsers(data);
   };
 
   useEffect(() => {
     fetchAgreements();
     fetchInternalUsers();
-    // por defecto seleccionar al usuario logueado (si existe)
-    if (user?.id) {
-      setSelectedInternal(user.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchExternalUsers();
 
-  // Crear convenio (solo admin puede)
+    if (user?.id) setSelectedInternal(user.id);
+  }, [user]);
+
+  // 📝 Crear convenio
   const handleAddAgreement = async () => {
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      if (role !== "admin") {
-        throw new Error("No tienes permisos para crear convenios.");
-      }
-
-      if (!name || !hospital || !externalResponsible || !signatureDate) {
+      if (role !== "admin") throw new Error("No tienes permisos para crear convenios.");
+      if (!name || !hospital || !selectedInternal || !selectedExternal || !signatureDate)
         throw new Error("Completa todos los campos requeridos.");
-      }
-
-      // selectedInternal puede ser null — recomendamos siempre asignar uno
-      const internal_responsible = selectedInternal || user?.id || null;
 
       const { error } = await supabase.from("agreements").insert([
         {
           name,
           hospital,
-          external_responsible: externalResponsible,
+          internal_responsible: selectedInternal,
+          external_responsible: selectedExternal,
           signature_date: signatureDate,
           duration_years: durationYears,
-          internal_responsible,
         },
       ]);
-
       if (error) throw error;
 
       setSuccess("✅ Convenio creado correctamente.");
-      // limpiar formulario
       setName("");
       setHospital("");
-      setExternalResponsible("");
       setSignatureDate("");
       setDurationYears(1);
+      setSelectedExternal(null);
       setSelectedInternal(user?.id || null);
       await fetchAgreements();
     } catch (err: any) {
-      setError(err.message || "Error al crear convenio");
+      setError(err.message || "Error al crear convenio.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Eliminar (solo admin)
+  // 🗑️ Eliminar convenio
   const handleDelete = async (id: string) => {
-    if (role !== "admin") {
-      alert("No tienes permisos para eliminar convenios.");
-      return;
-    }
+    if (role !== "admin") return alert("No tienes permisos para eliminar convenios.");
     if (!confirm("¿Eliminar este convenio?")) return;
-
     const { error } = await supabase.from("agreements").delete().eq("id", id);
     if (error) alert("❌ Error al eliminar: " + error.message);
     else fetchAgreements();
   };
 
-  // Mapa id -> nombre para mostrar responsable interno
+  // Mapas de nombres para mostrar
   const internalMap = new Map(internalUsers.map((u) => [u.id, u.full_name]));
+  const externalMap = new Map(externalUsers.map((u) => [u.id, u.full_name]));
 
   return (
-    <div id="convenios">
+    <div id="convenios" style={{ padding: "20px" }}>
       <h2>📑 Lista de Convenios</h2>
 
-      {/* Formulario visible solo para admin */}
+      {/* 📋 Formulario visible solo para admin */}
       {role === "admin" && (
         <div
           style={{
@@ -154,25 +146,30 @@ export default function Agreements({ user, role }: AgreementsProps) {
             style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
           />
 
-          <label>Responsable externo</label>
-          <input
-            type="text"
-            placeholder="Nombre del responsable externo"
-            value={externalResponsible}
-            onChange={(e) => setExternalResponsible(e.target.value)}
-            style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
-          />
-
-          <label>Responsable interno (asignar)</label>
+          <label>Responsable interno</label>
           <select
             value={selectedInternal ?? ""}
             onChange={(e) => setSelectedInternal(e.target.value || null)}
             style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
           >
-            <option value="">{user?.id ? "Asignar a (por defecto: tú)" : "Selecciona un usuario"}</option>
+            <option value="">Selecciona un responsable interno</option>
             {internalUsers.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.full_name} {u.role === "admin" ? "(admin)" : ""}
+              </option>
+            ))}
+          </select>
+
+          <label>Responsable externo</label>
+          <select
+            value={selectedExternal ?? ""}
+            onChange={(e) => setSelectedExternal(e.target.value || null)}
+            style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
+          >
+            <option value="">Selecciona un responsable externo</option>
+            {externalUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name}
               </option>
             ))}
           </select>
@@ -216,8 +213,8 @@ export default function Agreements({ user, role }: AgreementsProps) {
         </div>
       )}
 
+      {/* 📊 Tabla de convenios */}
       <h3 style={{ marginTop: "30px" }}>📋 Convenios registrados</h3>
-
       <table
         style={{
           width: "100%",
@@ -227,37 +224,33 @@ export default function Agreements({ user, role }: AgreementsProps) {
       >
         <thead>
           <tr style={{ background: "#f1f1f1" }}>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Nombre</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Hospital</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Responsable Externo</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Responsable Interno</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Fecha de Firma</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Duración (años)</th>
-            <th style={{ border: "1px solid #ccc', padding: '8px" }}>Vencimiento</th>
-            {role === "admin" && <th style={{ border: "1px solid #ccc', padding: '8px" }}>Acciones</th>}
+            <th>Nombre</th>
+            <th>Hospital</th>
+            <th>Responsable Interno</th>
+            <th>Responsable Externo</th>
+            <th>Fecha de Firma</th>
+            <th>Duración (años)</th>
+            {role === "admin" && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={role === "admin" ? 8 : 7} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={role === "admin" ? 7 : 6} style={{ textAlign: "center", padding: "10px" }}>
                 No hay convenios registrados.
               </td>
             </tr>
           ) : (
             agreements.map((a) => (
               <tr key={a.id}>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.name}</td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.hospital}</td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.external_responsible}</td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>
-                  {a.internal_responsible ? internalMap.get(a.internal_responsible) ?? a.internal_responsible : "-"}
-                </td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.signature_date}</td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.duration_years}</td>
-                <td style={{ border: "1px solid #ccc', padding: '8px" }}>{a.expiration_date}</td>
+                <td>{a.name}</td>
+                <td>{a.hospital}</td>
+                <td>{internalMap.get(a.internal_responsible) ?? "-"}</td>
+                <td>{externalMap.get(a.external_responsible) ?? "-"}</td>
+                <td>{a.signature_date}</td>
+                <td>{a.duration_years}</td>
                 {role === "admin" && (
-                  <td style={{ border: "1px solid #ccc', padding: '8px" }}>
+                  <td>
                     <button
                       onClick={() => handleDelete(a.id)}
                       style={{
@@ -281,6 +274,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
     </div>
   );
 }
+
 
 
 
