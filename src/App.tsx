@@ -8,13 +8,13 @@ import Login from "./Login";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [role, setRole] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
   const [activePage, setActivePage] = useState<"agreements" | "users">("agreements");
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [role, setRole] = useState("internal");
+  const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Cargar sesión activa al iniciar
+  // 🔹 Cargar sesión activa y datos del perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -23,19 +23,16 @@ export default function App() {
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, must_change_password, full_name")
+          .select("must_change_password, role, full_name")
           .eq("id", currentSession.user.id)
           .single();
 
         if (profile) {
-          setRole(profile.role);
-          setUserName(profile.full_name || "Usuario");
-          if (profile.must_change_password) {
-            setMustChangePassword(true);
-          }
+          setRole(profile.role || "internal");
+          setUserName(profile.full_name || "");
+          setMustChangePassword(profile.must_change_password);
         }
       }
-
       setLoading(false);
     });
 
@@ -48,35 +45,30 @@ export default function App() {
     };
   }, []);
 
-  // 🔹 Manejo de login
+  // 🔹 Inicio de sesión
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, must_change_password, full_name")
+      .select("must_change_password, role, full_name")
       .eq("id", user.id)
       .single();
 
-    if (profile) {
-      setRole(profile.role);
-      setUserName(profile.full_name || "Usuario");
-      setMustChangePassword(profile.must_change_password || false);
-    }
-
+    setMustChangePassword(profile?.must_change_password || false);
+    setRole(profile?.role || "internal");
+    setUserName(profile?.full_name || "");
     setSession({ user });
   };
 
-  // 🔹 Cerrar sesión
+  // 🔹 Cierre de sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
-    setRole("");
-    setUserName("");
   };
 
   if (loading) return <p>Cargando...</p>;
 
-  // 🔹 Si no hay sesión activa → mostrar login
+  // 🔹 Si no hay sesión, mostrar login
   if (!session)
     return (
       <Login
@@ -108,8 +100,10 @@ export default function App() {
         userName={userName}
       />
       <div style={{ flex: 1, padding: "20px" }}>
-        {activePage === "agreements" && <Agreements role={role} />}
-        {activePage === "users" && <Users />}
+        {activePage === "agreements" && (
+          <Agreements user={session.user} role={role} />
+        )}
+        {activePage === "users" && role === "admin" && <Users />}
       </div>
     </div>
   );
