@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
+// ✅ Definimos las propiedades que recibe el componente
 interface AgreementsProps {
   user: any;
   role: string;
@@ -17,12 +18,14 @@ export default function Agreements({ user, role }: AgreementsProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // 🔹 Cargar convenios
+  // 🔹 Cargar convenios desde la base de datos
   const fetchAgreements = async () => {
-    const { data, error } = await supabase.from("agreements").select(`
-      id, name, hospital, external_responsible, signature_date, duration_years, expiration_date
-    `);
-    if (!error) setAgreements(data || []);
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) setAgreements(data);
   };
 
   useEffect(() => {
@@ -31,7 +34,10 @@ export default function Agreements({ user, role }: AgreementsProps) {
 
   // 🔹 Crear convenio (solo admin)
   const handleAddAgreement = async () => {
-    if (role !== "admin") return alert("No tienes permisos para crear convenios.");
+    if (role !== "admin") {
+      alert("No tienes permisos para crear convenios.");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -45,7 +51,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
           external_responsible: externalResponsible,
           signature_date: signatureDate,
           duration_years: durationYears,
-          internal_responsible: user.id,
+          internal_responsible: user?.id,
         },
       ]);
 
@@ -67,12 +73,15 @@ export default function Agreements({ user, role }: AgreementsProps) {
 
   // 🔹 Eliminar convenio (solo admin)
   const handleDelete = async (id: string) => {
-    if (role !== "admin") return alert("No tienes permisos para eliminar convenios.");
+    if (role !== "admin") {
+      alert("No tienes permisos para eliminar convenios.");
+      return;
+    }
 
     if (!confirm("¿Deseas eliminar este convenio?")) return;
 
     const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) alert("❌ Error al eliminar convenio: " + error.message);
+    if (error) alert("❌ Error al eliminar: " + error.message);
     else fetchAgreements();
   };
 
@@ -92,35 +101,42 @@ export default function Agreements({ user, role }: AgreementsProps) {
           }}
         >
           <h3>➕ Crear nuevo convenio</h3>
+          <label>Nombre del convenio</label>
           <input
             type="text"
-            placeholder="Nombre del convenio"
+            placeholder="Ej. Convenio con Hospital San Juan"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
+
+          <label>Hospital</label>
           <input
             type="text"
-            placeholder="Hospital"
+            placeholder="Nombre del hospital"
             value={hospital}
             onChange={(e) => setHospital(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
+
+          <label>Responsable externo</label>
           <input
             type="text"
-            placeholder="Responsable externo"
+            placeholder="Nombre del responsable externo"
             value={externalResponsible}
             onChange={(e) => setExternalResponsible(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
-          <label>📅 Fecha de firma:</label>
+
+          <label>📅 Fecha de firma</label>
           <input
             type="date"
             value={signatureDate}
             onChange={(e) => setSignatureDate(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
-          <label>⏳ Duración (años):</label>
+
+          <label>⏳ Duración (años)</label>
           <input
             type="number"
             min="1"
@@ -128,6 +144,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
             onChange={(e) => setDurationYears(Number(e.target.value))}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
+
           <button
             onClick={handleAddAgreement}
             disabled={loading}
@@ -142,14 +159,16 @@ export default function Agreements({ user, role }: AgreementsProps) {
               width: "100%",
             }}
           >
-            {loading ? "Guardando..." : "Guardar Convenio"}
+            {loading ? "Guardando..." : "Guardar convenio"}
           </button>
+
           {error && <p style={{ color: "red" }}>{error}</p>}
           {success && <p style={{ color: "green" }}>{success}</p>}
         </div>
       )}
 
       <h3 style={{ marginTop: "30px" }}>📋 Convenios registrados</h3>
+
       <table
         style={{
           width: "100%",
@@ -164,9 +183,15 @@ export default function Agreements({ user, role }: AgreementsProps) {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>
               Responsable Externo
             </th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Firma</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración (años)</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              Fecha de Firma
+            </th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              Duración (años)
+            </th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              Vencimiento
+            </th>
             {role === "admin" && (
               <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
             )}
@@ -175,7 +200,10 @@ export default function Agreements({ user, role }: AgreementsProps) {
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={role === "admin" ? 7 : 6} style={{ textAlign: "center" }}>
+              <td
+                colSpan={role === "admin" ? 7 : 6}
+                style={{ textAlign: "center", padding: "10px" }}
+              >
                 No hay convenios registrados.
               </td>
             </tr>
@@ -183,11 +211,21 @@ export default function Agreements({ user, role }: AgreementsProps) {
             agreements.map((a) => (
               <tr key={a.id}>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.hospital}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.external_responsible}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.signature_date}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.duration_years}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.expiration_date}</td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.hospital}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.external_responsible}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.signature_date}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.duration_years}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.expiration_date}
+                </td>
                 {role === "admin" && (
                   <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                     <button
@@ -213,6 +251,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
     </div>
   );
 }
+
 
 
 
