@@ -101,7 +101,7 @@ export default function App() {
       />
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreements" && (
-          <Agreements user={session.user} role={role} />
+          <Agreements role={role} />
         )}
         {activePage === "users" && role === "admin" && <Users />}
       </div>
