@@ -10,8 +10,8 @@ import Login from "./Login";
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [activePage, setActivePage] = useState<
-    "agreements" | "users" | "newAgreement"
-  >("agreements");
+    "agreementsList" | "agreementsForm" | "users"
+  >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState("");
@@ -108,10 +108,10 @@ export default function App() {
         userName={userName}
       />
       <div style={{ flex: 1, padding: "20px" }}>
-        {activePage === "agreements" && (
+        {activePage === "agreementsList" && (
           <Agreements user={session.user} role={role} />
         )}
-        {activePage === "newAgreement" && (
+        {activePage === "agreementsForm" && (
           <AgreementsForm user={session.user} role={role} />
         )}
         {activePage === "users" && <Users />}
@@ -119,6 +119,8 @@ export default function App() {
     </div>
   );
 }
+
+
 
 
 
