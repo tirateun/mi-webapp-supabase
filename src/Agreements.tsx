@@ -14,19 +14,24 @@ export default function Agreements({ user, role }: AgreementsProps) {
   const [externalResponsible, setExternalResponsible] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
   const [durationYears, setDurationYears] = useState(1);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
+  const [convenio, setConvenio] = useState("marco");
+  const [pais, setPais] = useState("Perú");
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Traer convenios
+  const countries = [
+    "Perú","Argentina","Bolivia","Brasil","Chile","Colombia","Ecuador","México",
+    "Uruguay","Paraguay","Venezuela","España","Estados Unidos","Canadá","Francia",
+    "Alemania","Italia","Japón","China","Corea del Sur","India","Reino Unido",
+    "Australia","Sudáfrica"
+  ];
+
   const fetchAgreements = async () => {
     let query = supabase.from("agreements").select(`
-      id, name, institution, signature_date, duration_years, expiration_date,
-      profiles!agreements_internal_responsible_fkey(full_name),
-      external_profiles:profiles!agreements_external_responsible_fkey(full_name)
+      id,name,institution,internal_responsible,external_responsible,
+      signature_date,duration_years,expiration_date,convenio,pais
     `);
 
-    // 🧩 Filtrar por rol
     if (role !== "admin") {
       query = query.or(
         `internal_responsible.eq.${user.id},external_responsible.eq.${user.id}`
@@ -34,13 +39,14 @@ export default function Agreements({ user, role }: AgreementsProps) {
     }
 
     const { data, error } = await query;
-    if (error) console.error(error);
-    else setAgreements(data || []);
+    if (!error) setAgreements(data || []);
   };
 
-  // ✅ Traer lista de usuarios (para desplegables)
   const fetchProfiles = async () => {
-    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .order("full_name", { ascending: true });
     if (!error) setProfiles(data || []);
   };
 
@@ -49,16 +55,8 @@ export default function Agreements({ user, role }: AgreementsProps) {
     fetchProfiles();
   }, []);
 
-  // ✅ Crear convenio
   const handleAddAgreement = async () => {
-    setError("");
-    setSuccess("");
-
-    if (!name || !institution || !signatureDate || !internalResponsible || !externalResponsible) {
-      setError("Por favor completa todos los campos.");
-      return;
-    }
-
+    setLoading(true);
     const { error } = await supabase.from("agreements").insert([
       {
         name,
@@ -67,215 +65,124 @@ export default function Agreements({ user, role }: AgreementsProps) {
         external_responsible: externalResponsible,
         signature_date: signatureDate,
         duration_years: durationYears,
+        convenio,
+        pais,
       },
     ]);
 
-    if (error) {
-      console.error(error);
-      setError("Error al guardar convenio.");
-    } else {
-      setSuccess("✅ Convenio guardado correctamente.");
+    if (!error) {
+      await fetchAgreements();
       setName("");
       setInstitution("");
       setInternalResponsible("");
       setExternalResponsible("");
       setSignatureDate("");
       setDurationYears(1);
-      fetchAgreements();
+      setConvenio("marco");
+      setPais("Perú");
     }
+    setLoading(false);
   };
 
-  // ✅ Eliminar convenio (solo admin)
   const handleDeleteAgreement = async (id: string) => {
-    if (role !== "admin") {
-      setError("Solo el administrador puede eliminar convenios.");
-      return;
-    }
-
     if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
-
     const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) {
-      console.error(error);
-      setError("Error al eliminar convenio.");
-    } else {
-      setSuccess("🗑️ Convenio eliminado correctamente.");
-      fetchAgreements();
-    }
+    if (!error) fetchAgreements();
   };
 
   return (
     <div id="convenios">
       <h2>📑 Lista de Convenios</h2>
 
-      {/* 🔹 Crear convenio (solo admin) */}
       {role === "admin" && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "20px",
-            border: "1px solid #ccc",
-            borderRadius: "10px",
-            maxWidth: "600px",
-          }}
-        >
-          <h3>➕ Crear Convenio</h3>
+        <div style={{marginTop:"20px",padding:"20px",border:"1px solid #ccc",borderRadius:"10px",maxWidth:"600px"}}>
+          <h3>➕ Agregar Convenio</h3>
+          <input type="text" placeholder="Nombre del convenio" value={name} onChange={(e)=>setName(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}/>
+          <input type="text" placeholder="Institución" value={institution} onChange={(e)=>setInstitution(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}/>
 
-          <input
-            type="text"
-            placeholder="Nombre del convenio"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
-
-          <input
-            type="text"
-            placeholder="Institución"
-            value={institution}
-            onChange={(e) => setInstitution(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
-
-          <label>📅 Fecha de firma:</label>
-          <input
-            type="date"
-            value={signatureDate}
-            onChange={(e) => setSignatureDate(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
-
-          <label>📆 Duración (años):</label>
-          <input
-            type="number"
-            value={durationYears}
-            min="1"
-            onChange={(e) => setDurationYears(parseInt(e.target.value))}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
-
-          <label>👤 Responsable interno:</label>
-          <select
-            value={internalResponsible}
-            onChange={(e) => setInternalResponsible(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="">Seleccionar</option>
-            {profiles
-              .filter((p) => p.role === "internal" || p.role === "admin")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
+          <label>Responsable Interno:</label>
+          <select value={internalResponsible} onChange={(e)=>setInternalResponsible(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}>
+            <option value="">Seleccione responsable interno</option>
+            {profiles.filter(p=>p.role==="internal").map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
 
-          <label>👥 Responsable externo:</label>
-          <select
-            value={externalResponsible}
-            onChange={(e) => setExternalResponsible(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="">Seleccionar</option>
-            {profiles
-              .filter((p) => p.role === "external")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
+          <label>Responsable Externo:</label>
+          <select value={externalResponsible} onChange={(e)=>setExternalResponsible(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}>
+            <option value="">Seleccione responsable externo</option>
+            {profiles.filter(p=>p.role==="external").map(p=><option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
 
-          <button
-            onClick={handleAddAgreement}
-            style={{
-              marginTop: "10px",
-              padding: "10px",
-              background: "#3b82f6",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-              width: "100%",
-            }}
-          >
-            Guardar
+          <label>Fecha de Firma:</label>
+          <input type="date" value={signatureDate} onChange={(e)=>setSignatureDate(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}/>
+
+          <label>Años de duración:</label>
+          <input type="number" value={durationYears} onChange={(e)=>setDurationYears(parseInt(e.target.value))} min={1} max={20} style={{margin:"5px",padding:"8px",width:"100%"}}/>
+
+          <label>Tipo de Convenio:</label>
+          <select value={convenio} onChange={(e)=>setConvenio(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}>
+            <option value="marco">Marco</option>
+            <option value="especifico">Específico</option>
+          </select>
+
+          <label>País:</label>
+          <select value={pais} onChange={(e)=>setPais(e.target.value)} style={{margin:"5px",padding:"8px",width:"100%"}}>
+            {countries.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <button onClick={handleAddAgreement} disabled={loading} style={{marginTop:"10px",padding:"10px",background:"#3b82f6",color:"white",border:"none",borderRadius:"8px",cursor:"pointer",width:"100%"}}>
+            {loading?"Guardando...":"Guardar"}
           </button>
-
-          {error && <p style={{ color: "red" }}>❌ {error}</p>}
-          {success && <p style={{ color: "green" }}>{success}</p>}
         </div>
       )}
 
-      {/* 🔹 Tabla de convenios */}
-      <h3 style={{ marginTop: "30px" }}>Convenios Registrados</h3>
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          marginTop: "10px",
-        }}
-      >
+      <h3 style={{marginTop:"30px"}}>Convenios Registrados</h3>
+      <table style={{width:"100%",borderCollapse:"collapse",marginTop:"10px"}}>
         <thead>
-          <tr style={{ background: "#f1f1f1" }}>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Institución</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Interno</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Externo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Años</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
-            {role === "admin" && (
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
-            )}
+          <tr style={{background:"#f1f1f1"}}>
+            <th>Nombre</th>
+            <th>Institución</th>
+            <th>Resp. Interno</th>
+            <th>Resp. Externo</th>
+            <th>Fecha Firma</th>
+            <th>Años</th>
+            <th>Vencimiento</th>
+            <th>Convenio</th>
+            <th>País</th>
+            {role==="admin" && <th>Acciones</th>}
           </tr>
         </thead>
         <tbody>
-          {agreements.length === 0 ? (
-            <tr>
-              <td colSpan={8} style={{ textAlign: "center", padding: "10px" }}>
-                No hay convenios registrados.
-              </td>
-            </tr>
-          ) : (
-            agreements.map((a) => (
+          {agreements.length===0?
+            <tr><td colSpan={10} style={{textAlign:"center",padding:"10px"}}>No hay convenios registrados.</td></tr>
+          :
+            agreements.map(a=>(
               <tr key={a.id}>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.institution}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {a.profiles?.full_name || "-"}
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {a.external_profiles?.full_name || "-"}
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.signature_date}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.duration_years}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.expiration_date}</td>
-                {role === "admin" && (
-                  <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                    <button
-                      onClick={() => handleDeleteAgreement(a.id)}
-                      style={{
-                        padding: "5px 10px",
-                        background: "red",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                      }}
-                    >
+                <td>{a.name}</td>
+                <td>{a.institution}</td>
+                <td>{a.internal_responsible}</td>
+                <td>{a.external_responsible}</td>
+                <td>{a.signature_date}</td>
+                <td>{a.duration_years}</td>
+                <td>{a.expiration_date}</td>
+                <td>{a.convenio}</td>
+                <td>{a.pais}</td>
+                {role==="admin" && (
+                  <td>
+                    <button onClick={()=>handleDeleteAgreement(a.id)} style={{background:"red",color:"white",border:"none",borderRadius:"6px",padding:"5px 10px",cursor:"pointer"}}>
                       Eliminar
                     </button>
                   </td>
                 )}
               </tr>
             ))
-          )}
+          }
         </tbody>
       </table>
     </div>
   );
 }
+
+
 
 
 
