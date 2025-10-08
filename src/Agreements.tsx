@@ -13,7 +13,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
 
   // Formulario
   const [name, setName] = useState("");
-  const [hospital, setHospital] = useState("");
+  const [Institución, setInstitución] = useState("");
   const [selectedInternal, setSelectedInternal] = useState<string | null>(null);
   const [selectedExternal, setSelectedExternal] = useState<string | null>(null);
   const [signatureDate, setSignatureDate] = useState("");
@@ -68,13 +68,13 @@ export default function Agreements({ user, role }: AgreementsProps) {
 
     try {
       if (role !== "admin") throw new Error("No tienes permisos para crear convenios.");
-      if (!name || !hospital || !selectedInternal || !selectedExternal || !signatureDate)
+      if (!name || !Institución || !selectedInternal || !selectedExternal || !signatureDate)
         throw new Error("Completa todos los campos requeridos.");
 
       const { error } = await supabase.from("agreements").insert([
         {
           name,
-          hospital,
+          Institución,
           internal_responsible: selectedInternal,
           external_responsible: selectedExternal,
           signature_date: signatureDate,
@@ -85,7 +85,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
 
       setSuccess("✅ Convenio creado correctamente.");
       setName("");
-      setHospital("");
+      setInstitución("");
       setSignatureDate("");
       setDurationYears(1);
       setSelectedExternal(null);
@@ -131,18 +131,18 @@ export default function Agreements({ user, role }: AgreementsProps) {
           <label>Nombre del convenio</label>
           <input
             type="text"
-            placeholder="Ej. Convenio con Hospital San Juan"
+            placeholder="Ej. Convenio con Institución San Juan"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
           />
 
-          <label>Hospital</label>
+          <label>Institución</label>
           <input
             type="text"
-            placeholder="Nombre del hospital"
-            value={hospital}
-            onChange={(e) => setHospital(e.target.value)}
+            placeholder="Nombre del Institución"
+            value={Institución}
+            onChange={(e) => setInstitución(e.target.value)}
             style={{ display: "block", width: "100%", margin: "6px 0", padding: "8px" }}
           />
 
@@ -225,7 +225,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
         <thead>
           <tr style={{ background: "#f1f1f1" }}>
             <th>Nombre</th>
-            <th>Hospital</th>
+            <th>Institución</th>
             <th>Responsable Interno</th>
             <th>Responsable Externo</th>
             <th>Fecha de Firma</th>
@@ -244,7 +244,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
             agreements.map((a) => (
               <tr key={a.id}>
                 <td>{a.name}</td>
-                <td>{a.hospital}</td>
+                <td>{a.Institución}</td>
                 <td>{internalMap.get(a.internal_responsible) ?? "-"}</td>
                 <td>{externalMap.get(a.external_responsible) ?? "-"}</td>
                 <td>{a.signature_date}</td>
@@ -274,6 +274,7 @@ export default function Agreements({ user, role }: AgreementsProps) {
     </div>
   );
 }
+
 
 
 
