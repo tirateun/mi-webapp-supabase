@@ -1,16 +1,23 @@
+import React from "react";
+
 interface SidebarProps {
   onLogout: () => void;
-  setActivePage: (page: "agreements" | "users") => void;
-  userName: string;
+  setActivePage: (page: "agreementsList" | "agreementsForm" | "users") => void;
   role: string;
+  userName: string;
 }
 
-export default function Sidebar({ onLogout, setActivePage, userName, role }: SidebarProps) {
+export default function Sidebar({
+  onLogout,
+  setActivePage,
+  role,
+  userName,
+}: SidebarProps) {
   return (
     <div
       style={{
-        width: "220px",
-        backgroundColor: "#1e293b",
+        width: "240px",
+        backgroundColor: "#1E293B",
         color: "white",
         height: "100vh",
         display: "flex",
@@ -20,60 +27,62 @@ export default function Sidebar({ onLogout, setActivePage, userName, role }: Sid
       }}
     >
       <div>
-        <h2 style={{ color: "#38bdf8", textAlign: "center" }}>🌟 Gestión de Convenios</h2>
-        <p style={{ textAlign: "center", fontSize: "14px", color: "#cbd5e1" }}>
-          {userName} ({role})
-        </p>
-
-        <hr style={{ border: "1px solid #334155", margin: "15px 0" }} />
-
+        <h2 style={{ textAlign: "center", marginBottom: "30px" }}>🏥 Convenios</h2>
         <button
-          onClick={() => setActivePage("agreements")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "white",
-            padding: "10px",
-            width: "100%",
-            textAlign: "left",
-            cursor: "pointer",
-          }}
+          style={buttonStyle}
+          onClick={() => setActivePage("agreementsList")}
         >
-          📄 Convenios
+          📄 Ver convenios
         </button>
 
-        <button
-          onClick={() => setActivePage("users")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "white",
-            padding: "10px",
-            width: "100%",
-            textAlign: "left",
-            cursor: "pointer",
-          }}
-        >
-          👥 Usuarios
-        </button>
+        {role === "admin" && (
+          <>
+            <button
+              style={buttonStyle}
+              onClick={() => setActivePage("agreementsForm")}
+            >
+              ➕ Crear convenio
+            </button>
+
+            <button
+              style={buttonStyle}
+              onClick={() => setActivePage("users")}
+            >
+              👥 Usuarios
+            </button>
+          </>
+        )}
       </div>
 
-      <button
-        onClick={onLogout}
-        style={{
-          backgroundColor: "#ef4444",
-          color: "white",
-          border: "none",
-          padding: "10px",
-          borderRadius: "8px",
-          cursor: "pointer",
-        }}
-      >
-        🔒 Cerrar sesión
-      </button>
+      <div style={{ textAlign: "center" }}>
+        <p>👤 {userName}</p>
+        <button
+          style={{
+            ...buttonStyle,
+            backgroundColor: "#DC2626",
+            marginTop: "10px",
+          }}
+          onClick={onLogout}
+        >
+          🚪 Cerrar sesión
+        </button>
+      </div>
     </div>
   );
 }
+
+const buttonStyle: React.CSSProperties = {
+  width: "100%",
+  backgroundColor: "#334155",
+  color: "white",
+  border: "none",
+  padding: "10px",
+  borderRadius: "8px",
+  marginBottom: "10px",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
 
 
 
