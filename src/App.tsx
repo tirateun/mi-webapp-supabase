@@ -10,16 +10,15 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [activePage, setActivePage] = useState<"agreements" | "users">("agreements");
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [role, setRole] = useState("internal");
-  const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState("");
+  const [userName, setUserName] = useState("");
 
-  // 🔹 Cargar sesión activa y datos del perfil
+  // 🔹 Cargar sesión activa
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
-
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
@@ -28,9 +27,9 @@ export default function App() {
           .single();
 
         if (profile) {
-          setRole(profile.role || "internal");
-          setUserName(profile.full_name || "");
-          setMustChangePassword(profile.must_change_password);
+          setRole(profile.role);
+          setUserName(profile.full_name);
+          if (profile.must_change_password) setMustChangePassword(true);
         }
       }
       setLoading(false);
@@ -45,7 +44,6 @@ export default function App() {
     };
   }, []);
 
-  // 🔹 Inicio de sesión
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -53,17 +51,19 @@ export default function App() {
       .eq("id", user.id)
       .single();
 
-    setMustChangePassword(profile?.must_change_password || false);
-    setRole(profile?.role || "internal");
-    setUserName(profile?.full_name || "");
-    setSession({ user });
+    if (profile) {
+      setRole(profile.role);
+      setUserName(profile.full_name);
+      setMustChangePassword(profile.must_change_password || false);
+      setSession({ user });
+    }
   };
 
-  // 🔹 Cierre de sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
+    setRole("");
   };
 
   if (loading) return <p>Cargando...</p>;
@@ -101,13 +101,14 @@ export default function App() {
       />
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreements" && (
-          <Agreements role={role} />
+          <Agreements user={session.user} role={role} />
         )}
-        {activePage === "users" && role === "admin" && <Users />}
+        {activePage === "users" && <Users />}
       </div>
     </div>
   );
 }
+
 
 
 
