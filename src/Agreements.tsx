@@ -2,42 +2,46 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsProps {
+  user: any;
   role: string;
 }
 
-export default function Agreements({ role }: AgreementsProps) {
+export default function Agreements({ user, role }: AgreementsProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [name, setName] = useState("");
-  const [institucion, setInstitucion] = useState("");
-  const [convenio, setConvenio] = useState("específico");
-  const [pais, setPais] = useState("");
+  const [institution, setInstitution] = useState("");
   const [internalResponsible, setInternalResponsible] = useState("");
   const [externalResponsible, setExternalResponsible] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
   const [durationYears, setDurationYears] = useState(1);
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
   const [profiles, setProfiles] = useState<any[]>([]);
 
-  // 🌎 Lista de países
-  const countries = [
-    "Perú", "Argentina", "Chile", "México", "Colombia", "Brasil", "Estados Unidos", "España", "Francia", "Italia",
-    "Alemania", "Reino Unido", "Japón", "Canadá", "Australia", "China", "India", "Uruguay", "Ecuador", "Bolivia", "Paraguay",
-    "Venezuela", "Costa Rica", "Panamá", "Guatemala", "El Salvador", "Honduras", "Nicaragua", "Cuba", "República Dominicana"
-  ];
-
+  // ✅ Traer convenios
   const fetchAgreements = async () => {
-    const { data, error } = await supabase.from("agreements").select(`
-      id, name, institucion, convenio, pais, internal_responsible, external_responsible,
-      signature_date, duration_years, expiration_date
+    let query = supabase.from("agreements").select(`
+      id, name, institution, signature_date, duration_years, expiration_date,
+      profiles!agreements_internal_responsible_fkey(full_name),
+      external_profiles:profiles!agreements_external_responsible_fkey(full_name)
     `);
-    if (!error) setAgreements(data || []);
+
+    // 🧩 Filtrar por rol
+    if (role !== "admin") {
+      query = query.or(
+        `internal_responsible.eq.${user.id},external_responsible.eq.${user.id}`
+      );
+    }
+
+    const { data, error } = await query;
+    if (error) console.error(error);
+    else setAgreements(data || []);
   };
 
+  // ✅ Traer lista de usuarios (para desplegables)
   const fetchProfiles = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, full_name, role")
-      .order("full_name", { ascending: true });
-    setProfiles(data || []);
+    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
+    if (!error) setProfiles(data || []);
   };
 
   useEffect(() => {
@@ -45,18 +49,20 @@ export default function Agreements({ role }: AgreementsProps) {
     fetchProfiles();
   }, []);
 
+  // ✅ Crear convenio
   const handleAddAgreement = async () => {
-    if (!name || !institucion || !signatureDate || !internalResponsible || !externalResponsible || !pais) {
-      alert("Por favor complete todos los campos obligatorios.");
+    setError("");
+    setSuccess("");
+
+    if (!name || !institution || !signatureDate || !internalResponsible || !externalResponsible) {
+      setError("Por favor completa todos los campos.");
       return;
     }
 
     const { error } = await supabase.from("agreements").insert([
       {
         name,
-        institucion,
-        convenio,
-        pais,
+        institution,
         internal_responsible: internalResponsible,
         external_responsible: externalResponsible,
         signature_date: signatureDate,
@@ -65,13 +71,12 @@ export default function Agreements({ role }: AgreementsProps) {
     ]);
 
     if (error) {
-      alert("Error al crear convenio: " + error.message);
+      console.error(error);
+      setError("Error al guardar convenio.");
     } else {
-      alert("✅ Convenio creado exitosamente");
+      setSuccess("✅ Convenio guardado correctamente.");
       setName("");
-      setInstitucion("");
-      setConvenio("específico");
-      setPais("");
+      setInstitution("");
       setInternalResponsible("");
       setExternalResponsible("");
       setSignatureDate("");
@@ -80,17 +85,30 @@ export default function Agreements({ role }: AgreementsProps) {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  // ✅ Eliminar convenio (solo admin)
+  const handleDeleteAgreement = async (id: string) => {
+    if (role !== "admin") {
+      setError("Solo el administrador puede eliminar convenios.");
+      return;
+    }
+
     if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
+
     const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) alert("Error al eliminar: " + error.message);
-    else fetchAgreements();
+    if (error) {
+      console.error(error);
+      setError("Error al eliminar convenio.");
+    } else {
+      setSuccess("🗑️ Convenio eliminado correctamente.");
+      fetchAgreements();
+    }
   };
 
   return (
     <div id="convenios">
       <h2>📑 Lista de Convenios</h2>
 
+      {/* 🔹 Crear convenio (solo admin) */}
       {role === "admin" && (
         <div
           style={{
@@ -98,11 +116,10 @@ export default function Agreements({ role }: AgreementsProps) {
             padding: "20px",
             border: "1px solid #ccc",
             borderRadius: "10px",
-            background: "#f9f9f9",
-            maxWidth: "700px",
+            maxWidth: "600px",
           }}
         >
-          <h3>➕ Crear nuevo convenio</h3>
+          <h3>➕ Crear Convenio</h3>
 
           <input
             type="text"
@@ -115,45 +132,35 @@ export default function Agreements({ role }: AgreementsProps) {
           <input
             type="text"
             placeholder="Institución"
-            value={institucion}
-            onChange={(e) => setInstitucion(e.target.value)}
+            value={institution}
+            onChange={(e) => setInstitution(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           />
 
-          {/* Tipo de convenio */}
-          <label>Tipo de convenio:</label>
-          <select
-            value={convenio}
-            onChange={(e) => setConvenio(e.target.value)}
+          <label>📅 Fecha de firma:</label>
+          <input
+            type="date"
+            value={signatureDate}
+            onChange={(e) => setSignatureDate(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="específico">Específico</option>
-            <option value="marco">Marco</option>
-          </select>
+          />
 
-          {/* País */}
-          <label>País:</label>
-          <select
-            value={pais}
-            onChange={(e) => setPais(e.target.value)}
+          <label>📆 Duración (años):</label>
+          <input
+            type="number"
+            value={durationYears}
+            min="1"
+            onChange={(e) => setDurationYears(parseInt(e.target.value))}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
-          >
-            <option value="">Seleccione un país</option>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          />
 
-          {/* Responsables */}
-          <label>Responsable interno:</label>
+          <label>👤 Responsable interno:</label>
           <select
             value={internalResponsible}
             onChange={(e) => setInternalResponsible(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           >
-            <option value="">Seleccione...</option>
+            <option value="">Seleccionar</option>
             {profiles
               .filter((p) => p.role === "internal" || p.role === "admin")
               .map((p) => (
@@ -163,13 +170,13 @@ export default function Agreements({ role }: AgreementsProps) {
               ))}
           </select>
 
-          <label>Responsable externo:</label>
+          <label>👥 Responsable externo:</label>
           <select
             value={externalResponsible}
             onChange={(e) => setExternalResponsible(e.target.value)}
             style={{ margin: "5px", padding: "8px", width: "100%" }}
           >
-            <option value="">Seleccione...</option>
+            <option value="">Seleccionar</option>
             {profiles
               .filter((p) => p.role === "external")
               .map((p) => (
@@ -178,23 +185,6 @@ export default function Agreements({ role }: AgreementsProps) {
                 </option>
               ))}
           </select>
-
-          <label>Fecha de firma:</label>
-          <input
-            type="date"
-            value={signatureDate}
-            onChange={(e) => setSignatureDate(e.target.value)}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
-
-          <label>Años de duración:</label>
-          <input
-            type="number"
-            min={1}
-            value={durationYears}
-            onChange={(e) => setDurationYears(Number(e.target.value))}
-            style={{ margin: "5px", padding: "8px", width: "100%" }}
-          />
 
           <button
             onClick={handleAddAgreement}
@@ -209,29 +199,31 @@ export default function Agreements({ role }: AgreementsProps) {
               width: "100%",
             }}
           >
-            Guardar convenio
+            Guardar
           </button>
+
+          {error && <p style={{ color: "red" }}>❌ {error}</p>}
+          {success && <p style={{ color: "green" }}>{success}</p>}
         </div>
       )}
 
-      {/* Tabla de convenios */}
+      {/* 🔹 Tabla de convenios */}
+      <h3 style={{ marginTop: "30px" }}>Convenios Registrados</h3>
       <table
         style={{
           width: "100%",
           borderCollapse: "collapse",
-          marginTop: "20px",
+          marginTop: "10px",
         }}
       >
         <thead>
           <tr style={{ background: "#f1f1f1" }}>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Institución</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Tipo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>País</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Interno</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Responsable Externo</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Fecha Firma</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Duración (años)</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Interno</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Externo</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Firma</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Años</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Vencimiento</th>
             {role === "admin" && (
               <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
@@ -241,7 +233,7 @@ export default function Agreements({ role }: AgreementsProps) {
         <tbody>
           {agreements.length === 0 ? (
             <tr>
-              <td colSpan={9} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={8} style={{ textAlign: "center", padding: "10px" }}>
                 No hay convenios registrados.
               </td>
             </tr>
@@ -249,23 +241,25 @@ export default function Agreements({ role }: AgreementsProps) {
             agreements.map((a) => (
               <tr key={a.id}>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.name}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.institucion}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.convenio}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.pais}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.internal_responsible}</td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.external_responsible}</td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.institution}</td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.profiles?.full_name || "-"}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {a.external_profiles?.full_name || "-"}
+                </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.signature_date}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.duration_years}</td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>{a.expiration_date}</td>
                 {role === "admin" && (
                   <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                     <button
-                      onClick={() => handleDelete(a.id)}
+                      onClick={() => handleDeleteAgreement(a.id)}
                       style={{
-                        background: "#ef4444",
+                        padding: "5px 10px",
+                        background: "red",
                         color: "white",
                         border: "none",
-                        padding: "6px 10px",
                         borderRadius: "6px",
                         cursor: "pointer",
                       }}
@@ -282,6 +276,7 @@ export default function Agreements({ role }: AgreementsProps) {
     </div>
   );
 }
+
 
 
 
