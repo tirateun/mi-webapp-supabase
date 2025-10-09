@@ -51,104 +51,57 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
 
   if (loading) return <p>Cargando convenios...</p>;
 
-  return (
-    <div style={{ padding: "10px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>
-        📑 Lista de Convenios
-      </h2>
-
-      {editingAgreement ? (
-        <AgreementsForm
-          existingAgreement={editingAgreement}
-          onSave={() => {
-            setEditingAgreement(null);
-            fetchAgreements();
-          }}
-          onCancel={() => setEditingAgreement(null)}
-        />
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              backgroundColor: "white",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              borderRadius: "10px",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
-                <th style={{ padding: "10px" }}>Nombre</th>
-                <th style={{ padding: "10px" }}>Institución</th>
-                <th style={{ padding: "10px" }}>Tipo</th>
-                <th style={{ padding: "10px" }}>País</th>
-                <th style={{ padding: "10px" }}>Responsable interno</th>
-                <th style={{ padding: "10px" }}>Firma</th>
-                <th style={{ padding: "10px" }}>Duración</th>
-                <th style={{ padding: "10px" }}>Vencimiento</th>
-                {role === "admin" && <th style={{ padding: "10px" }}>Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {agreements.length === 0 ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "15px" }}>
-                    No hay convenios registrados.
-                  </td>
-                </tr>
-              ) : (
-                agreements.map((a) => (
-                  <tr key={a.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "10px" }}>{a.name}</td>
-                    <td style={{ padding: "10px" }}>{a["Institución"]}</td>
-                    <td style={{ padding: "10px" }}>{a.convenio}</td>
-                    <td style={{ padding: "10px" }}>{a.pais}</td>
-                    <td style={{ padding: "10px" }}>{a.profiles?.full_name || "—"}</td>
-                    <td style={{ padding: "10px" }}>{a.signature_date}</td>
-                    <td style={{ padding: "10px" }}>{a.duration_years} años</td>
-                    <td style={{ padding: "10px" }}>{a.expiration_date}</td>
-                    {role === "admin" && (
-                      <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
-                        <button
-                          onClick={() => setEditingAgreement(a)}
-                          style={{
-                            background: "#3b82f6",
-                            color: "white",
-                            border: "none",
-                            padding: "5px 10px",
-                            borderRadius: "5px",
-                            marginRight: "5px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(a.id)}
-                          style={{
-                            background: "#ef4444",
-                            color: "white",
-                            border: "none",
-                            padding: "5px 10px",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))
+  return editingAgreement ? (
+    <AgreementsForm
+      existingAgreement={editingAgreement}
+      onSave={() => {
+        setEditingAgreement(null);
+        fetchAgreements();
+      }}
+      onCancel={() => setEditingAgreement(null)}
+    />
+  ) : (
+    <div>
+      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>📑 Lista de Convenios</h2>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#E2E8F0" }}>
+            <th>Nombre</th>
+            <th>Institución</th>
+            <th>Tipo</th>
+            <th>País</th>
+            <th>Responsable interno</th>
+            <th>Firma</th>
+            <th>Duración</th>
+            <th>Vencimiento</th>
+            {role === "admin" && <th>Acciones</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {agreements.map((a) => (
+            <tr key={a.id}>
+              <td>{a.name}</td>
+              <td>{a["Institución"]}</td>
+              <td>{a.convenio}</td>
+              <td>{a.pais}</td>
+              <td>{a.profiles?.full_name || "—"}</td>
+              <td>{a.signature_date}</td>
+              <td>{a.duration_years} años</td>
+              <td>{a.expiration_date}</td>
+              {role === "admin" && (
+                <td>
+                  <button onClick={() => setEditingAgreement(a)}>Editar</button>
+                  <button onClick={() => handleDelete(a.id)}>Eliminar</button>
+                </td>
               )}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
+
 
 
 

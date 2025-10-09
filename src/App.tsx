@@ -20,25 +20,21 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
-
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, must_change_password")
           .eq("id", currentSession.user.id)
           .single();
-
         setRole(profile?.role || "");
         if (profile?.must_change_password) setMustChangePassword(true);
       }
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
     return () => {
       listener.subscription.unsubscribe();
@@ -108,6 +104,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 

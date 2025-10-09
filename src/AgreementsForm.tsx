@@ -3,45 +3,53 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface AgreementsFormProps {
-  user: any;
   onSave: () => void;
   onCancel: () => void;
-  existingAgreement?: any; // ✅ Esto permite editar convenios sin error
+  existingAgreement?: any;
 }
 
 export default function AgreementsForm({
-  user,
   onSave,
   onCancel,
   existingAgreement,
 }: AgreementsFormProps) {
-  const [name, setName] = useState(existingAgreement?.name || "");
-  const [institucion, setInstitucion] = useState(existingAgreement?.["Institución"] || "");
-  const [convenio, setConvenio] = useState(existingAgreement?.convenio || "marco");
-  const [pais, setPais] = useState(existingAgreement?.pais || "");
-  const [signatureDate, setSignatureDate] = useState(existingAgreement?.signature_date || "");
-  const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
-  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
-  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
-  const [internalUsers, setInternalUsers] = useState<any[]>([]);
-  const [externalUsers, setExternalUsers] = useState<any[]>([]);
+  const [name, setName] = useState("");
+  const [institucion, setInstitucion] = useState("");
+  const [convenio, setConvenio] = useState("marco");
+  const [pais, setPais] = useState("Perú");
+  const [signatureDate, setSignatureDate] = useState("");
+  const [durationYears, setDurationYears] = useState(1);
+  const [internalResponsible, setInternalResponsible] = useState("");
+  const [externalResponsible, setExternalResponsible] = useState("");
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+    if (existingAgreement) {
+      setName(existingAgreement.name || "");
+      setInstitucion(existingAgreement["Institución"] || "");
+      setConvenio(existingAgreement.convenio || "marco");
+      setPais(existingAgreement.pais || "Perú");
+      setSignatureDate(existingAgreement.signature_date || "");
+      setDurationYears(existingAgreement.duration_years || 1);
+      setInternalResponsible(existingAgreement.internal_responsible || "");
+      setExternalResponsible(existingAgreement.external_responsible || "");
+    }
+  }, [existingAgreement]);
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
-    if (!error && data) {
-      setInternalUsers(data.filter((u) => u.role === "internal" || u.role === "admin"));
-      setExternalUsers(data.filter((u) => u.role === "external"));
-    }
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role");
+    if (!error) setUsers(data || []);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    const agreementData = {
+    const payload = {
       name,
       "Institución": institucion,
       convenio,
@@ -52,138 +60,161 @@ export default function AgreementsForm({
       external_responsible: externalResponsible,
     };
 
-    const { error } = existingAgreement
-      ? await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id)
-      : await supabase.from("agreements").insert([agreementData]);
-
-    if (error) {
-      alert("❌ Error al guardar: " + error.message);
+    let response;
+    if (existingAgreement) {
+      response = await supabase
+        .from("agreements")
+        .update(payload)
+        .eq("id", existingAgreement.id);
     } else {
-      alert(existingAgreement ? "✅ Convenio actualizado" : "✅ Convenio creado");
+      response = await supabase.from("agreements").insert([payload]);
+    }
+
+    if (response.error) alert("❌ Error al guardar convenio");
+    else {
+      alert("✅ Convenio guardado exitosamente");
       onSave();
     }
+    setLoading(false);
   };
 
   return (
-    <div
+    <form
+      onSubmit={handleSubmit}
       style={{
+        background: "#fff",
+        padding: "20px",
+        borderRadius: "12px",
         maxWidth: "600px",
         margin: "0 auto",
-        background: "white",
-        padding: "20px",
-        borderRadius: "10px",
         boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
       }}
     >
-      <h2 style={{ textAlign: "center", color: "#2563eb" }}>
+      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>
         {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Convenio"}
       </h2>
 
-      <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>Nombre del Convenio</label>
-        <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} required />
+      <label>Nombre del Convenio:</label>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        required
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      />
 
-        <label style={labelStyle}>Institución</label>
-        <input style={inputStyle} value={institucion} onChange={(e) => setInstitucion(e.target.value)} required />
+      <label>Institución:</label>
+      <input
+        type="text"
+        value={institucion}
+        onChange={(e) => setInstitucion(e.target.value)}
+        required
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      />
 
-        <label style={labelStyle}>Tipo de Convenio</label>
-        <select style={inputStyle} value={convenio} onChange={(e) => setConvenio(e.target.value)}>
-          <option value="marco">Marco</option>
-          <option value="específico">Específico</option>
-        </select>
+      <label>Tipo de Convenio:</label>
+      <select
+        value={convenio}
+        onChange={(e) => setConvenio(e.target.value)}
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      >
+        <option value="marco">Marco</option>
+        <option value="específico">Específico</option>
+      </select>
 
-        <label style={labelStyle}>País</label>
-        <select style={inputStyle} value={pais} onChange={(e) => setPais(e.target.value)}>
-          <option value="">Seleccione un país</option>
-          {countries.map((c) => (
-            <option key={c.code} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+      <label>País:</label>
+      <select
+        value={pais}
+        onChange={(e) => setPais(e.target.value)}
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      >
+        {countries.map((c) => (
+          <option key={c.name} value={c.name}>
+            {c.name}
+          </option>
+        ))}
+      </select>
 
-        <label style={labelStyle}>Responsable Interno</label>
-        <select style={inputStyle} value={internalResponsible} onChange={(e) => setInternalResponsible(e.target.value)}>
-          <option value="">Seleccione</option>
-          {internalUsers.map((u) => (
+      <label>Responsable Interno:</label>
+      <select
+        value={internalResponsible}
+        onChange={(e) => setInternalResponsible(e.target.value)}
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      >
+        <option value="">Seleccione...</option>
+        {users
+          .filter((u) => u.role === "internal" || u.role === "admin")
+          .map((u) => (
             <option key={u.id} value={u.id}>
               {u.full_name}
             </option>
           ))}
-        </select>
+      </select>
 
-        <label style={labelStyle}>Responsable Externo</label>
-        <select style={inputStyle} value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
-          <option value="">Seleccione</option>
-          {externalUsers.map((u) => (
+      <label>Responsable Externo:</label>
+      <select
+        value={externalResponsible}
+        onChange={(e) => setExternalResponsible(e.target.value)}
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      >
+        <option value="">Seleccione...</option>
+        {users
+          .filter((u) => u.role === "external")
+          .map((u) => (
             <option key={u.id} value={u.id}>
               {u.full_name}
             </option>
           ))}
-        </select>
+      </select>
 
-        <label style={labelStyle}>Fecha de Firma</label>
-        <input
-          type="date"
-          style={inputStyle}
-          value={signatureDate}
-          onChange={(e) => setSignatureDate(e.target.value)}
-          required
-        />
+      <label>Fecha de Firma:</label>
+      <input
+        type="date"
+        value={signatureDate}
+        onChange={(e) => setSignatureDate(e.target.value)}
+        required
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      />
 
-        <label style={labelStyle}>Duración (años)</label>
-        <input
-          type="number"
-          style={inputStyle}
-          value={durationYears}
-          onChange={(e) => setDurationYears(Number(e.target.value))}
-          required
-          min={1}
-        />
+      <label>Duración (años):</label>
+      <input
+        type="number"
+        value={durationYears}
+        onChange={(e) => setDurationYears(Number(e.target.value))}
+        required
+        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      />
 
-        <div style={{ marginTop: "20px", textAlign: "center" }}>
-          <button type="submit" style={buttonPrimary}>
-            {existingAgreement ? "Guardar Cambios" : "Crear Convenio"}
-          </button>
-          <button type="button" onClick={onCancel} style={buttonCancel}>
-            Cancelar
-          </button>
-        </div>
-      </form>
-    </div>
+      <div style={{ textAlign: "center", marginTop: "15px" }}>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            background: "#2563eb",
+            color: "white",
+            padding: "8px 15px",
+            border: "none",
+            borderRadius: "6px",
+            marginRight: "10px",
+          }}
+        >
+          {loading ? "Guardando..." : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{
+            background: "#9ca3af",
+            color: "white",
+            padding: "8px 15px",
+            border: "none",
+            borderRadius: "6px",
+          }}
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
 
-const labelStyle = {
-  display: "block",
-  marginTop: "10px",
-  fontWeight: "bold",
-  color: "#374151",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "8px",
-  marginTop: "4px",
-  border: "1px solid #CBD5E0",
-  borderRadius: "6px",
-};
-
-const buttonPrimary = {
-  background: "#2563eb",
-  color: "white",
-  border: "none",
-  padding: "10px 20px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  marginRight: "10px",
-};
-
-const buttonCancel = {
-  background: "#CBD5E0",
-  color: "#2D3748",
-  border: "none",
-  padding: "10px 20px",
-  borderRadius: "6px",
-  cursor: "pointer",
-};
