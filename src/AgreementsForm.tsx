@@ -3,212 +3,240 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface AgreementsFormProps {
+  existingAgreement?: any;
   onSave: () => void;
   onCancel: () => void;
-  existingAgreement?: any;
 }
 
 export default function AgreementsForm({
+  existingAgreement,
   onSave,
   onCancel,
-  existingAgreement,
 }: AgreementsFormProps) {
   const [name, setName] = useState("");
   const [institucion, setInstitucion] = useState("");
   const [convenio, setConvenio] = useState("marco");
-  const [pais, setPais] = useState("Perú");
+  const [pais, setPais] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
   const [durationYears, setDurationYears] = useState(1);
   const [internalResponsible, setInternalResponsible] = useState("");
   const [externalResponsible, setExternalResponsible] = useState("");
-  const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [profiles, setProfiles] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchProfiles();
     if (existingAgreement) {
-      setName(existingAgreement.name || "");
-      setInstitucion(existingAgreement["Institución"] || "");
-      setConvenio(existingAgreement.convenio || "marco");
-      setPais(existingAgreement.pais || "Perú");
-      setSignatureDate(existingAgreement.signature_date || "");
-      setDurationYears(existingAgreement.duration_years || 1);
+      setName(existingAgreement.name);
+      setInstitucion(existingAgreement.institucion);
+      setConvenio(existingAgreement.convenio);
+      setPais(existingAgreement.pais);
+      setSignatureDate(existingAgreement.signature_date);
+      setDurationYears(existingAgreement.duration_years);
       setInternalResponsible(existingAgreement.internal_responsible || "");
       setExternalResponsible(existingAgreement.external_responsible || "");
     }
   }, [existingAgreement]);
 
-  const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, role");
-    if (!error) setUsers(data || []);
+  const fetchProfiles = async () => {
+    const { data } = await supabase.from("profiles").select("id, full_name");
+    if (data) setProfiles(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    const payload = {
+    const agreementData = {
       name,
-      "Institución": institucion,
+      institucion, // ✅ corregido: coincide con la tabla
       convenio,
       pais,
       signature_date: signatureDate,
       duration_years: durationYears,
-      internal_responsible: internalResponsible,
-      external_responsible: externalResponsible,
+      internal_responsible: internalResponsible || null,
+      external_responsible: externalResponsible || null,
     };
 
-    let response;
+    let result;
     if (existingAgreement) {
-      response = await supabase
+      result = await supabase
         .from("agreements")
-        .update(payload)
+        .update(agreementData)
         .eq("id", existingAgreement.id);
     } else {
-      response = await supabase.from("agreements").insert([payload]);
+      result = await supabase.from("agreements").insert([agreementData]);
     }
 
-    if (response.error) alert("❌ Error al guardar convenio");
-    else {
-      alert("✅ Convenio guardado exitosamente");
+    const { error } = result;
+    if (error) {
+      console.error("❌ Error al guardar convenio:", error);
+      alert("❌ Error al guardar convenio");
+    } else {
+      alert("✅ Convenio guardado correctamente");
       onSave();
     }
-    setLoading(false);
   };
 
   return (
     <form
       onSubmit={handleSubmit}
       style={{
-        background: "#fff",
+        maxWidth: "800px",
+        margin: "0 auto",
+        background: "white",
         padding: "20px",
         borderRadius: "12px",
-        maxWidth: "600px",
-        margin: "0 auto",
-        boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
     >
-      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>
-        {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Convenio"}
+      <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
+        {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Nuevo Convenio"}
       </h2>
 
-      <label>Nombre del Convenio:</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      />
-
-      <label>Institución:</label>
-      <input
-        type="text"
-        value={institucion}
-        onChange={(e) => setInstitucion(e.target.value)}
-        required
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      />
-
-      <label>Tipo de Convenio:</label>
-      <select
-        value={convenio}
-        onChange={(e) => setConvenio(e.target.value)}
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "15px",
+        }}
       >
-        <option value="marco">Marco</option>
-        <option value="específico">Específico</option>
-      </select>
+        <div>
+          <label>Nombre del convenio</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
 
-      <label>País:</label>
-      <select
-        value={pais}
-        onChange={(e) => setPais(e.target.value)}
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
+        <div>
+          <label>Institución</label>
+          <input
+            type="text"
+            value={institucion}
+            onChange={(e) => setInstitucion(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
+
+        <div>
+          <label>Tipo de convenio</label>
+          <select
+            value={convenio}
+            onChange={(e) => setConvenio(e.target.value)}
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="marco">Marco</option>
+            <option value="específico">Específico</option>
+          </select>
+        </div>
+
+        <div>
+          <label>País</label>
+          <select
+            value={pais}
+            onChange={(e) => setPais(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="">Seleccionar país</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Responsable interno</label>
+          <select
+            value={internalResponsible}
+            onChange={(e) => setInternalResponsible(e.target.value)}
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="">Seleccionar</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Responsable externo</label>
+          <select
+            value={externalResponsible}
+            onChange={(e) => setExternalResponsible(e.target.value)}
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="">Seleccionar</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Fecha de firma</label>
+          <input
+            type="date"
+            value={signatureDate}
+            onChange={(e) => setSignatureDate(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
+
+        <div>
+          <label>Duración (años)</label>
+          <input
+            type="number"
+            value={durationYears}
+            onChange={(e) => setDurationYears(Number(e.target.value))}
+            min={1}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: "20px",
+          display: "flex",
+          justifyContent: "center",
+          gap: "15px",
+        }}
       >
-        {countries.map((c) => (
-          <option key={c.name} value={c.name}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-
-      <label>Responsable Interno:</label>
-      <select
-        value={internalResponsible}
-        onChange={(e) => setInternalResponsible(e.target.value)}
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      >
-        <option value="">Seleccione...</option>
-        {users
-          .filter((u) => u.role === "internal" || u.role === "admin")
-          .map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.full_name}
-            </option>
-          ))}
-      </select>
-
-      <label>Responsable Externo:</label>
-      <select
-        value={externalResponsible}
-        onChange={(e) => setExternalResponsible(e.target.value)}
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      >
-        <option value="">Seleccione...</option>
-        {users
-          .filter((u) => u.role === "external")
-          .map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.full_name}
-            </option>
-          ))}
-      </select>
-
-      <label>Fecha de Firma:</label>
-      <input
-        type="date"
-        value={signatureDate}
-        onChange={(e) => setSignatureDate(e.target.value)}
-        required
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      />
-
-      <label>Duración (años):</label>
-      <input
-        type="number"
-        value={durationYears}
-        onChange={(e) => setDurationYears(Number(e.target.value))}
-        required
-        style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-      />
-
-      <div style={{ textAlign: "center", marginTop: "15px" }}>
         <button
           type="submit"
-          disabled={loading}
           style={{
             background: "#2563eb",
             color: "white",
-            padding: "8px 15px",
             border: "none",
+            padding: "10px 20px",
             borderRadius: "6px",
-            marginRight: "10px",
+            cursor: "pointer",
           }}
         >
-          {loading ? "Guardando..." : "Guardar"}
+          Guardar
         </button>
         <button
           type="button"
           onClick={onCancel}
           style={{
-            background: "#9ca3af",
+            background: "#ef4444",
             color: "white",
-            padding: "8px 15px",
             border: "none",
+            padding: "10px 20px",
             borderRadius: "6px",
+            cursor: "pointer",
           }}
         >
           Cancelar
@@ -217,4 +245,5 @@ export default function AgreementsForm({
     </form>
   );
 }
+
 
