@@ -102,6 +102,7 @@ export default function App() {
         {activePage === "agreementsForm" && (
           <AgreementsForm
             user={session.user}
+            role={role}
             onSave={() => setActivePage("agreementsList")}
             onCancel={() => setActivePage("agreementsList")}
           />
