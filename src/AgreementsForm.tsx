@@ -6,7 +6,7 @@ interface AgreementsFormProps {
   user: any;
   onSave: () => void;
   onCancel: () => void;
-  existingAgreement?: any;
+  existingAgreement?: any; // ✅ Esto permite editar convenios sin error
 }
 
 export default function AgreementsForm({
@@ -56,9 +56,10 @@ export default function AgreementsForm({
       ? await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id)
       : await supabase.from("agreements").insert([agreementData]);
 
-    if (error) alert("❌ Error al guardar: " + error.message);
-    else {
-      alert(existingAgreement ? "✅ Convenio actualizado correctamente" : "✅ Convenio creado correctamente");
+    if (error) {
+      alert("❌ Error al guardar: " + error.message);
+    } else {
+      alert(existingAgreement ? "✅ Convenio actualizado" : "✅ Convenio creado");
       onSave();
     }
   };
@@ -186,9 +187,3 @@ const buttonCancel = {
   borderRadius: "6px",
   cursor: "pointer",
 };
-
-};
-
-
-
-
