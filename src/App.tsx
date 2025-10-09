@@ -1,52 +1,43 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Sidebar from "./Sidebar";
-import Agreements from "./Agreements";
-import AgreementsForm from "./AgreementsForm";
 import Users from "./Users";
-import ChangePassword from "./ChangePassword";
 import Login from "./Login";
+import ChangePassword from "./ChangePassword";
+import AgreementsList from "./AgreementsList";
+import AgreementsForm from "./AgreementsForm";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
+  const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
     "agreementsList" | "agreementsForm" | "users"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState("");
-  const [userName, setUserName] = useState("");
 
-  // 🔹 Cargar sesión activa
+  // 🔹 Obtener sesión y rol
   useEffect(() => {
-    const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
 
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("must_change_password, role, full_name")
+          .select("role, must_change_password")
           .eq("id", currentSession.user.id)
           .single();
 
-        if (profile) {
-          setRole(profile.role || "");
-          setUserName(profile.full_name || "");
-          if (profile.must_change_password) setMustChangePassword(true);
-        }
+        setRole(profile?.role || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
       }
       setLoading(false);
-    };
+    });
 
-    loadSession();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
     return () => {
       listener.subscription.unsubscribe();
@@ -56,13 +47,12 @@ export default function App() {
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("must_change_password, role, full_name")
+      .select("role, must_change_password")
       .eq("id", user.id)
       .single();
 
-    setMustChangePassword(profile?.must_change_password || false);
     setRole(profile?.role || "");
-    setUserName(profile?.full_name || "");
+    setMustChangePassword(profile?.must_change_password || false);
     setSession({ user });
   };
 
@@ -70,8 +60,6 @@ export default function App() {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
-    setRole("");
-    setUserName("");
   };
 
   if (loading) return <p>Cargando...</p>;
@@ -88,7 +76,7 @@ export default function App() {
       />
     );
 
-  // 🔹 Si el usuario debe cambiar la contraseña
+  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -98,21 +86,25 @@ export default function App() {
     );
   }
 
-  // 🔹 Si está logueado normalmente
+  // 🔹 Si está logueado
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
         onLogout={handleLogout}
         setActivePage={setActivePage}
         role={role}
-        userName={userName}
+        userName={session.user.email}
       />
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreementsList" && (
-          <Agreements user={session.user} role={role} />
+          <AgreementsList user={session.user} role={role} />
         )}
         {activePage === "agreementsForm" && (
-          <AgreementsForm user={session.user} role={role} />
+          <AgreementsForm
+            user={session.user}
+            onSave={() => setActivePage("agreementsList")}
+            onCancel={() => setActivePage("agreementsList")}
+          />
         )}
         {activePage === "users" && <Users />}
       </div>
