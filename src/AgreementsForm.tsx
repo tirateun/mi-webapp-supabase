@@ -1,164 +1,174 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import countries from "./countries.json"; // JSON con lista de países
+import countries from "./countries.json";
 
 interface AgreementsFormProps {
   user: any;
   role: string;
+  existingAgreement?: any;
+  onSave: () => void;
+  onCancel: () => void;
 }
 
-export default function AgreementsForm({ user, role }: AgreementsFormProps) {
-  const [form, setForm] = useState({
+export default function AgreementsForm({
+  user,
+  role,
+  existingAgreement,
+  onSave,
+  onCancel,
+}: AgreementsFormProps) {
+  const [formData, setFormData] = useState({
     name: "",
     institucion: "",
-    convenio: "Marco",
+    convenio: "marco",
     pais: "",
-    internal_responsible: user.id,
-    external_responsible: "",
     signature_date: "",
     duration_years: 1,
+    internal_responsible: user?.id || null,
   });
-  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadProfiles();
-  }, []);
-
-  const loadProfiles = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, role");
-    if (!error && data) setProfiles(data);
-  };
-
-  const handleChange = (e: any) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-
-    const { error } = await supabase.from("agreements").insert([form]);
-    if (error) {
-      console.error(error);
-      alert("Error al crear convenio");
-    } else {
-      alert("✅ Convenio creado correctamente");
-      setForm({
-        name: "",
-        institucion: "",
-        convenio: "Marco",
-        pais: "",
-        internal_responsible: user.id,
-        external_responsible: "",
-        signature_date: "",
-        duration_years: 1,
+    if (existingAgreement) {
+      setFormData({
+        name: existingAgreement.name,
+        institucion: existingAgreement["Institución"],
+        convenio: existingAgreement.convenio,
+        pais: existingAgreement.pais,
+        signature_date: existingAgreement.signature_date,
+        duration_years: existingAgreement.duration_years,
+        internal_responsible: existingAgreement.internal_responsible,
       });
+    }
+  }, [existingAgreement]);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    const table = supabase.from("agreements");
+
+    const { error } = existingAgreement
+      ? await table.update(formData).eq("id", existingAgreement.id)
+      : await table.insert([formData]);
+
+    setLoading(false);
+
+    if (error) alert("❌ Error al guardar convenio");
+    else {
+      alert("✅ Convenio guardado correctamente");
+      onSave();
     }
   };
 
-  if (role !== "admin") {
-    return <p>No tienes permisos para crear convenios.</p>;
-  }
-
   return (
-    <div>
-      <h2>➕ Crear nuevo convenio</h2>
-      <form onSubmit={handleSubmit} style={{ maxWidth: "600px" }}>
-        <label>Nombre del convenio:</label>
-        <input name="name" value={form.name} onChange={handleChange} required />
+    <div
+      style={{
+        maxWidth: "600px",
+        margin: "auto",
+        padding: "20px",
+        background: "white",
+        borderRadius: "12px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h3 style={{ textAlign: "center", marginBottom: "20px" }}>
+        {existingAgreement ? "✏️ Editar Convenio" : "➕ Crear Convenio"}
+      </h3>
 
-        <label>Institución:</label>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <label>Nombre del convenio</label>
         <input
-          name="institucion"
-          value={form.institucion}
-          onChange={handleChange}
-          required
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          style={{ padding: "8px" }}
         />
 
-        <label>Tipo de convenio:</label>
+        <label>Institución</label>
+        <input
+          value={formData.institucion}
+          onChange={(e) =>
+            setFormData({ ...formData, institucion: e.target.value })
+          }
+          style={{ padding: "8px" }}
+        />
+
+        <label>Tipo de convenio</label>
         <select
-          name="convenio"
-          value={form.convenio}
-          onChange={handleChange}
-          required
+          value={formData.convenio}
+          onChange={(e) => setFormData({ ...formData, convenio: e.target.value })}
+          style={{ padding: "8px" }}
         >
-          <option value="Marco">Marco</option>
-          <option value="Específico">Específico</option>
+          <option value="marco">Marco</option>
+          <option value="específico">Específico</option>
         </select>
 
-        <label>País:</label>
+        <label>País</label>
         <select
-          name="pais"
-          value={form.pais}
-          onChange={handleChange}
-          required
+          value={formData.pais}
+          onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
+          style={{ padding: "8px" }}
         >
-          <option value="">Seleccionar país</option>
-          {countries.map((c: any) => (
+          <option value="">Seleccione un país</option>
+          {countries.map((c) => (
             <option key={c.code} value={c.name}>
               {c.name}
             </option>
           ))}
         </select>
 
-        <label>Responsable interno:</label>
-        <select
-          name="internal_responsible"
-          value={form.internal_responsible}
-          onChange={handleChange}
-          required
-        >
-          {profiles
-            .filter((p) => p.role === "internal" || p.role === "admin")
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name}
-              </option>
-            ))}
-        </select>
-
-        <label>Responsable externo:</label>
-        <select
-          name="external_responsible"
-          value={form.external_responsible}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Seleccionar</option>
-          {profiles
-            .filter((p) => p.role === "external")
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name}
-              </option>
-            ))}
-        </select>
-
-        <label>Fecha de firma:</label>
+        <label>Fecha de firma</label>
         <input
           type="date"
-          name="signature_date"
-          value={form.signature_date}
-          onChange={handleChange}
-          required
+          value={formData.signature_date}
+          onChange={(e) =>
+            setFormData({ ...formData, signature_date: e.target.value })
+          }
+          style={{ padding: "8px" }}
         />
 
-        <label>Duración (años):</label>
+        <label>Duración (años)</label>
         <input
           type="number"
-          name="duration_years"
-          value={form.duration_years}
-          onChange={handleChange}
-          required
-          min={1}
+          value={formData.duration_years}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              duration_years: Number(e.target.value),
+            })
+          }
+          style={{ padding: "8px" }}
         />
 
-        <button type="submit" style={{ marginTop: "20px" }}>
-          Guardar convenio
-        </button>
-      </form>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "10px 20px",
+              background: "#94a3b8",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            style={{
+              padding: "10px 20px",
+              background: "#3b82f6",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            {loading ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
+
