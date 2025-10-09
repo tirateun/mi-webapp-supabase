@@ -16,7 +16,6 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener sesión y rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -35,9 +34,11 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
 
     return () => {
       listener.subscription.unsubscribe();
@@ -64,7 +65,6 @@ export default function App() {
 
   if (loading) return <p>Cargando...</p>;
 
-  // 🔹 Si no hay sesión, mostrar login
   if (!session)
     return (
       <Login
@@ -76,7 +76,6 @@ export default function App() {
       />
     );
 
-  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -86,7 +85,6 @@ export default function App() {
     );
   }
 
-  // 🔹 Si está logueado
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
@@ -101,8 +99,6 @@ export default function App() {
         )}
         {activePage === "agreementsForm" && (
           <AgreementsForm
-            user={session.user}
-            role={role}
             onSave={() => setActivePage("agreementsList")}
             onCancel={() => setActivePage("agreementsList")}
           />
@@ -112,6 +108,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 

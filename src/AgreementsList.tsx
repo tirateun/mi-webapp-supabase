@@ -53,17 +53,18 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
 
   return (
     <div style={{ padding: "10px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>📑 Lista de Convenios</h2>
+      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>
+        📑 Lista de Convenios
+      </h2>
 
       {editingAgreement ? (
         <AgreementsForm
-          user={user}
+          existingAgreement={editingAgreement}
           onSave={() => {
             setEditingAgreement(null);
             fetchAgreements();
           }}
           onCancel={() => setEditingAgreement(null)}
-          existingAgreement={editingAgreement}
         />
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -148,6 +149,7 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
     </div>
   );
 }
+
 
 
 
