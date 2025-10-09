@@ -4,12 +4,17 @@ import countries from "./countries.json";
 
 interface AgreementsFormProps {
   user: any;
-  role: string;
   onSave: () => void;
   onCancel: () => void;
+  existingAgreement?: any; // ✅ para edición opcional
 }
 
-export default function AgreementsForm({ user, role, onSave, onCancel }: AgreementsFormProps) {
+export default function AgreementsForm({
+  user,
+  onSave,
+  onCancel,
+  existingAgreement,
+}: AgreementsFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     institucion: "",
@@ -25,7 +30,21 @@ export default function AgreementsForm({ user, role, onSave, onCancel }: Agreeme
 
   useEffect(() => {
     fetchProfiles();
-  }, []);
+
+    // ✅ Si estamos editando, cargar datos existentes
+    if (existingAgreement) {
+      setFormData({
+        name: existingAgreement.name || "",
+        institucion: existingAgreement.institucion || "",
+        convenio: existingAgreement.convenio || "",
+        pais: existingAgreement.pais || "",
+        internal_responsible: existingAgreement.internal_responsible || user.id,
+        external_responsible: existingAgreement.external_responsible || "",
+        signature_date: existingAgreement.signature_date || "",
+        duration_years: existingAgreement.duration_years || 1,
+      });
+    }
+  }, [existingAgreement]);
 
   const fetchProfiles = async () => {
     const { data } = await supabase.from("profiles").select("id, full_name, role");
@@ -34,19 +53,38 @@ export default function AgreementsForm({ user, role, onSave, onCancel }: Agreeme
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    const { error } = await supabase.from("agreements").insert([formData]);
-    if (error) {
-      alert("❌ Error al crear convenio: " + error.message);
+
+    let response;
+    if (existingAgreement) {
+      // ✅ Modo edición
+      response = await supabase
+        .from("agreements")
+        .update(formData)
+        .eq("id", existingAgreement.id);
     } else {
-      alert("✅ Convenio creado correctamente");
+      // ✅ Modo creación
+      response = await supabase.from("agreements").insert([formData]);
+    }
+
+    const { error } = response;
+    if (error) {
+      alert("❌ Error al guardar convenio: " + error.message);
+    } else {
+      alert(existingAgreement ? "✅ Convenio actualizado" : "✅ Convenio creado");
       onSave();
     }
   };
 
   return (
     <div style={{ maxWidth: "700px", margin: "0 auto" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>📝 Crear nuevo convenio</h2>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+        {existingAgreement ? "✏️ Editar convenio" : "📝 Crear nuevo convenio"}
+      </h2>
+
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: "flex", flexDirection: "column", gap: "15px" }}
+      >
         <label>
           Nombre del convenio:
           <input
@@ -168,12 +206,13 @@ export default function AgreementsForm({ user, role, onSave, onCancel }: Agreeme
               cursor: "pointer",
             }}
           >
-            Guardar convenio
+            {existingAgreement ? "Actualizar convenio" : "Guardar convenio"}
           </button>
         </div>
       </form>
     </div>
   );
 }
+
 
 
