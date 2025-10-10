@@ -3,17 +3,17 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface AgreementsFormProps {
-  user: any;
+  user?: any;
+  existingAgreement?: any;
   onSave: () => void;
   onCancel: () => void;
-  existingAgreement?: any;
 }
 
 export default function AgreementsForm({
   user,
+  existingAgreement,
   onSave,
   onCancel,
-  existingAgreement,
 }: AgreementsFormProps) {
   const [name, setName] = useState(existingAgreement?.name || "");
   const [institucion, setInstitucion] = useState(existingAgreement?.institucion || "");
@@ -41,7 +41,7 @@ export default function AgreementsForm({
 
     const agreementData = {
       name,
-      institucion, // 🔹 CORRECTO, coincide con tu tabla
+      institucion,
       convenio,
       pais,
       internal_responsible: internalResponsible || null,
@@ -51,12 +51,9 @@ export default function AgreementsForm({
     };
 
     try {
-      let result;
-      if (existingAgreement) {
-        result = await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id);
-      } else {
-        result = await supabase.from("agreements").insert([agreementData]);
-      }
+      const result = existingAgreement
+        ? await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id)
+        : await supabase.from("agreements").insert([agreementData]);
 
       if (result.error) {
         console.error("❌ Error real de Supabase:", result.error);
@@ -114,10 +111,7 @@ export default function AgreementsForm({
         </select>
 
         <label>Responsable interno:</label>
-        <select
-          value={internalResponsible}
-          onChange={(e) => setInternalResponsible(e.target.value)}
-        >
+        <select value={internalResponsible} onChange={(e) => setInternalResponsible(e.target.value)}>
           <option value="">Seleccionar...</option>
           {profiles
             .filter((p) => p.role === "internal")
@@ -129,10 +123,7 @@ export default function AgreementsForm({
         </select>
 
         <label>Responsable externo:</label>
-        <select
-          value={externalResponsible}
-          onChange={(e) => setExternalResponsible(e.target.value)}
-        >
+        <select value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
           <option value="">Seleccionar...</option>
           {profiles
             .filter((p) => p.role === "external")
@@ -144,12 +135,7 @@ export default function AgreementsForm({
         </select>
 
         <label>Fecha de firma:</label>
-        <input
-          type="date"
-          value={signatureDate}
-          onChange={(e) => setSignatureDate(e.target.value)}
-          required
-        />
+        <input type="date" value={signatureDate} onChange={(e) => setSignatureDate(e.target.value)} required />
 
         <label>Duración (años):</label>
         <input
@@ -164,11 +150,7 @@ export default function AgreementsForm({
           <button type="submit" disabled={loading} style={{ background: "#3b82f6", color: "white", padding: "8px 15px", border: "none", borderRadius: "5px" }}>
             {loading ? "Guardando..." : "Guardar"}
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{ background: "#e5e7eb", padding: "8px 15px", border: "none", borderRadius: "5px" }}
-          >
+          <button type="button" onClick={onCancel} style={{ background: "#e5e7eb", padding: "8px 15px", border: "none", borderRadius: "5px" }}>
             Cancelar
           </button>
         </div>
@@ -176,6 +158,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 

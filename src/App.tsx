@@ -94,11 +94,12 @@ export default function App() {
           <AgreementsList user={session.user} role={role} />
         )}
         {activePage === "agreementsForm" && (
-          <AgreementsForm
-            onSave={() => setActivePage("agreementsList")}
-            onCancel={() => setActivePage("agreementsList")}
-          />
-        )}
+  <AgreementsForm
+    user={session.user}
+    onSave={() => setActivePage("agreementsList")}
+    onCancel={() => setActivePage("agreementsList")}
+  />
+)}
         {activePage === "users" && <Users />}
       </div>
     </div>
