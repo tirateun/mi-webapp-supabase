@@ -6,12 +6,13 @@ import Login from "./Login";
 import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
+import InstitucionesList from "./InstitucionesList";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users"
+    "agreementsList" | "agreementsForm" | "users" | "instituciones"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -20,12 +21,14 @@ export default function App() {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
+
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, must_change_password")
           .eq("id", currentSession.user.id)
           .single();
+
         setRole(profile?.role || "");
         if (profile?.must_change_password) setMustChangePassword(true);
       }
@@ -82,7 +85,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: "flex" }}>
+    <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar
         onLogout={handleLogout}
         setActivePage={setActivePage}
@@ -94,16 +97,15 @@ export default function App() {
           <AgreementsList user={session.user} role={role} />
         )}
         {activePage === "agreementsForm" && (
-          <AgreementsForm
-            onSave={() => setActivePage("agreementsList")}
-            onCancel={() => setActivePage("agreementsList")}
-          />
+          <AgreementsForm onSave={() => setActivePage("agreementsList")} onCancel={() => setActivePage("agreementsList")} />
         )}
         {activePage === "users" && <Users />}
+        {activePage === "instituciones" && <InstitucionesList />}
       </div>
     </div>
   );
 }
+
 
 
 
