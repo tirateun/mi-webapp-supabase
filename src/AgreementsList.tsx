@@ -21,8 +21,11 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
     let query = supabase
       .from("agreements")
       .select(
-        `id, name, institucion, convenio, pais, signature_date, duration_years, expiration_date,
-         profiles!agreements_internal_responsible_fkey (full_name)`
+        `
+        id, name, institucion, convenio, pais, 
+        signature_date, duration_years, expiration_date,
+        profiles!agreements_internal_responsible_fkey (full_name)
+      `
       )
       .order("created_at", { ascending: false });
 
@@ -54,7 +57,6 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
 
       {editingAgreement ? (
         <AgreementsForm
-          user={user}
           existingAgreement={editingAgreement}
           onSave={() => {
             setEditingAgreement(null);
@@ -105,7 +107,7 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
                     <td style={{ padding: "10px" }}>{a.duration_years} años</td>
                     <td style={{ padding: "10px" }}>{a.expiration_date}</td>
                     {role === "admin" && (
-                      <td style={{ padding: "10px" }}>
+                      <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
                         <button
                           onClick={() => setEditingAgreement(a)}
                           style={{
@@ -115,6 +117,7 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
                             padding: "5px 10px",
                             borderRadius: "5px",
                             marginRight: "5px",
+                            cursor: "pointer",
                           }}
                         >
                           Editar
@@ -127,6 +130,7 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
                             border: "none",
                             padding: "5px 10px",
                             borderRadius: "5px",
+                            cursor: "pointer",
                           }}
                         >
                           Eliminar
@@ -143,6 +147,7 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
     </div>
   );
 }
+
 
 
 
