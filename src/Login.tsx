@@ -45,40 +45,38 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
 
   const handleForgotPassword = () => {
     alert(
-      "Para recuperar tu contraseña, contacta al correo proymed@unmsm.edu.pe con el administrador del sistema o revisa tu correo registrado."
+      "Para recuperar tu contraseña, contacta al correo proymed@unmsm.edu.pe con el administrador del sistema."
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center">
-      {/* Imagen institucional superior */}
+    <div
+      className="min-h-screen flex flex-col items-center justify-start bg-gray-50"
+      style={{ fontFamily: "Segoe UI, sans-serif" }}
+    >
+      {/* Banner institucional */}
       <div className="w-full">
         <img
           src="/Fondo 2022 47111 UNMSM.png"
-          alt="Encabezado institucional"
-          className="w-full h-64 object-cover"
+          alt="Banner institucional UNMSM"
+          className="w-full h-64 object-cover shadow-lg"
         />
       </div>
 
-      {/* Sección de logos y título */}
-      <div className="text-center mt-6">
-        <div className="flex justify-center items-center gap-6 mb-4">
-          <img src="/Escudo SF.jpg" alt="Logo FMUNMSM" className="w-20" />
-          <img src="/Escudo UNMSM.jpg" alt="Logo UNMSM" className="w-24" />
-        </div>
-
-        <h1 className="text-3xl font-bold text-gray-800 mb-1">
+      {/* Título */}
+      <div className="text-center mt-10 px-4">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">
           Gestión de Convenios Académicos
         </h1>
         <p className="text-gray-600 text-sm">
-          Facultad de Medicina - Universidad Nacional Mayor de San Marcos
+          Facultad de Medicina – Universidad Nacional Mayor de San Marcos
         </p>
       </div>
 
       {/* Formulario */}
       <form
         onSubmit={handleLogin}
-        className="bg-white shadow-lg rounded-xl mt-8 p-8 w-80 flex flex-col"
+        className="bg-white shadow-lg rounded-2xl mt-8 p-8 w-80 sm:w-96 flex flex-col border border-gray-200"
       >
         <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
           Iniciar sesión
@@ -106,13 +104,15 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
           onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
         />
 
-        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+        {error && (
+          <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+        )}
 
         <button
           type="submit"
           disabled={loading}
           className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
-            loading ? "opacity-70" : ""
+            loading ? "opacity-70 cursor-not-allowed" : ""
           }`}
         >
           {loading ? "Ingresando..." : "Ingresar"}
@@ -121,14 +121,20 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
         <button
           type="button"
           onClick={handleForgotPassword}
-          className="mt-3 text-blue-600 text-sm hover:underline"
+          className="mt-3 text-blue-600 text-sm hover:underline text-center"
         >
           ¿Olvidaste tu contraseña?
         </button>
       </form>
+
+      {/* Pie institucional */}
+      <footer className="mt-8 mb-6 text-gray-500 text-xs text-center">
+        © {new Date().getFullYear()} Facultad de Medicina UNMSM – Proyecto de Modernización
+      </footer>
     </div>
   );
 }
+
 
 
 
