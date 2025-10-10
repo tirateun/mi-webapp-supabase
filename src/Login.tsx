@@ -45,94 +45,91 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
 
   const handleForgotPassword = () => {
     alert(
-      "Para recuperar tu contraseña, contacta con el administrador del sistema o revisa tu correo registrado."
+      "Para recuperar tu contraseña, contacta al correo proymed@unmsm.edu.pe con el administrador del sistema o revisa tu correo registrado."
     );
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Lado izquierdo con imagen institucional */}
-      <div className="hidden md:flex w-1/2 bg-blue-900 text-white flex-col justify-center items-center relative">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center">
+      {/* Imagen institucional superior */}
+      <div className="w-full">
         <img
           src="/Fondo 2022 471 UNMSM.png"
-          alt="Imagen institucional"
-          className="absolute inset-0 w-full h-full object-cover opacity-70"
+          alt="Encabezado institucional"
+          className="w-full h-64 object-cover"
         />
-        <div className="relative z-10 text-center p-10">
-          <img
-            src="/Escudo SF.jpg"
-            alt="Logo UNMSM"
-            className="mx-auto mb-4 w-24"
-          />
-          <img
-            src="/Escudo UNMSM.jpg"
-            alt="Logo HEVES"
-            className="mx-auto mb-4 w-24"
-          />
-          <h1 className="text-3xl font-bold mb-2">
-            Gestión de Convenios Académicos
-          </h1>
-          <p className="text-sm text-gray-100">
-            Facultad de Medicina - Universidad Nacional Mayor de San Marcos
-          </p>
+      </div>
+
+      {/* Sección de logos y título */}
+      <div className="text-center mt-6">
+        <div className="flex justify-center items-center gap-6 mb-4">
+          <img src="/Escudo SF.jpg" alt="Logo FMUNMSM" className="w-24" />
+          <img src="/Escudo UNMSM.jpg" alt="Logo UNMSM" className="w-24" />
         </div>
+
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">
+          Gestión de Convenios Académicos
+        </h1>
+        <p className="text-gray-600 text-sm">
+          Facultad de Medicina - Universidad Nacional Mayor de San Marcos
+        </p>
       </div>
 
-      {/* Lado derecho: formulario */}
-      <div className="flex w-full md:w-1/2 justify-center items-center">
-        <form
-          onSubmit={handleLogin}
-          className="bg-white p-10 rounded-xl shadow-xl w-80 animate-fadeIn"
+      {/* Formulario */}
+      <form
+        onSubmit={handleLogin}
+        className="bg-white shadow-lg rounded-xl mt-8 p-8 w-80 flex flex-col"
+      >
+        <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
+          Iniciar sesión
+        </h2>
+
+        <label className="text-gray-600 mb-1">Correo electrónico</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="usuario@correo.com"
+          className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+          onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+        />
+
+        <label className="text-gray-600 mb-1">Contraseña</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          placeholder="********"
+          className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+          onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+        />
+
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
+            loading ? "opacity-70" : ""
+          }`}
         >
-          <h2 className="text-2xl font-bold text-center mb-6 text-gray-700">
-            Iniciar sesión
-          </h2>
+          {loading ? "Ingresando..." : "Ingresar"}
+        </button>
 
-          <label className="block mb-2 text-gray-600">Correo electrónico</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full mb-4 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="usuario@correo.com"
-          />
-
-          <label className="block mb-2 text-gray-600">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full mb-4 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-            placeholder="********"
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
-
-          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-all ${
-              loading ? "opacity-70" : ""
-            }`}
-          >
-            {loading ? "Ingresando..." : "Ingresar"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="w-full mt-3 text-blue-600 text-sm hover:underline"
-          >
-            ¿Olvidaste tu contraseña?
-          </button>
-        </form>
-      </div>
+        <button
+          type="button"
+          onClick={handleForgotPassword}
+          className="mt-3 text-blue-600 text-sm hover:underline"
+        >
+          ¿Olvidaste tu contraseña?
+        </button>
+      </form>
     </div>
   );
 }
+
 
 
 
