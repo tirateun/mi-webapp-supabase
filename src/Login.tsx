@@ -66,10 +66,10 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
       {/* Título */}
       <div className="text-center mt-10 px-4">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Gestión de Convenios Académicos
+          Facultad de Medicina San Fernando UNMSM
         </h1>
         <p className="text-gray-600 text-sm">
-          Facultad de Medicina – Universidad Nacional Mayor de San Marcos
+          Unidad de Cooperación, relaciones interinstitucionales y Gestión de Proyectos UCRIGP
         </p>
       </div>
 
