@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface LoginProps {
@@ -11,6 +11,12 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
+
+  useEffect(() => {
+    // Aparece suavemente al cargar
+    setTimeout(() => setFadeIn(true), 150);
+  }, []);
 
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -57,83 +63,91 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
       {/* Banner institucional */}
       <div className="w-full">
         <img
-          src="/Fondo 2022 47111 UNMSM.png"
+          src="/banner-unmsm.png" // cambia aquí por tu archivo en /public
           alt="Banner institucional UNMSM"
-          className="w-full h-64 object-cover shadow-lg"
+          className="w-full h-64 object-cover shadow-md"
         />
       </div>
 
-      {/* Título */}
-      <div className="text-center mt-10 px-4">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Facultad de Medicina San Fernando UNMSM
-        </h1>
-        <p className="text-gray-600 text-sm">
-          Unidad de Cooperación, relaciones interinstitucionales y Gestión de Proyectos UCRIGP
-        </p>
-      </div>
-
-      {/* Formulario */}
-      <form
-        onSubmit={handleLogin}
-        className="bg-white shadow-lg rounded-2xl mt-8 p-8 w-80 sm:w-96 flex flex-col border border-gray-200"
+      {/* Contenedor animado */}
+      <div
+        className={`transition-all duration-700 ease-out transform ${
+          fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        } flex flex-col items-center`}
       >
-        <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
-          Iniciar sesión
-        </h2>
+        {/* Título */}
+        <div className="text-center mt-10 px-4">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Gestión de Convenios Académicos
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Facultad de Medicina – Universidad Nacional Mayor de San Marcos
+          </p>
+        </div>
 
-        <label className="text-gray-600 mb-1">Correo electrónico</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="usuario@correo.com"
-          className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
-          onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
-        />
-
-        <label className="text-gray-600 mb-1">Contraseña</label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="********"
-          className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
-          onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
-        />
-
-        {error && (
-          <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
-            loading ? "opacity-70 cursor-not-allowed" : ""
-          }`}
+        {/* Formulario */}
+        <form
+          onSubmit={handleLogin}
+          className="bg-white shadow-xl rounded-2xl mt-8 p-8 w-80 sm:w-96 flex flex-col border border-gray-200"
         >
-          {loading ? "Ingresando..." : "Ingresar"}
-        </button>
+          <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
+            Iniciar sesión
+          </h2>
 
-        <button
-          type="button"
-          onClick={handleForgotPassword}
-          className="mt-3 text-blue-600 text-sm hover:underline text-center"
-        >
-          ¿Olvidaste tu contraseña?
-        </button>
-      </form>
+          <label className="text-gray-600 mb-1">Correo electrónico</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="usuario@correo.com"
+            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+          />
 
-      {/* Pie institucional */}
-      <footer className="mt-8 mb-6 text-gray-500 text-xs text-center">
-        © {new Date().getFullYear()} Facultad de Medicina UNMSM – Proyecto de Modernización
-      </footer>
+          <label className="text-gray-600 mb-1">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="********"
+            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+          />
+
+          {error && (
+            <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
+              loading ? "opacity-70 cursor-not-allowed" : ""
+            }`}
+          >
+            {loading ? "Ingresando..." : "Ingresar"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="mt-3 text-blue-600 text-sm hover:underline text-center"
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+        </form>
+
+        {/* Pie institucional */}
+        <footer className="mt-8 mb-6 text-gray-500 text-xs text-center">
+          © {new Date().getFullYear()} Facultad de Medicina UNMSM – Proyecto de Modernización
+        </footer>
+      </div>
     </div>
   );
 }
+
 
 
 
