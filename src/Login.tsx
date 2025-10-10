@@ -54,7 +54,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
       {/* Imagen institucional superior */}
       <div className="w-full">
         <img
-          src="/Fondo 2022 471 UNMSM.png"
+          src="/Fondo 2022 47111 UNMSM.png"
           alt="Encabezado institucional"
           className="w-full h-64 object-cover"
         />
@@ -63,7 +63,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
       {/* Sección de logos y título */}
       <div className="text-center mt-6">
         <div className="flex justify-center items-center gap-6 mb-4">
-          <img src="/Escudo SF.jpg" alt="Logo FMUNMSM" className="w-24" />
+          <img src="/Escudo SF.jpg" alt="Logo FMUNMSM" className="w-20" />
           <img src="/Escudo UNMSM.jpg" alt="Logo UNMSM" className="w-24" />
         </div>
 
