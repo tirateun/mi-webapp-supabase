@@ -63,7 +63,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
       {/* Banner institucional */}
       <div className="w-full">
         <img
-          src="/banner-unmsm.png" // cambia aquí por tu archivo en /public
+          src="/Fondo 2022 47111 UNMSM.png" // cambia aquí por tu archivo en /public
           alt="Banner institucional UNMSM"
           className="w-full h-64 object-cover shadow-md"
         />
@@ -78,10 +78,10 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
         {/* Título */}
         <div className="text-center mt-10 px-4">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Gestión de Convenios Académicos
+            Facultad de Medicina San Fernando UNMSM
           </h1>
-          <p className="text-gray-600 text-sm">
-            Facultad de Medicina – Universidad Nacional Mayor de San Marcos
+          <p className="text-gray-700 text-sm">
+          Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
           </p>
         </div>
 
