@@ -34,26 +34,34 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
     }
 
     const { data, error } = await query;
-    if (error) console.error("❌ Error al cargar convenios:", error);
-    else setAgreements(data || []);
+
+    if (error) {
+      console.error("❌ Error al cargar convenios:", error);
+    } else {
+      setAgreements(data || []);
+    }
     setLoading(false);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Seguro de eliminar este convenio?")) return;
+
     const { error } = await supabase.from("agreements").delete().eq("id", id);
-    if (error) alert("Error al eliminar convenio");
-    else {
+    if (error) {
+      alert("❌ Error al eliminar convenio: " + error.message);
+    } else {
       alert("✅ Convenio eliminado correctamente");
-      fetchAgreements();
+      fetchAgreements(); // 🔄 Recargar lista automáticamente
     }
   };
 
   if (loading) return <p>Cargando convenios...</p>;
 
   return (
-    <div style={{ padding: "10px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "15px" }}>📑 Lista de Convenios</h2>
+    <div className="p-4 w-full max-w-6xl mx-auto">
+      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
+        📑 Lista de Convenios
+      </h2>
 
       {editingAgreement ? (
         <AgreementsForm
@@ -65,75 +73,55 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
           onCancel={() => setEditingAgreement(null)}
         />
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              backgroundColor: "white",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-              borderRadius: "10px",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
-                <th style={{ padding: "10px" }}>Nombre</th>
-                <th style={{ padding: "10px" }}>Institución</th>
-                <th style={{ padding: "10px" }}>Tipo</th>
-                <th style={{ padding: "10px" }}>País</th>
-                <th style={{ padding: "10px" }}>Responsable interno</th>
-                <th style={{ padding: "10px" }}>Firma</th>
-                <th style={{ padding: "10px" }}>Duración</th>
-                <th style={{ padding: "10px" }}>Vencimiento</th>
-                {role === "admin" && <th style={{ padding: "10px" }}>Acciones</th>}
+        <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
+          <table className="min-w-full text-sm text-left text-gray-700">
+            <thead className="bg-blue-100 text-gray-800 text-sm uppercase">
+              <tr>
+                <th className="p-3">Nombre</th>
+                <th className="p-3">Institución</th>
+                <th className="p-3">Tipo</th>
+                <th className="p-3">País</th>
+                <th className="p-3">Responsable interno</th>
+                <th className="p-3">Firma</th>
+                <th className="p-3">Duración</th>
+                <th className="p-3">Vencimiento</th>
+                {role === "admin" && <th className="p-3 text-center">Acciones</th>}
               </tr>
             </thead>
             <tbody>
               {agreements.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: "center", padding: "15px" }}>
+                  <td colSpan={9} className="p-4 text-center italic text-gray-500">
                     No hay convenios registrados.
                   </td>
                 </tr>
               ) : (
                 agreements.map((a) => (
-                  <tr key={a.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "10px" }}>{a.name}</td>
-                    <td style={{ padding: "10px" }}>{a.institucion}</td>
-                    <td style={{ padding: "10px" }}>{a.convenio}</td>
-                    <td style={{ padding: "10px" }}>{a.pais}</td>
-                    <td style={{ padding: "10px" }}>{a.profiles?.full_name || "—"}</td>
-                    <td style={{ padding: "10px" }}>{a.signature_date}</td>
-                    <td style={{ padding: "10px" }}>{a.duration_years} años</td>
-                    <td style={{ padding: "10px" }}>{a.expiration_date}</td>
+                  <tr
+                    key={a.id}
+                    className="border-b hover:bg-gray-50 transition-colors duration-150"
+                  >
+                    <td className="p-3">{a.name}</td>
+                    <td className="p-3">{a.institucion}</td>
+                    <td className="p-3">{a.convenio}</td>
+                    <td className="p-3">{a.pais}</td>
+                    <td className="p-3">{a.profiles?.full_name || "—"}</td>
+                    <td className="p-3">{a.signature_date}</td>
+                    <td className="p-3">{a.duration_years} años</td>
+                    <td className="p-3">{a.expiration_date}</td>
                     {role === "admin" && (
-                      <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
+                      <td className="p-3 flex gap-2 justify-center">
                         <button
                           onClick={() => setEditingAgreement(a)}
-                          style={{
-                            background: "#3b82f6",
-                            color: "white",
-                            border: "none",
-                            padding: "5px 10px",
-                            borderRadius: "5px",
-                            marginRight: "5px",
-                            cursor: "pointer",
-                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-all"
                         >
-                          Editar
+                          ✏️ Editar
                         </button>
                         <button
                           onClick={() => handleDelete(a.id)}
-                          style={{
-                            background: "#ef4444",
-                            color: "white",
-                            border: "none",
-                            padding: "5px 10px",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                          }}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-all"
                         >
-                          Eliminar
+                          🗑 Eliminar
                         </button>
                       </td>
                     )}
@@ -147,7 +135,6 @@ export default function AgreementsList({ user, role }: AgreementsListProps) {
     </div>
   );
 }
-
 
 
 

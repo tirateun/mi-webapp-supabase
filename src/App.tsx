@@ -16,19 +16,16 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener sesión y rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
-
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, must_change_password")
           .eq("id", currentSession.user.id)
           .single();
-
         setRole(profile?.role || "");
         if (profile?.must_change_password) setMustChangePassword(true);
       }
@@ -107,7 +104,6 @@ export default function App() {
     </div>
   );
 }
-
 
 
 
