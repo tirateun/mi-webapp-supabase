@@ -3,14 +3,12 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface AgreementsFormProps {
-  user?: any;
   existingAgreement?: any;
   onSave: () => void;
   onCancel: () => void;
 }
 
 export default function AgreementsForm({
-  user,
   existingAgreement,
   onSave,
   onCancel,
@@ -158,6 +156,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
