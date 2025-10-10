@@ -14,7 +14,8 @@ export default function AgreementsForm({
   onCancel,
 }: AgreementsFormProps) {
   const [name, setName] = useState("");
-  const [institucion, setInstitucion] = useState("");
+  const [institucionId, setInstitucionId] = useState("");
+  const [instituciones, setInstituciones] = useState<any[]>([]);
   const [convenio, setConvenio] = useState("marco");
   const [pais, setPais] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
@@ -23,15 +24,18 @@ export default function AgreementsForm({
   const [externalResponsible, setExternalResponsible] = useState("");
   const [profiles, setProfiles] = useState<any[]>([]);
 
+  // 🔹 Cargar perfiles e instituciones
   useEffect(() => {
     fetchProfiles();
+    fetchInstituciones();
+
     if (existingAgreement) {
       setName(existingAgreement.name);
-      setInstitucion(existingAgreement.institucion);
-      setConvenio(existingAgreement.convenio);
-      setPais(existingAgreement.pais);
-      setSignatureDate(existingAgreement.signature_date);
-      setDurationYears(existingAgreement.duration_years);
+      setInstitucionId(existingAgreement.institucion_id || "");
+      setConvenio(existingAgreement.convenio || "marco");
+      setPais(existingAgreement.pais || "");
+      setSignatureDate(existingAgreement.signature_date || "");
+      setDurationYears(existingAgreement.duration_years || 1);
       setInternalResponsible(existingAgreement.internal_responsible || "");
       setExternalResponsible(existingAgreement.external_responsible || "");
     }
@@ -40,15 +44,22 @@ export default function AgreementsForm({
   const fetchProfiles = async () => {
     const { data, error } = await supabase.from("profiles").select("id, full_name");
     if (error) console.error("❌ Error al cargar perfiles:", error);
-    if (data) setProfiles(data);
+    else setProfiles(data || []);
   };
 
+  const fetchInstituciones = async () => {
+    const { data, error } = await supabase.from("instituciones").select("id, nombre").order("nombre");
+    if (error) console.error("❌ Error al cargar instituciones:", error);
+    else setInstituciones(data || []);
+  };
+
+  // 🔹 Guardar convenio
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const agreementData = {
       name,
-      institucion, // ✅ coincide exactamente con la tabla
+      institucion_id: institucionId || null,
       convenio,
       pais,
       signature_date: signatureDate,
@@ -61,10 +72,7 @@ export default function AgreementsForm({
 
     let result;
     if (existingAgreement) {
-      result = await supabase
-        .from("agreements")
-        .update(agreementData)
-        .eq("id", existingAgreement.id);
+      result = await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id);
     } else {
       result = await supabase.from("agreements").insert([agreementData]);
     }
@@ -83,10 +91,10 @@ export default function AgreementsForm({
     <form
       onSubmit={handleSubmit}
       style={{
-        maxWidth: "800px",
+        maxWidth: "850px",
         margin: "0 auto",
         background: "white",
-        padding: "20px",
+        padding: "25px",
         borderRadius: "12px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
@@ -115,13 +123,19 @@ export default function AgreementsForm({
 
         <div>
           <label>Institución</label>
-          <input
-            type="text"
-            value={institucion}
-            onChange={(e) => setInstitucion(e.target.value)}
+          <select
+            value={institucionId}
+            onChange={(e) => setInstitucionId(e.target.value)}
             required
             style={{ width: "100%", padding: "8px" }}
-          />
+          >
+            <option value="">Seleccionar institución</option>
+            {instituciones.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.nombre}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -211,7 +225,7 @@ export default function AgreementsForm({
 
       <div
         style={{
-          marginTop: "20px",
+          marginTop: "25px",
           display: "flex",
           justifyContent: "center",
           gap: "15px",
@@ -248,6 +262,7 @@ export default function AgreementsForm({
     </form>
   );
 }
+
 
 
 
