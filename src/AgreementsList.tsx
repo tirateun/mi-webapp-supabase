@@ -1,140 +1,128 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import AgreementsForm from "./AgreementsForm";
 
 interface AgreementsListProps {
   user: any;
   role: string;
+  onEdit: (agreement: any) => void;
+  onCreate: () => void;
 }
 
-export default function AgreementsList({ user, role }: AgreementsListProps) {
+export default function AgreementsList({ user, role, onEdit, onCreate }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
+
+  // ✅ Nueva variable de control para forzar recarga
+  const [refresh, setRefresh] = useState(false);
 
   useEffect(() => {
     fetchAgreements();
-  }, []);
+  }, [refresh]); // ✅ se vuelve a ejecutar cuando cambia "refresh"
 
   const fetchAgreements = async () => {
     setLoading(true);
-    let query = supabase
+    const { data, error } = await supabase
       .from("agreements")
-      .select(
-        `
-        id, name, institucion, convenio, pais, 
-        signature_date, duration_years, expiration_date,
-        profiles!agreements_internal_responsible_fkey (full_name)
-      `
-      )
-      .order("created_at", { ascending: false });
-
-    if (role !== "admin") {
-      query = query.eq("internal_responsible", user.id);
-    }
-
-    const { data, error } = await query;
+      .select(`
+        id,
+        name,
+        institucion_id,
+        instituciones (nombre),
+        convenio,
+        pais,
+        internal_responsible,
+        external_responsible,
+        signature_date,
+        duration_years
+      `)
+      .order("signature_date", { ascending: false });
 
     if (error) {
       console.error("❌ Error al cargar convenios:", error);
     } else {
-      setAgreements(data || []);
+      setAgreements(data);
     }
     setLoading(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Seguro de eliminar este convenio?")) return;
+    if (!confirm("¿Seguro que deseas eliminar este convenio?")) return;
 
     const { error } = await supabase.from("agreements").delete().eq("id", id);
+
     if (error) {
-      alert("❌ Error al eliminar convenio: " + error.message);
+      console.error("❌ Error al eliminar:", error);
+      alert("❌ Error al eliminar el convenio");
     } else {
       alert("✅ Convenio eliminado correctamente");
-      fetchAgreements(); // 🔄 Recargar lista automáticamente
+      setRefresh((prev) => !prev); // ✅ recargar lista
     }
   };
 
-  if (loading) return <p>Cargando convenios...</p>;
+  if (loading) return <p className="text-center mt-10">Cargando convenios...</p>;
 
   return (
-    <div className="p-4 w-full max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-        📑 Lista de Convenios
-      </h2>
+    <div className="p-6">
+      <h2 className="text-2xl font-bold text-blue-800 mb-4">📜 Lista de Convenios</h2>
 
-      {editingAgreement ? (
-        <AgreementsForm
-          existingAgreement={editingAgreement}
-          onSave={() => {
-            setEditingAgreement(null);
-            fetchAgreements();
-          }}
-          onCancel={() => setEditingAgreement(null)}
-        />
+      <button
+        onClick={onCreate}
+        className="mb-4 bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800"
+      >
+        ➕ Nuevo Convenio
+      </button>
+
+      {agreements.length === 0 ? (
+        <p>No hay convenios registrados.</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl shadow-lg bg-white">
-          <table className="min-w-full text-sm text-left text-gray-700">
-            <thead className="bg-blue-100 text-gray-800 text-sm uppercase">
-              <tr>
-                <th className="p-3">Nombre</th>
-                <th className="p-3">Institución</th>
-                <th className="p-3">Tipo</th>
-                <th className="p-3">País</th>
-                <th className="p-3">Responsable interno</th>
-                <th className="p-3">Firma</th>
-                <th className="p-3">Duración</th>
-                <th className="p-3">Vencimiento</th>
-                {role === "admin" && <th className="p-3 text-center">Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {agreements.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-4 text-center italic text-gray-500">
-                    No hay convenios registrados.
-                  </td>
-                </tr>
-              ) : (
-                agreements.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="border-b hover:bg-gray-50 transition-colors duration-150"
+        <table className="min-w-full border border-gray-300 text-sm bg-white">
+          <thead className="bg-gray-100 text-gray-700">
+            <tr>
+              <th className="border px-3 py-2">Nombre</th>
+              <th className="border px-3 py-2">Institución</th>
+              <th className="border px-3 py-2">Tipo</th>
+              <th className="border px-3 py-2">País</th>
+              <th className="border px-3 py-2">Fecha Firma</th>
+              <th className="border px-3 py-2">Duración</th>
+              <th className="border px-3 py-2">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {agreements.map((a) => (
+              <tr key={a.id} className="hover:bg-gray-50">
+                <td className="border px-3 py-2">{a.name}</td>
+                <td className="border px-3 py-2">
+                  {a.instituciones?.nombre || "—"}
+                </td>
+                <td className="border px-3 py-2">{a.convenio}</td>
+                <td className="border px-3 py-2">{a.pais}</td>
+                <td className="border px-3 py-2">
+                  {new Date(a.signature_date).toLocaleDateString("es-PE")}
+                </td>
+                <td className="border px-3 py-2">{a.duration_years} año(s)</td>
+                <td className="border px-3 py-2 text-center">
+                  <button
+                    onClick={() => onEdit(a)}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-3 py-1 rounded mr-2"
                   >
-                    <td className="p-3">{a.name}</td>
-                    <td className="p-3">{a.institucion}</td>
-                    <td className="p-3">{a.convenio}</td>
-                    <td className="p-3">{a.pais}</td>
-                    <td className="p-3">{a.profiles?.full_name || "—"}</td>
-                    <td className="p-3">{a.signature_date}</td>
-                    <td className="p-3">{a.duration_years} años</td>
-                    <td className="p-3">{a.expiration_date}</td>
-                    {role === "admin" && (
-                      <td className="p-3 flex gap-2 justify-center">
-                        <button
-                          onClick={() => setEditingAgreement(a)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md transition-all"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(a.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md transition-all"
-                        >
-                          🗑 Eliminar
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDelete(a.id)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
+
 
 
 

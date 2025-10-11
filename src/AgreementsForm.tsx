@@ -91,6 +91,8 @@ export default function AgreementsForm({
       alert("❌ Error al guardar convenio: " + error.message);
     } else {
       alert("✅ Convenio guardado correctamente");
+      if (!error) {
+        alert("✅ Convenio guardado correctamente");
       onSave();
     }
   };
