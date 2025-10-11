@@ -1,52 +1,68 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import countries from "./countries.json";
 
 interface InstitucionesFormProps {
-  existingInstitucion?: any;
+  existingInstitution?: any;
   onSave: () => void;
   onCancel: () => void;
 }
 
 export default function InstitucionesForm({
-  existingInstitucion,
+  existingInstitution,
   onSave,
   onCancel,
 }: InstitucionesFormProps) {
   const [nombre, setNombre] = useState("");
+  const [tipo, setTipo] = useState("Hospital");
+  const [pais, setPais] = useState("");
+  const [ciudad, setCiudad] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [telefono, setTelefono] = useState("");
+  const [contacto, setContacto] = useState("");
   const [email, setEmail] = useState("");
-  const [web, setWeb] = useState("");
+  const [telefono, setTelefono] = useState("");
 
   useEffect(() => {
-    if (existingInstitucion) {
-      setNombre(existingInstitucion.nombre);
-      setDireccion(existingInstitucion.direccion || "");
-      setTelefono(existingInstitucion.telefono || "");
-      setEmail(existingInstitucion.email || "");
-      setWeb(existingInstitucion.web || "");
+    if (existingInstitution) {
+      setNombre(existingInstitution.nombre);
+      setTipo(existingInstitution.tipo || "Hospital");
+      setPais(existingInstitution.pais);
+      setCiudad(existingInstitution.ciudad || "");
+      setDireccion(existingInstitution.direccion || "");
+      setContacto(existingInstitution.contacto || "");
+      setEmail(existingInstitution.email || "");
+      setTelefono(existingInstitution.telefono || "");
     }
-  }, [existingInstitucion]);
+  }, [existingInstitution]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const data = { nombre, direccion, telefono, email, web };
-    let result;
+    const dataToSave = {
+      nombre,
+      tipo,
+      pais,
+      ciudad,
+      direccion,
+      contacto,
+      email,
+      telefono,
+    };
 
-    if (existingInstitucion) {
+    let result;
+    if (existingInstitution) {
       result = await supabase
         .from("instituciones")
-        .update(data)
-        .eq("id", existingInstitucion.id);
+        .update(dataToSave)
+        .eq("id", existingInstitution.id);
     } else {
-      result = await supabase.from("instituciones").insert([data]);
+      result = await supabase.from("instituciones").insert([dataToSave]);
     }
 
     const { error } = result;
     if (error) {
-      console.error("❌ Error al guardar institución:", error);
-      alert("❌ No se pudo guardar la institución.");
+      alert("❌ Error al guardar institución: " + error.message);
+      console.error(error);
     } else {
       alert("✅ Institución guardada correctamente");
       onSave();
@@ -57,38 +73,67 @@ export default function InstitucionesForm({
     <form
       onSubmit={handleSubmit}
       style={{
-        maxWidth: "700px",
+        maxWidth: "800px",
         margin: "0 auto",
         background: "white",
-        padding: "25px",
+        padding: "20px",
         borderRadius: "12px",
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
     >
-      <h2
-        style={{
-          textAlign: "center",
-          color: "#1e3a8a",
-          marginBottom: "20px",
-        }}
-      >
-        {existingInstitucion ? "✏️ Editar Institución" : "🏛️ Nueva Institución"}
+      <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
+        {existingInstitution ? "✏️ Editar Institución" : "🏛️ Nueva Institución"}
       </h2>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "15px",
-        }}
-      >
-        <div style={{ gridColumn: "1 / span 2" }}>
-          <label>Nombre de la institución</label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
+        <div>
+          <label>Nombre</label>
           <input
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
+
+        <div>
+          <label>Tipo</label>
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="Hospital">Hospital</option>
+            <option value="Universidad">Universidad</option>
+            <option value="Instituto">Instituto</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+
+        <div>
+          <label>País</label>
+          <select
+            value={pais}
+            onChange={(e) => setPais(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="">Seleccionar país</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label>Ciudad</label>
+          <input
+            type="text"
+            value={ciudad}
+            onChange={(e) => setCiudad(e.target.value)}
             style={{ width: "100%", padding: "8px" }}
           />
         </div>
@@ -104,17 +149,17 @@ export default function InstitucionesForm({
         </div>
 
         <div>
-          <label>Teléfono</label>
+          <label>Contacto</label>
           <input
             type="text"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
+            value={contacto}
+            onChange={(e) => setContacto(e.target.value)}
             style={{ width: "100%", padding: "8px" }}
           />
         </div>
 
         <div>
-          <label>Correo electrónico</label>
+          <label>Email</label>
           <input
             type="email"
             value={email}
@@ -124,12 +169,11 @@ export default function InstitucionesForm({
         </div>
 
         <div>
-          <label>Sitio web</label>
+          <label>Teléfono</label>
           <input
             type="text"
-            value={web}
-            onChange={(e) => setWeb(e.target.value)}
-            placeholder="https://..."
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
             style={{ width: "100%", padding: "8px" }}
           />
         </div>
@@ -137,7 +181,7 @@ export default function InstitucionesForm({
 
       <div
         style={{
-          marginTop: "25px",
+          marginTop: "20px",
           display: "flex",
           justifyContent: "center",
           gap: "15px",
