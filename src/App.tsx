@@ -102,11 +102,7 @@ export default function App() {
 
       <div style={{ flex: 1, padding: "20px", background: "#f8fafc" }}>
         {activePage === "agreementsList" && (
-          <AgreementsList
-            user={session.user}
-            onSave={() => setActivePage("agreementsList")}
-            onCancel={() => setActivePage("agreementsList")}
-          />
+          <AgreementsList user={session.user} />
         )}
 
         {activePage === "agreementsForm" && (
