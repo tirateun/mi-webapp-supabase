@@ -6,17 +6,19 @@ import Login from "./Login";
 import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
+import InstitucionesList from "./InstitucionesList";
+import InstitucionesForm from "./InstitucionesForm";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
-  "instituciones" | "agreementsList" | "agreementsForm" | "users"
+    "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener sesión y rol
+  // Obtener sesión y rol del usuario
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -64,7 +66,6 @@ export default function App() {
 
   if (loading) return <p>Cargando...</p>;
 
-  // 🔹 Si no hay sesión, mostrar login
   if (!session)
     return (
       <Login
@@ -76,7 +77,6 @@ export default function App() {
       />
     );
 
-  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -86,9 +86,9 @@ export default function App() {
     );
   }
 
-  // 🔹 Si está logueado
+  // INTERFAZ PRINCIPAL
   return (
-    <div style={{ display: "flex" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc" }}>
       <Sidebar
         onLogout={handleLogout}
         setActivePage={setActivePage}
@@ -106,10 +106,18 @@ export default function App() {
           />
         )}
         {activePage === "users" && <Users />}
+        {activePage === "instituciones" && <InstitucionesList />}
+        {activePage === "institucionesForm" && (
+          <InstitucionesForm
+            onSave={() => setActivePage("instituciones")}
+            onCancel={() => setActivePage("instituciones")}
+          />
+        )}
       </div>
     </div>
   );
 }
+
 
 
 

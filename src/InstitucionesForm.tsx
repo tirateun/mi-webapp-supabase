@@ -3,13 +3,13 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface InstitucionesFormProps {
-  existingInstitution?: any;
+  existingInstitucion?: any;
   onSave: () => void;
   onCancel: () => void;
 }
 
 export default function InstitucionesForm({
-  existingInstitution,
+  existingInstitucion,
   onSave,
   onCancel,
 }: InstitucionesFormProps) {
@@ -23,22 +23,22 @@ export default function InstitucionesForm({
   const [telefono, setTelefono] = useState("");
 
   useEffect(() => {
-    if (existingInstitution) {
-      setNombre(existingInstitution.nombre);
-      setTipo(existingInstitution.tipo || "Hospital");
-      setPais(existingInstitution.pais);
-      setCiudad(existingInstitution.ciudad || "");
-      setDireccion(existingInstitution.direccion || "");
-      setContacto(existingInstitution.contacto || "");
-      setEmail(existingInstitution.email || "");
-      setTelefono(existingInstitution.telefono || "");
+    if (existingInstitucion) {
+      setNombre(existingInstitucion.nombre);
+      setTipo(existingInstitucion.tipo);
+      setPais(existingInstitucion.pais);
+      setCiudad(existingInstitucion.ciudad || "");
+      setDireccion(existingInstitucion.direccion || "");
+      setContacto(existingInstitucion.contacto || "");
+      setEmail(existingInstitucion.email || "");
+      setTelefono(existingInstitucion.telefono || "");
     }
-  }, [existingInstitution]);
+  }, [existingInstitucion]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const dataToSave = {
+    const data = {
       nombre,
       tipo,
       pais,
@@ -50,13 +50,13 @@ export default function InstitucionesForm({
     };
 
     let result;
-    if (existingInstitution) {
+    if (existingInstitucion) {
       result = await supabase
         .from("instituciones")
-        .update(dataToSave)
-        .eq("id", existingInstitution.id);
+        .update(data)
+        .eq("id", existingInstitucion.id);
     } else {
-      result = await supabase.from("instituciones").insert([dataToSave]);
+      result = await supabase.from("instituciones").insert([data]);
     }
 
     const { error } = result;
@@ -73,7 +73,7 @@ export default function InstitucionesForm({
     <form
       onSubmit={handleSubmit}
       style={{
-        maxWidth: "800px",
+        maxWidth: "700px",
         margin: "0 auto",
         background: "white",
         padding: "20px",
@@ -82,7 +82,7 @@ export default function InstitucionesForm({
       }}
     >
       <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
-        {existingInstitution ? "✏️ Editar Institución" : "🏛️ Nueva Institución"}
+        {existingInstitucion ? "✏️ Editar Institución" : "🏛️ Registrar Nueva Institución"}
       </h2>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
@@ -218,3 +218,4 @@ export default function InstitucionesForm({
     </form>
   );
 }
+

@@ -1,100 +1,130 @@
-import React from "react";
-
 interface SidebarProps {
-  onLogout: () => Promise<void>;
-  setActivePage: (page: "agreementsList" | "agreementsForm" | "users" | "instituciones") => void;
+  onLogout: () => void;
+  setActivePage: (
+    page:
+      | "agreementsList"
+      | "agreementsForm"
+      | "users"
+      | "instituciones"
+      | "institucionesForm"
+  ) => void;
   role: string;
   userName: string;
 }
 
-export default function Sidebar({ onLogout, setActivePage, role, userName }: SidebarProps) {
+export default function Sidebar({
+  onLogout,
+  setActivePage,
+  role,
+  userName,
+}: SidebarProps) {
   return (
     <div
       style={{
         width: "240px",
-        backgroundColor: "#1e3a8a",
+        background: "#1e3a8a",
         color: "white",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        minHeight: "100vh",
       }}
     >
       <div>
-        <div style={{ padding: "20px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-          <h2 style={{ marginBottom: "5px", fontSize: "18px" }}>👤 {userName}</h2>
-          <p style={{ fontSize: "14px", color: "#d1d5db" }}>{role.toUpperCase()}</p>
+        <div
+          style={{
+            padding: "20px",
+            fontWeight: "bold",
+            textAlign: "center",
+            borderBottom: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
+          Sistema de Convenios
         </div>
 
-        <nav style={{ padding: "10px" }}>
-          <button
+        <ul style={{ listStyle: "none", padding: "0" }}>
+          <li
             onClick={() => setActivePage("agreementsList")}
-            style={buttonStyle}
+            style={{
+              padding: "12px 20px",
+              cursor: "pointer",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
           >
-            📄 Ver convenios
-          </button>
-
-          <button
+            📄 Ver Convenios
+          </li>
+          <li
             onClick={() => setActivePage("agreementsForm")}
-            style={buttonStyle}
+            style={{
+              padding: "12px 20px",
+              cursor: "pointer",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
           >
-            📝 Crear convenio
-          </button>
+            📝 Crear Convenio
+          </li>
+
+          <li
+            onClick={() => setActivePage("instituciones")}
+            style={{
+              padding: "12px 20px",
+              cursor: "pointer",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            🏛️ Ver Instituciones
+          </li>
+          <li
+            onClick={() => setActivePage("institucionesForm")}
+            style={{
+              padding: "12px 20px",
+              cursor: "pointer",
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            ➕ Crear Institución
+          </li>
 
           {role === "admin" && (
-            <>
-              <button
-                onClick={() => setActivePage("users")}
-                style={buttonStyle}
-              >
-                👥 Usuarios
-              </button>
-
-              <button
-                onClick={() => setActivePage("instituciones")}
-                style={buttonStyle}
-              >
-                🏛️ Instituciones
-              </button>
-            </>
+            <li
+              onClick={() => setActivePage("users")}
+              style={{
+                padding: "12px 20px",
+                cursor: "pointer",
+                borderBottom: "1px solid rgba(255,255,255,0.1)",
+              }}
+            >
+              👥 Usuarios
+            </li>
           )}
-        </nav>
+        </ul>
       </div>
 
-      <div style={{ padding: "20px", borderTop: "1px solid rgba(255,255,255,0.2)" }}>
+      <div
+        style={{
+          padding: "15px",
+          borderTop: "1px solid rgba(255,255,255,0.2)",
+          textAlign: "center",
+          fontSize: "0.9em",
+        }}
+      >
+        <p style={{ marginBottom: "10px", fontStyle: "italic" }}>{userName}</p>
         <button
           onClick={onLogout}
           style={{
-            width: "100%",
-            backgroundColor: "#ef4444",
-            border: "none",
+            background: "#ef4444",
             color: "white",
-            padding: "10px",
+            border: "none",
+            padding: "8px 15px",
             borderRadius: "6px",
             cursor: "pointer",
           }}
         >
-          🚪 Cerrar sesión
+          Cerrar sesión
         </button>
       </div>
     </div>
   );
 }
-
-const buttonStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "10px",
-  marginBottom: "8px",
-  border: "none",
-  background: "transparent",
-  color: "white",
-  cursor: "pointer",
-  borderRadius: "6px",
-  fontSize: "15px",
-  transition: "background 0.2s",
-};
 
 
 
