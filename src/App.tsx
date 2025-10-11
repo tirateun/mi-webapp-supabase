@@ -7,6 +7,9 @@ import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import InstitucionesList from "./InstitucionesList";
+import Instituciones from "./Instituciones";
+...
+{activePage === "instituciones" && <Instituciones />}
 
 export default function App() {
   const [session, setSession] = useState<any>(null);

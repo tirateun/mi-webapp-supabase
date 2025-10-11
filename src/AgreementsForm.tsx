@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import countries from "./countries.json";
 
 interface AgreementsFormProps {
   existingAgreement?: any;
@@ -23,23 +24,24 @@ export default function AgreementsForm({
   const [profiles, setProfiles] = useState<any[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
 
+  // 🔹 Cargar datos iniciales
   useEffect(() => {
     fetchProfiles();
     fetchInstituciones();
 
     if (existingAgreement) {
-      setName(existingAgreement.name);
-      setInstitucionId(existingAgreement.institucion); // guarda el id
-      setConvenio(existingAgreement.convenio);
-      setPais(existingAgreement.pais);
-      setSignatureDate(existingAgreement.signature_date);
-      setDurationYears(existingAgreement.duration_years);
+      setName(existingAgreement.name || "");
+      setInstitucionId(existingAgreement.institucion_id || "");
+      setConvenio(existingAgreement.convenio || "marco");
+      setPais(existingAgreement.pais || "");
+      setSignatureDate(existingAgreement.signature_date || "");
+      setDurationYears(existingAgreement.duration_years || 1);
       setInternalResponsible(existingAgreement.internal_responsible || "");
       setExternalResponsible(existingAgreement.external_responsible || "");
     }
   }, [existingAgreement]);
 
-  // 🔹 Cargar perfiles (responsables)
+  // 🔹 Cargar perfiles
   const fetchProfiles = async () => {
     const { data, error } = await supabase.from("profiles").select("id, full_name");
     if (error) console.error("❌ Error al cargar perfiles:", error);
@@ -48,16 +50,12 @@ export default function AgreementsForm({
 
   // 🔹 Cargar instituciones
   const fetchInstituciones = async () => {
-    const { data, error } = await supabase.from("instituciones").select("id, nombre, pais");
+    const { data, error } = await supabase
+      .from("instituciones")
+      .select("id, nombre, tipo, pais")
+      .order("nombre", { ascending: true });
     if (error) console.error("❌ Error al cargar instituciones:", error);
-    if (data) setInstituciones(data);
-  };
-
-  // 🔹 Al elegir una institución, obtener su país automáticamente
-  const handleInstitucionChange = (id: string) => {
-    setInstitucionId(id);
-    const inst = instituciones.find((i) => i.id === id);
-    if (inst) setPais(inst.pais);
+    else setInstituciones(data || []);
   };
 
   // 🔹 Guardar convenio
@@ -66,7 +64,7 @@ export default function AgreementsForm({
 
     const agreementData = {
       name,
-      institucion: institucionId, // se guarda el id, no el nombre
+      institucion_id: institucionId,
       convenio,
       pais,
       signature_date: signatureDate,
@@ -75,9 +73,14 @@ export default function AgreementsForm({
       external_responsible: externalResponsible || null,
     };
 
+    console.log("📦 Datos a guardar:", agreementData);
+
     let result;
     if (existingAgreement) {
-      result = await supabase.from("agreements").update(agreementData).eq("id", existingAgreement.id);
+      result = await supabase
+        .from("agreements")
+        .update(agreementData)
+        .eq("id", existingAgreement.id);
     } else {
       result = await supabase.from("agreements").insert([agreementData]);
     }
@@ -92,6 +95,7 @@ export default function AgreementsForm({
     }
   };
 
+  // 🔹 Interfaz del formulario
   return (
     <form
       onSubmit={handleSubmit}
@@ -104,11 +108,24 @@ export default function AgreementsForm({
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
     >
-      <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
+      <h2
+        style={{
+          textAlign: "center",
+          color: "#1e3a8a",
+          marginBottom: "20px",
+          fontWeight: "bold",
+        }}
+      >
         {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Nuevo Convenio"}
       </h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "15px",
+        }}
+      >
         <div>
           <label>Nombre del convenio</label>
           <input
@@ -124,27 +141,17 @@ export default function AgreementsForm({
           <label>Institución</label>
           <select
             value={institucionId}
-            onChange={(e) => handleInstitucionChange(e.target.value)}
+            onChange={(e) => setInstitucionId(e.target.value)}
             required
             style={{ width: "100%", padding: "8px" }}
           >
             <option value="">Seleccionar institución</option>
             {instituciones.map((inst) => (
               <option key={inst.id} value={inst.id}>
-                {inst.nombre}
+                {inst.nombre} ({inst.tipo || "—"})
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <label>País</label>
-          <input
-            type="text"
-            value={pais}
-            readOnly
-            style={{ width: "100%", padding: "8px", background: "#f3f4f6" }}
-          />
         </div>
 
         <div>
@@ -156,6 +163,23 @@ export default function AgreementsForm({
           >
             <option value="marco">Marco</option>
             <option value="específico">Específico</option>
+          </select>
+        </div>
+
+        <div>
+          <label>País</label>
+          <select
+            value={pais}
+            onChange={(e) => setPais(e.target.value)}
+            required
+            style={{ width: "100%", padding: "8px" }}
+          >
+            <option value="">Seleccionar país</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.name}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -215,7 +239,14 @@ export default function AgreementsForm({
         </div>
       </div>
 
-      <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", gap: "15px" }}>
+      <div
+        style={{
+          marginTop: "20px",
+          display: "flex",
+          justifyContent: "center",
+          gap: "15px",
+        }}
+      >
         <button
           type="submit"
           style={{
@@ -247,6 +278,7 @@ export default function AgreementsForm({
     </form>
   );
 }
+
 
 
 
