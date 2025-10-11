@@ -15,6 +15,7 @@ export default function AgreementsForm({
 }: AgreementsFormProps) {
   const [name, setName] = useState("");
   const [institucionId, setInstitucionId] = useState("");
+  const [instituciones, setInstituciones] = useState<any[]>([]);
   const [convenio, setConvenio] = useState("marco");
   const [pais, setPais] = useState("");
   const [signatureDate, setSignatureDate] = useState("");
@@ -22,43 +23,35 @@ export default function AgreementsForm({
   const [internalResponsible, setInternalResponsible] = useState("");
   const [externalResponsible, setExternalResponsible] = useState("");
   const [profiles, setProfiles] = useState<any[]>([]);
-  const [instituciones, setInstituciones] = useState<any[]>([]);
 
-  // 🔹 Cargar datos iniciales
   useEffect(() => {
     fetchProfiles();
     fetchInstituciones();
 
     if (existingAgreement) {
-      setName(existingAgreement.name || "");
-      setInstitucionId(existingAgreement.institucion_id || "");
-      setConvenio(existingAgreement.convenio || "marco");
-      setPais(existingAgreement.pais || "");
-      setSignatureDate(existingAgreement.signature_date || "");
-      setDurationYears(existingAgreement.duration_years || 1);
+      setName(existingAgreement.name);
+      setInstitucionId(existingAgreement.institucion_id);
+      setConvenio(existingAgreement.convenio);
+      setPais(existingAgreement.pais);
+      setSignatureDate(existingAgreement.signature_date);
+      setDurationYears(existingAgreement.duration_years);
       setInternalResponsible(existingAgreement.internal_responsible || "");
       setExternalResponsible(existingAgreement.external_responsible || "");
     }
   }, [existingAgreement]);
 
-  // 🔹 Cargar perfiles
   const fetchProfiles = async () => {
     const { data, error } = await supabase.from("profiles").select("id, full_name");
     if (error) console.error("❌ Error al cargar perfiles:", error);
     if (data) setProfiles(data);
   };
 
-  // 🔹 Cargar instituciones
   const fetchInstituciones = async () => {
-    const { data, error } = await supabase
-      .from("instituciones")
-      .select("id, nombre, tipo, pais")
-      .order("nombre", { ascending: true });
+    const { data, error } = await supabase.from("instituciones").select("id, nombre");
     if (error) console.error("❌ Error al cargar instituciones:", error);
-    else setInstituciones(data || []);
+    if (data) setInstituciones(data);
   };
 
-  // 🔹 Guardar convenio
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -91,13 +84,10 @@ export default function AgreementsForm({
       alert("❌ Error al guardar convenio: " + error.message);
     } else {
       alert("✅ Convenio guardado correctamente");
-      if (!error) {
-        alert("✅ Convenio guardado correctamente");
-      onSave();
+      onSave(); // 🔄 vuelve a lista y refresca
     }
   };
 
-  // 🔹 Interfaz del formulario
   return (
     <form
       onSubmit={handleSubmit}
@@ -110,14 +100,7 @@ export default function AgreementsForm({
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
       }}
     >
-      <h2
-        style={{
-          textAlign: "center",
-          color: "#1e3a8a",
-          marginBottom: "20px",
-          fontWeight: "bold",
-        }}
-      >
+      <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
         {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Nuevo Convenio"}
       </h2>
 
@@ -150,7 +133,7 @@ export default function AgreementsForm({
             <option value="">Seleccionar institución</option>
             {instituciones.map((inst) => (
               <option key={inst.id} value={inst.id}>
-                {inst.nombre} ({inst.tipo || "—"})
+                {inst.nombre}
               </option>
             ))}
           </select>
@@ -262,6 +245,7 @@ export default function AgreementsForm({
         >
           Guardar
         </button>
+
         <button
           type="button"
           onClick={onCancel}
@@ -280,9 +264,3 @@ export default function AgreementsForm({
     </form>
   );
 }
-
-
-
-
-
-
