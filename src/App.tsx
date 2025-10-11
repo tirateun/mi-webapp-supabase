@@ -11,7 +11,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users"
+  "instituciones" | "agreementsList" | "agreementsForm" | "users"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
