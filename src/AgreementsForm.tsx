@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import countries from "./countries.json";
 
 interface AgreementsFormProps {
   existingAgreement?: any;
