@@ -6,9 +6,7 @@ import Login from "./Login";
 import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
-import InstitucionesList from "./InstitucionesList";
 import Instituciones from "./Instituciones";
-{activePage === "instituciones" && <Instituciones />}
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -19,6 +17,7 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Obtener sesión y rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -46,6 +45,7 @@ export default function App() {
     };
   }, []);
 
+  // 🔹 Manejo de login
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -58,14 +58,17 @@ export default function App() {
     setSession({ user });
   };
 
+  // 🔹 Cerrar sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
   };
 
-  if (loading) return <p>Cargando...</p>;
+  // 🔹 Estado de carga
+  if (loading) return <p style={{ textAlign: "center", marginTop: "30px" }}>Cargando...</p>;
 
+  // 🔹 Si no hay sesión → mostrar login
   if (!session)
     return (
       <Login
@@ -77,6 +80,7 @@ export default function App() {
       />
     );
 
+  // 🔹 Si debe cambiar la contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -86,6 +90,7 @@ export default function App() {
     );
   }
 
+  // 🔹 Vista principal (logueado)
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar
@@ -94,19 +99,31 @@ export default function App() {
         role={role}
         userName={session.user.email}
       />
-      <div style={{ flex: 1, padding: "20px" }}>
+
+      <div style={{ flex: 1, padding: "20px", background: "#f8fafc" }}>
         {activePage === "agreementsList" && (
-          <AgreementsList user={session.user} role={role} />
+          <AgreementsList
+            user={session.user}
+            onSave={() => setActivePage("agreementsList")}
+            onCancel={() => setActivePage("agreementsList")}
+          />
         )}
+
         {activePage === "agreementsForm" && (
-          <AgreementsForm onSave={() => setActivePage("agreementsList")} onCancel={() => setActivePage("agreementsList")} />
+          <AgreementsForm
+            onSave={() => setActivePage("agreementsList")}
+            onCancel={() => setActivePage("agreementsList")}
+          />
         )}
+
         {activePage === "users" && <Users />}
-        {activePage === "instituciones" && <InstitucionesList />}
+
+        {activePage === "instituciones" && <Instituciones />}
       </div>
     </div>
   );
 }
+
 
 
 
