@@ -1,86 +1,115 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import Sidebar from "./Sidebar";
+import Users from "./Users";
 import Login from "./Login";
+import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
-import InstitucionesList from "./InstitucionesList";
+import Instituciones from "./Instituciones";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [page, setPage] = useState<
-    "agreementsList" | "agreementsForm" | "instituciones" | "users"
+  const [role, setRole] = useState<string>("");
+  const [activePage, setActivePage] = useState<
+    "agreementsList" | "agreementsForm" | "users" | "instituciones"
   >("agreementsList");
-  const [editingAgreement, setEditingAgreement] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // ✅ fuerza recarga
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Obtener sesión y rol
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) =>
-      setSession(session)
-    );
+    supabase.auth.getSession().then(async ({ data }) => {
+      const currentSession = data.session;
+      setSession(currentSession);
+
+      if (currentSession?.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, must_change_password")
+          .eq("id", currentSession.user.id)
+          .single();
+
+        setRole(profile?.role || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
+      }
+      setLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
     return () => {
       listener.subscription.unsubscribe();
     };
   }, []);
 
-  if (!session) {
-    return (
-      <Login
-        onLogin={(user) => setSession({ user })}
-        onRequirePasswordChange={() => {}}
-      />
-    );
-  }
+  const handleLogin = async (user: any) => {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, must_change_password")
+      .eq("id", user.id)
+      .single();
+
+    setRole(profile?.role || "");
+    setMustChangePassword(profile?.must_change_password || false);
+    setSession({ user });
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setMustChangePassword(false);
   };
 
-  const handleCreateAgreement = () => {
-    setEditingAgreement(null);
-    setPage("agreementsForm");
-  };
+  if (loading) return <p>Cargando...</p>;
 
-  const handleEditAgreement = (agreement: any) => {
-    setEditingAgreement(agreement);
-    setPage("agreementsForm");
-  };
+  if (!session)
+    return (
+      <Login
+        onLogin={handleLogin}
+        onRequirePasswordChange={(user) => {
+          setMustChangePassword(true);
+          setSession({ user });
+        }}
+      />
+    );
 
-  const handleSaveAgreement = () => {
-    setPage("agreementsList");
-    setRefreshKey((prev) => prev + 1); // ✅ actualiza lista al guardar
-  };
+  if (mustChangePassword && session?.user) {
+    return (
+      <ChangePassword
+        user={session.user}
+        onPasswordChanged={() => setMustChangePassword(false)}
+      />
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <Sidebar onNavigate={setPage} onLogout={handleLogout} />
-
-      <main className="flex-1 p-6">
-        {page === "agreementsList" && (
-          <AgreementsList
-            key={refreshKey} // ✅ fuerza render actualizado
-            user={session.user}
-            role="admin"
-            onEdit={handleEditAgreement}
-            onCreate={handleCreateAgreement}
-          />
+    <div style={{ display: "flex" }}>
+      <Sidebar
+        setActivePage={setActivePage}
+        onLogout={handleLogout}
+        role={role}
+        userName={session.user.email}
+      />
+      <div style={{ flex: 1, padding: "20px" }}>
+        {activePage === "agreementsList" && (
+          <AgreementsList user={session.user} role={role} />
         )}
-
-        {page === "agreementsForm" && (
+        {activePage === "agreementsForm" && (
           <AgreementsForm
-            existingAgreement={editingAgreement}
-            onSave={handleSaveAgreement}
-            onCancel={() => setPage("agreementsList")}
+            onSave={() => setActivePage("agreementsList")}
+            onCancel={() => setActivePage("agreementsList")}
           />
         )}
-
-        {page === "instituciones" && <InstitucionesList />}
-      </main>
+        {activePage === "instituciones" && <Instituciones />}
+        {activePage === "users" && <Users />}
+      </div>
     </div>
   );
 }
+
 
 
 

@@ -1,20 +1,15 @@
 interface SidebarProps {
-  onLogout: () => void;
   setActivePage: (
-    page:
-      | "agreementsList"
-      | "agreementsForm"
-      | "users"
-      | "instituciones"
-      | "institucionesForm"
+    page: "agreementsList" | "agreementsForm" | "users" | "instituciones"
   ) => void;
+  onLogout: () => void;
   role: string;
   userName: string;
 }
 
 export default function Sidebar({
-  onLogout,
   setActivePage,
+  onLogout,
   role,
   userName,
 }: SidebarProps) {
@@ -26,109 +21,64 @@ export default function Sidebar({
         color: "white",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        padding: "20px",
+        minHeight: "100vh",
       }}
     >
-      <div>
-        <div
-          style={{
-            padding: "20px",
-            fontWeight: "bold",
-            textAlign: "center",
-            borderBottom: "1px solid rgba(255,255,255,0.2)",
-          }}
-        >
-          Sistema de Convenios
-        </div>
+      <h2 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "20px" }}>
+        Gestión de Convenios
+      </h2>
+      <p style={{ fontSize: "14px", marginBottom: "20px" }}>{userName}</p>
 
-        <ul style={{ listStyle: "none", padding: "0" }}>
-          <li
-            onClick={() => setActivePage("agreementsList")}
-            style={{
-              padding: "12px 20px",
-              cursor: "pointer",
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            📄 Ver Convenios
-          </li>
-          <li
-            onClick={() => setActivePage("agreementsForm")}
-            style={{
-              padding: "12px 20px",
-              cursor: "pointer",
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            📝 Crear Convenio
-          </li>
-
-          <li
-            onClick={() => setActivePage("instituciones")}
-            style={{
-              padding: "12px 20px",
-              cursor: "pointer",
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            🏛️ Ver Instituciones
-          </li>
-          <li
-            onClick={() => setActivePage("institucionesForm")}
-            style={{
-              padding: "12px 20px",
-              cursor: "pointer",
-              borderBottom: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            ➕ Crear Institución
-          </li>
-
-          {role === "admin" && (
-            <li
-              onClick={() => setActivePage("users")}
-              style={{
-                padding: "12px 20px",
-                cursor: "pointer",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              👥 Usuarios
-            </li>
-          )}
-        </ul>
-      </div>
-
-      <div
-        style={{
-          padding: "15px",
-          borderTop: "1px solid rgba(255,255,255,0.2)",
-          textAlign: "center",
-          fontSize: "0.9em",
-        }}
+      <button
+        onClick={() => setActivePage("agreementsList")}
+        style={btnStyle}
       >
-        <p style={{ marginBottom: "10px", fontStyle: "italic" }}>{userName}</p>
+        📋 Lista de Convenios
+      </button>
+
+      <button
+        onClick={() => setActivePage("agreementsForm")}
+        style={btnStyle}
+      >
+        📝 Crear Convenio
+      </button>
+
+      <button
+        onClick={() => setActivePage("instituciones")}
+        style={btnStyle}
+      >
+        🏛️ Instituciones
+      </button>
+
+      {role === "admin" && (
         <button
-          onClick={onLogout}
-          style={{
-            background: "#ef4444",
-            color: "white",
-            border: "none",
-            padding: "8px 15px",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
+          onClick={() => setActivePage("users")}
+          style={btnStyle}
         >
-          Cerrar sesión
+          👥 Usuarios
         </button>
-      </div>
+      )}
+
+      <div style={{ flexGrow: 1 }}></div>
+
+      <button
+        onClick={onLogout}
+        style={{ ...btnStyle, background: "#ef4444" }}
+      >
+        🚪 Cerrar sesión
+      </button>
     </div>
   );
 }
 
-
-
-
-
-
-
+const btnStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "white",
+  padding: "10px 0",
+  textAlign: "left",
+  cursor: "pointer",
+  fontSize: "15px",
+  transition: "all 0.2s",
+};
