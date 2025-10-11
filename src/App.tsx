@@ -6,13 +6,12 @@ import Login from "./Login";
 import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
-import Instituciones from "./Instituciones";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users" | "instituciones"
+    "agreementsList" | "agreementsForm" | "users"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,7 +44,6 @@ export default function App() {
     };
   }, []);
 
-  // 🔹 Manejo de login
   const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
@@ -58,17 +56,15 @@ export default function App() {
     setSession({ user });
   };
 
-  // 🔹 Cerrar sesión
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
   };
 
-  // 🔹 Estado de carga
-  if (loading) return <p style={{ textAlign: "center", marginTop: "30px" }}>Cargando...</p>;
+  if (loading) return <p>Cargando...</p>;
 
-  // 🔹 Si no hay sesión → mostrar login
+  // 🔹 Si no hay sesión, mostrar login
   if (!session)
     return (
       <Login
@@ -80,7 +76,7 @@ export default function App() {
       />
     );
 
-  // 🔹 Si debe cambiar la contraseña
+  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -90,35 +86,31 @@ export default function App() {
     );
   }
 
-  // 🔹 Vista principal (logueado)
+  // 🔹 Si está logueado
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div style={{ display: "flex" }}>
       <Sidebar
         onLogout={handleLogout}
         setActivePage={setActivePage}
         role={role}
         userName={session.user.email}
       />
-
-      <div style={{ flex: 1, padding: "20px", background: "#f8fafc" }}>
+      <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreementsList" && (
-          <AgreementsList user={session.user} />
+          <AgreementsList user={session.user} role={role} />
         )}
-
         {activePage === "agreementsForm" && (
           <AgreementsForm
             onSave={() => setActivePage("agreementsList")}
             onCancel={() => setActivePage("agreementsList")}
           />
         )}
-
         {activePage === "users" && <Users />}
-
-        {activePage === "instituciones" && <Instituciones />}
       </div>
     </div>
   );
 }
+
 
 
 
