@@ -7,18 +7,19 @@ import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
+import InstitucionesForm from "./InstitucionesForm"; // ✅ Import correcto
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users" | "instituciones"
-  >("agreementsList");
+    "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm"
+  >("agreementsList"); // ✅ Se agrega "institucionesForm"
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Obtener sesión y rol
+  // 🔹 Obtener sesión y rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -66,7 +67,7 @@ export default function App() {
 
   if (loading) return <p>Cargando...</p>;
 
-  // No hay sesión
+  // 🔹 Si no hay sesión
   if (!session)
     return (
       <Login
@@ -78,7 +79,7 @@ export default function App() {
       />
     );
 
-  // Debe cambiar contraseña
+  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -88,7 +89,7 @@ export default function App() {
     );
   }
 
-  // Contenido principal
+  // 🔹 Contenido principal
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
@@ -97,13 +98,12 @@ export default function App() {
         role={role}
         userName={session.user.email}
       />
-
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
             role={role}
-            onEdit={(agreement: any) => {
+            onEdit={(agreement) => {
               setEditingAgreement(agreement);
               setActivePage("agreementsForm");
             }}
@@ -128,19 +128,19 @@ export default function App() {
           />
         )}
 
-        {activePage === "institucionesForm" && (
+        {activePage === "instituciones" && <Instituciones />}
+        {activePage === "institucionesForm" && ( // ✅ Nueva vista
           <InstitucionesForm
             onSave={() => setActivePage("instituciones")}
             onCancel={() => setActivePage("instituciones")}
           />
         )}
-
-        {activePage === "instituciones" && <Instituciones />}
         {activePage === "users" && <Users />}
       </div>
     </div>
   );
 }
+
 
 
 
