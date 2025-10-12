@@ -1,18 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "./supabaseClient";
-import countries from "./countries.json";
 
 interface InstitucionesFormProps {
-  existingInstitucion?: any;
   onSave: () => void;
   onCancel: () => void;
 }
 
-export default function InstitucionesForm({
-  existingInstitucion,
-  onSave,
-  onCancel,
-}: InstitucionesFormProps) {
+export default function InstitucionesForm({ onSave, onCancel }: InstitucionesFormProps) {
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState("Hospital");
   const [pais, setPais] = useState("");
@@ -22,49 +16,26 @@ export default function InstitucionesForm({
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
 
-  useEffect(() => {
-    if (existingInstitucion) {
-      setNombre(existingInstitucion.nombre);
-      setTipo(existingInstitucion.tipo);
-      setPais(existingInstitucion.pais);
-      setCiudad(existingInstitucion.ciudad || "");
-      setDireccion(existingInstitucion.direccion || "");
-      setContacto(existingInstitucion.contacto || "");
-      setEmail(existingInstitucion.email || "");
-      setTelefono(existingInstitucion.telefono || "");
-    }
-  }, [existingInstitucion]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const data = {
-      nombre,
-      tipo,
-      pais,
-      ciudad,
-      direccion,
-      contacto,
-      email,
-      telefono,
-    };
+    const { error } = await supabase.from("instituciones").insert([
+      {
+        nombre,
+        tipo,
+        pais,
+        ciudad,
+        direccion,
+        contacto,
+        email,
+        telefono,
+      },
+    ]);
 
-    let result;
-    if (existingInstitucion) {
-      result = await supabase
-        .from("instituciones")
-        .update(data)
-        .eq("id", existingInstitucion.id);
-    } else {
-      result = await supabase.from("instituciones").insert([data]);
-    }
-
-    const { error } = result;
     if (error) {
-      alert("❌ Error al guardar institución: " + error.message);
-      console.error(error);
+      alert("❌ Error al guardar la institución: " + error.message);
     } else {
-      alert("✅ Institución guardada correctamente");
+      alert("✅ Institución registrada correctamente");
       onSave();
     }
   };
@@ -82,7 +53,7 @@ export default function InstitucionesForm({
       }}
     >
       <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
-        {existingInstitucion ? "✏️ Editar Institución" : "🏛️ Registrar Nueva Institución"}
+        🏛️ Registrar Nueva Institución
       </h2>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
@@ -104,28 +75,22 @@ export default function InstitucionesForm({
             onChange={(e) => setTipo(e.target.value)}
             style={{ width: "100%", padding: "8px" }}
           >
-            <option value="Hospital">Hospital</option>
-            <option value="Universidad">Universidad</option>
-            <option value="Instituto">Instituto</option>
-            <option value="Otro">Otro</option>
+            <option>Hospital</option>
+            <option>Universidad</option>
+            <option>Instituto</option>
+            <option>Otro</option>
           </select>
         </div>
 
         <div>
           <label>País</label>
-          <select
+          <input
+            type="text"
             value={pais}
             onChange={(e) => setPais(e.target.value)}
             required
             style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="">Seleccionar país</option>
-            {countries.map((c) => (
-              <option key={c.code} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>
@@ -159,7 +124,7 @@ export default function InstitucionesForm({
         </div>
 
         <div>
-          <label>Email</label>
+          <label>Correo electrónico</label>
           <input
             type="email"
             value={email}
@@ -179,14 +144,7 @@ export default function InstitucionesForm({
         </div>
       </div>
 
-      <div
-        style={{
-          marginTop: "20px",
-          display: "flex",
-          justifyContent: "center",
-          gap: "15px",
-        }}
-      >
+      <div style={{ marginTop: "20px", textAlign: "center" }}>
         <button
           type="submit"
           style={{
@@ -196,6 +154,7 @@ export default function InstitucionesForm({
             padding: "10px 20px",
             borderRadius: "6px",
             cursor: "pointer",
+            marginRight: "10px",
           }}
         >
           Guardar
@@ -218,4 +177,5 @@ export default function InstitucionesForm({
     </form>
   );
 }
+
 

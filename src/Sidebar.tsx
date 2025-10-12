@@ -37,6 +37,14 @@ export default function Sidebar({
         📋 Lista de Convenios
       </button>
 
+      <button 
+        onClick={() => setActivePage("instituciones")}>🏢 Ver Instituciones
+      </button>
+      
+      <button 
+        onClick={() => setActivePage("institucionesForm")}>➕ Crear Institución
+      </button>
+
       <button
         onClick={() => setActivePage("agreementsForm")}
         style={btnStyle}

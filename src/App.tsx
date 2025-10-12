@@ -128,6 +128,13 @@ export default function App() {
           />
         )}
 
+        {activePage === "institucionesForm" && (
+          <InstitucionesForm
+            onSave={() => setActivePage("instituciones")}
+            onCancel={() => setActivePage("instituciones")}
+          />
+        )}
+
         {activePage === "instituciones" && <Instituciones />}
         {activePage === "users" && <Users />}
       </div>
