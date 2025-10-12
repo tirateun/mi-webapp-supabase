@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { Menu, X } from "lucide-react";
 
 interface SidebarProps {
   setActivePage: (page: "agreementsList" | "agreementsForm" | "users" | "instituciones") => void;
@@ -8,124 +9,73 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ setActivePage, onLogout, role, userName }: SidebarProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleNavigate = (page: "agreementsList" | "agreementsForm" | "users" | "instituciones") => {
+    setActivePage(page);
+    setIsOpen(false); // Cierra el menú en móviles
+  };
+
   return (
-    <div
-      style={{
-        width: "250px",
-        minHeight: "100vh",
-        background: "#1e3a8a",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "20px 10px",
-      }}
-    >
-      {/* 🔹 Encabezado */}
-      <div>
-        <h2
-          style={{
-            textAlign: "center",
-            marginBottom: "20px",
-            fontSize: "20px",
-            fontWeight: "bold",
-            color: "#fbbf24",
-          }}
-        >
-          Plataforma UNMSM
-        </h2>
+    <>
+      {/* 🔹 Botón hamburguesa (solo móvil) */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 bg-blue-700 text-white p-2 rounded-lg shadow-lg"
+      >
+        {isOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
 
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: "13px",
-            marginBottom: "25px",
-            color: "#cbd5e1",
-          }}
-        >
-          {userName}
-        </p>
+      {/* 🔹 Sidebar principal */}
+      <div
+        className={`fixed md:static top-0 left-0 h-full md:h-auto w-64 bg-blue-900 text-white flex flex-col justify-between transition-transform duration-300 z-40 ${
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <div className="p-5 flex flex-col h-full">
+          {/* Encabezado */}
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-yellow-400 mb-2">UNMSM</h2>
+            <p className="text-sm text-gray-300 break-words">{userName}</p>
+          </div>
 
-        {/* 🔹 Menú principal */}
-        <nav>
-          <button
-            onClick={() => setActivePage("agreementsList")}
-            style={menuButton}
-          >
-            📑 Ver convenios
-          </button>
-
-          <button
-            onClick={() => setActivePage("agreementsForm")}
-            style={menuButton}
-          >
-            📝 Crear convenio
-          </button>
-
-          <button
-            onClick={() => setActivePage("instituciones")}
-            style={menuButton}
-          >
-            🏛️ Instituciones
-          </button>
-
-          {role === "admin" && (
-            <button
-              onClick={() => setActivePage("users")}
-              style={menuButton}
-            >
-              👥 Usuarios
+          {/* Menú principal */}
+          <nav className="flex-1 space-y-2">
+            <button onClick={() => handleNavigate("agreementsList")} className={menuButton}>
+              📑 Ver convenios
             </button>
-          )}
-        </nav>
-      </div>
+            <button onClick={() => handleNavigate("agreementsForm")} className={menuButton}>
+              📝 Crear convenio
+            </button>
+            <button onClick={() => handleNavigate("instituciones")} className={menuButton}>
+              🏛️ Instituciones
+            </button>
+            {role === "admin" && (
+              <button onClick={() => handleNavigate("users")} className={menuButton}>
+                👥 Usuarios
+              </button>
+            )}
+          </nav>
 
-      {/* 🔹 Pie de menú */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: "15px" }}>
-        <button
-          onClick={onLogout}
-          style={{
-            ...menuButton,
-            background: "#dc2626",
-            fontWeight: "bold",
-          }}
-        >
-          🚪 Cerrar sesión
-        </button>
-
-        <p
-          style={{
-            fontSize: "12px",
-            textAlign: "center",
-            marginTop: "15px",
-            color: "#93c5fd",
-          }}
-        >
-          Facultad de Medicina UNMSM
-        </p>
+          {/* Cerrar sesión */}
+          <div className="mt-8 border-t border-white/30 pt-4">
+            <button
+              onClick={onLogout}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-semibold transition-colors"
+            >
+              🚪 Cerrar sesión
+            </button>
+            <p className="text-xs text-center text-blue-300 mt-4">
+              Facultad de Medicina UNMSM
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-// 🎨 Estilo base para botones del menú
-const menuButton: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  textAlign: "left",
-  padding: "10px 15px",
-  marginBottom: "8px",
-  border: "none",
-  borderRadius: "8px",
-  background: "transparent",
-  color: "white",
-  cursor: "pointer",
-  transition: "all 0.2s ease",
-  fontSize: "15px",
-};
+// 🎨 Estilo base de botones
+const menuButton =
+  "block w-full text-left py-2 px-4 rounded-lg hover:bg-blue-700 transition-all text-white font-medium";
 
-Object.assign(menuButton, {
-  hover: {
-    background: "#2563eb",
-  },
-});
