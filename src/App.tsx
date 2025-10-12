@@ -15,6 +15,7 @@ export default function App() {
     "agreementsList" | "agreementsForm" | "users" | "instituciones"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Obtener sesión y rol
@@ -65,6 +66,7 @@ export default function App() {
 
   if (loading) return <p>Cargando...</p>;
 
+  // No hay sesión
   if (!session)
     return (
       <Login
@@ -76,6 +78,7 @@ export default function App() {
       />
     );
 
+  // Debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -85,6 +88,7 @@ export default function App() {
     );
   }
 
+  // Contenido principal
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
@@ -93,23 +97,43 @@ export default function App() {
         role={role}
         userName={session.user.email}
       />
+
       <div style={{ flex: 1, padding: "20px" }}>
         {activePage === "agreementsList" && (
-          <AgreementsList user={session.user} role={role} />
-        )}
-        {activePage === "agreementsForm" && (
-          <AgreementsForm
-            onSave={() => setActivePage("agreementsList")}
-            onCancel={() => setActivePage("agreementsList")}
+          <AgreementsList
+            user={session.user}
+            role={role}
+            onEdit={(agreement: any) => {
+              setEditingAgreement(agreement);
+              setActivePage("agreementsForm");
+            }}
+            onCreate={() => {
+              setEditingAgreement(null);
+              setActivePage("agreementsForm");
+            }}
           />
         )}
+
+        {activePage === "agreementsForm" && (
+          <AgreementsForm
+            existingAgreement={editingAgreement}
+            onSave={() => {
+              setActivePage("agreementsList");
+              setEditingAgreement(null);
+            }}
+            onCancel={() => {
+              setActivePage("agreementsList");
+              setEditingAgreement(null);
+            }}
+          />
+        )}
+
         {activePage === "instituciones" && <Instituciones />}
         {activePage === "users" && <Users />}
       </div>
     </div>
   );
 }
-
 
 
 
