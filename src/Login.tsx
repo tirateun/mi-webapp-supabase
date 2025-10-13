@@ -1,12 +1,5 @@
-import { useState } from "react";
-import {
-  MDBContainer,
-  MDBCol,
-  MDBRow,
-  MDBBtn,
-  MDBInput,
-  MDBCheckbox,
-} from "mdb-react-ui-kit";
+// src/Login.tsx
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface LoginProps {
@@ -17,11 +10,19 @@ interface LoginProps {
 export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
+  useEffect(() => {
+    // Aparece suavemente al cargar
+    setTimeout(() => setFadeIn(true), 150);
+  }, []);
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setLoading(true);
+    setError(null);
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -30,15 +31,11 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
 
     if (error) {
       setError("❌ Credenciales incorrectas o usuario no registrado.");
+      setLoading(false);
       return;
     }
 
     const user = data.user;
-    if (!user) {
-      setError("❌ No se pudo obtener información del usuario.");
-      return;
-    }
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("must_change_password")
@@ -50,74 +47,109 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
     } else {
       onLogin(user);
     }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = () => {
+    alert(
+      "Para recuperar tu contraseña, contacta al correo proymed@unmsm.edu.pe con el administrador del sistema."
+    );
   };
 
   return (
-    <MDBContainer fluid className="p-3 my-5 h-custom">
-      <MDBRow>
-        <MDBCol col="10" md="6">
-          <img
-            src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.webp"
-            className="img-fluid"
-            alt="Sample"
+    <div
+      className="min-h-screen flex flex-col items-center justify-start bg-gray-50"
+      style={{ fontFamily: "Segoe UI, sans-serif" }}
+    >
+      {/* Banner institucional */}
+      <div className="w-full">
+        <img
+          src="/Fondo 2022 47111 UNMSM.png" // coloca aquí tu banner en /public
+          alt="Banner institucional UNMSM"
+          className="w-full h-64 object-cover shadow-md"
+        />
+      </div>
+
+      {/* Contenedor animado */}
+      <div
+        className={`transition-all duration-700 ease-out transform ${
+          fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+        } flex flex-col items-center`}
+      >
+        {/* Título */}
+        <div className="text-center mt-10 px-4">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Facultad de Medicina San Fernando UNMSM
+          </h1>
+          <p className="text-gray-700 text-sm">
+            Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
+          </p>
+        </div>
+
+        {/* Formulario */}
+        <form
+          onSubmit={handleLogin}
+          className="bg-white shadow-xl rounded-2xl mt-8 p-8 w-80 sm:w-96 flex flex-col border border-gray-200"
+        >
+          <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
+            Iniciar sesión
+          </h2>
+
+          <label className="text-gray-600 mb-1">Correo electrónico</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="usuario@correo.com"
+            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
           />
-        </MDBCol>
 
-        <MDBCol col="4" md="6">
-          <form onSubmit={handleLogin}>
-            <div className="divider d-flex align-items-center my-4">
-              <p className="text-center fw-bold mx-3 mb-0">Iniciar Sesión</p>
-            </div>
+          <label className="text-gray-600 mb-1">Contraseña</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="********"
+            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
+            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+          />
 
-            <MDBInput
-              wrapperClass="mb-4"
-              label="Correo electrónico"
-              id="email"
-              type="email"
-              size="lg"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setEmail(e.target.value)
-              }
-              required
-            />
-            <MDBInput
-              wrapperClass="mb-4"
-              label="Contraseña"
-              id="password"
-              type="password"
-              size="lg"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPassword(e.target.value)
-              }
-              required
-            />
+          {error && (
+            <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+          )}
 
-            <div className="d-flex justify-content-between mb-4">
-              <MDBCheckbox
-                name="flexCheck"
-                id="flexCheckDefault"
-                label="Recordarme"
-              />
-              <a href="#!">¿Olvidaste tu contraseña?</a>
-            </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
+              loading ? "opacity-70 cursor-not-allowed" : ""
+            }`}
+          >
+            {loading ? "Ingresando..." : "Ingresar"}
+          </button>
 
-            <div className="text-center text-md-start mt-4 pt-2">
-              <MDBBtn className="mb-0 px-5" size="lg" type="submit">
-                Ingresar
-              </MDBBtn>
-            </div>
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            className="mt-3 text-blue-600 text-sm hover:underline text-center"
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+        </form>
 
-            {error && (
-              <p style={{ color: "red", marginTop: "10px" }}>{error}</p>
-            )}
-          </form>
-        </MDBCol>
-      </MDBRow>
-    </MDBContainer>
+        {/* Pie institucional */}
+        <footer className="mt-8 mb-6 text-gray-500 text-xs text-center">
+          © {new Date().getFullYear()} Facultad de Medicina UNMSM – Proyecto de Modernización
+        </footer>
+      </div>
+    </div>
   );
 }
+
+
 
 
 
