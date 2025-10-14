@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
-import { useNavigate } from "react-router-dom";
 
-export default function Login() {
-  const navigate = useNavigate();
+interface LoginProps {
+  onLogin: (user: any) => Promise<void>;
+  onRequirePasswordChange: (user: any) => void;
+}
+
+export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -12,103 +15,63 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+      if (error) throw error;
+
+      if (data?.user) {
+        onLogin(data.user);
+      }
+    } catch (err: any) {
       setError("❌ Credenciales incorrectas o usuario no registrado.");
-    } else if (data.user) {
-      navigate("/dashboard"); // o la ruta principal que uses
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-700 p-6">
-      <div className="bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden max-w-4xl w-full">
-        {/* Imagen lateral */}
-        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center p-8">
-          <img
-            src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.webp"
-            alt="Login Illustration"
-            className="w-3/4"
+    <div className="flex items-center justify-center h-screen bg-gray-100">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md"
+      >
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+          Iniciar sesión
+        </h2>
+
+        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
+
+        <div className="mb-4">
+          <label className="block text-gray-700 mb-2">Correo electrónico</label>
+          <input
+            type="email"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-300"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
           />
         </div>
 
-        {/* Formulario */}
-        <div className="w-full md:w-1/2 p-8">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
-            Iniciar sesión
-          </h2>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                Correo electrónico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="ejemplo@correo.com"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 text-sm font-semibold mb-2">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="********"
-                required
-              />
-            </div>
-
-            {error && (
-              <p className="text-red-600 text-center font-medium">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition duration-300 transform hover:scale-[1.02]"
-            >
-              Ingresar
-            </button>
-          </form>
-
-          <p className="text-center text-gray-600 mt-6">
-            ¿No tienes una cuenta?{" "}
-            <span
-              onClick={() => navigate("/register")}
-              className="text-blue-600 font-semibold cursor-pointer hover:underline"
-            >
-              Regístrate
-            </span>
-          </p>
+        <div className="mb-6">
+          <label className="block text-gray-700 mb-2">Contraseña</label>
+          <input
+            type="password"
+            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:ring-indigo-300"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </div>
-      </div>
+
+        <button
+          type="submit"
+          className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors"
+        >
+          Ingresar
+        </button>
+      </form>
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
