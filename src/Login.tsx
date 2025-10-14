@@ -62,7 +62,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
       >
         <div style={{ textAlign: "center", marginBottom: "20px" }}>
           <img
-            src="/Escudo UNMSM.jpg"
+            src="/Escudo SF.jpg"
             alt="Logo UNMSM"
             style={{ width: "80px", marginBottom: "10px" }}
           />
