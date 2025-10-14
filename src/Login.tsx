@@ -1,28 +1,16 @@
-// src/Login.tsx
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "./supabaseClient";
+import { useNavigate } from "react-router-dom";
 
-interface LoginProps {
-  onLogin: (user: any) => void;
-  onRequirePasswordChange: (user: any) => void;
-}
-
-export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) {
+export default function Login() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fadeIn, setFadeIn] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    // Aparece suavemente al cargar
-    setTimeout(() => setFadeIn(true), 150);
-  }, []);
-
-  const handleLogin = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    setLoading(true);
-    setError(null);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -31,123 +19,85 @@ export default function Login({ onLogin, onRequirePasswordChange }: LoginProps) 
 
     if (error) {
       setError("❌ Credenciales incorrectas o usuario no registrado.");
-      setLoading(false);
-      return;
+    } else if (data.user) {
+      navigate("/dashboard"); // o la ruta principal que uses
     }
-
-    const user = data.user;
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("must_change_password")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.must_change_password) {
-      onRequirePasswordChange(user);
-    } else {
-      onLogin(user);
-    }
-    setLoading(false);
-  };
-
-  const handleForgotPassword = () => {
-    alert(
-      "Para recuperar tu contraseña, contacta al correo proymed@unmsm.edu.pe con el administrador del sistema."
-    );
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-start bg-gray-50"
-      style={{ fontFamily: "Segoe UI, sans-serif" }}
-    >
-      {/* Banner institucional */}
-      <div className="w-full">
-        <img
-          src="/Fondo 2022 47111 UNMSM.png" // coloca aquí tu banner en /public
-          alt="Banner institucional UNMSM"
-          className="w-full h-64 object-cover shadow-md"
-        />
-      </div>
-
-      {/* Contenedor animado */}
-      <div
-        className={`transition-all duration-700 ease-out transform ${
-          fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
-        } flex flex-col items-center`}
-      >
-        {/* Título */}
-        <div className="text-center mt-10 px-4">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Facultad de Medicina San Fernando UNMSM
-          </h1>
-          <p className="text-gray-700 text-sm">
-            Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-700 p-6">
+      <div className="bg-white rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden max-w-4xl w-full">
+        {/* Imagen lateral */}
+        <div className="hidden md:flex md:w-1/2 bg-gray-100 items-center justify-center p-8">
+          <img
+            src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.webp"
+            alt="Login Illustration"
+            className="w-3/4"
+          />
         </div>
 
         {/* Formulario */}
-        <form
-          onSubmit={handleLogin}
-          className="bg-white shadow-xl rounded-2xl mt-8 p-8 w-80 sm:w-96 flex flex-col border border-gray-200"
-        >
-          <h2 className="text-xl font-semibold text-center mb-6 text-gray-700">
+        <div className="w-full md:w-1/2 p-8">
+          <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">
             Iniciar sesión
           </h2>
 
-          <label className="text-gray-600 mb-1">Correo electrónico</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="usuario@correo.com"
-            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
-            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
-          />
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-gray-700 text-sm font-semibold mb-2">
+                Correo electrónico
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ejemplo@correo.com"
+                required
+              />
+            </div>
 
-          <label className="text-gray-600 mb-1">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="********"
-            className="p-2 mb-4 border border-gray-300 rounded focus:ring-2 focus:ring-blue-400"
-            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
-          />
+            <div>
+              <label className="block text-gray-700 text-sm font-semibold mb-2">
+                Contraseña
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="********"
+                required
+              />
+            </div>
 
-          {error && (
-            <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
-          )}
+            {error && (
+              <p className="text-red-600 text-center font-medium">{error}</p>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-all ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
-            }`}
-          >
-            {loading ? "Ingresando..." : "Ingresar"}
-          </button>
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition duration-300 transform hover:scale-[1.02]"
+            >
+              Ingresar
+            </button>
+          </form>
 
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            className="mt-3 text-blue-600 text-sm hover:underline text-center"
-          >
-            ¿Olvidaste tu contraseña?
-          </button>
-        </form>
-
-        {/* Pie institucional */}
-        <footer className="mt-8 mb-6 text-gray-500 text-xs text-center">
-          © {new Date().getFullYear()} Facultad de Medicina UNMSM – Proyecto de Modernización
-        </footer>
+          <p className="text-center text-gray-600 mt-6">
+            ¿No tienes una cuenta?{" "}
+            <span
+              onClick={() => navigate("/register")}
+              className="text-blue-600 font-semibold cursor-pointer hover:underline"
+            >
+              Regístrate
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
 
 
 
