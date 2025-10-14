@@ -7,11 +7,12 @@ import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
-import InstitucionesForm from "./InstitucionesForm"; // ✅ Import correcto
+import InstitucionesForm from "./InstitucionesForm";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
+  const [fullName, setFullName] = useState<string>("");
   const [activePage, setActivePage] = useState<
     "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm"
   >("agreementsList");
@@ -19,7 +20,6 @@ export default function App() {
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener sesión y rol
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -28,11 +28,12 @@ export default function App() {
       if (currentSession?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, must_change_password")
+          .select("role, must_change_password, full_name")
           .eq("id", currentSession.user.id)
           .single();
 
         setRole(profile?.role || "");
+        setFullName(profile?.full_name || "");
         if (profile?.must_change_password) setMustChangePassword(true);
       }
       setLoading(false);
@@ -47,20 +48,20 @@ export default function App() {
     };
   }, []);
 
-  // ✅ Se agregó tipado explícito a `user`
-  const handleLogin = async (user: any): Promise<void> => {
+  const handleLogin = async (user: any) => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, must_change_password")
+      .select("role, must_change_password, full_name")
       .eq("id", user.id)
       .single();
 
     setRole(profile?.role || "");
+    setFullName(profile?.full_name || "");
     setMustChangePassword(profile?.must_change_password || false);
     setSession({ user });
   };
 
-  const handleLogout = async (): Promise<void> => {
+  const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
@@ -68,19 +69,17 @@ export default function App() {
 
   if (loading) return <p>Cargando...</p>;
 
-  // 🔹 Si no hay sesión
   if (!session)
     return (
       <Login
-        onLogin={(user: any) => handleLogin(user)} // ✅ tipado explícito
-        onRequirePasswordChange={(user: any) => {
+        onLogin={handleLogin}
+        onRequirePasswordChange={(user) => {
           setMustChangePassword(true);
           setSession({ user });
         }}
       />
     );
 
-  // 🔹 Si debe cambiar contraseña
   if (mustChangePassword && session?.user) {
     return (
       <ChangePassword
@@ -90,16 +89,20 @@ export default function App() {
     );
   }
 
-  // 🔹 Contenido principal
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
         setActivePage={setActivePage}
         onLogout={handleLogout}
         role={role}
-        userName={session.user.email}
+        userName={fullName || session.user.email}
       />
       <div style={{ flex: 1, padding: "20px" }}>
+        <h2 style={{ marginBottom: "20px" }}>
+          👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
+          <span style={{ color: "#555" }}>({role === "admin" ? "Administrador interno" : role === "interno" ? "Usuario interno" : "Usuario externo"})</span>
+        </h2>
+
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
@@ -141,6 +144,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
