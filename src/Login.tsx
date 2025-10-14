@@ -64,7 +64,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
           <img
             src="/Escudo SF.jpg"
             alt="Logo UNMSM"
-            style={{ width: "120px", marginBottom: "10px" }}
+            style={{ width: "160px", marginBottom: "10px" }}
           />
           <h2 style={{ color: "#1A2C59", marginBottom: "10px" }}>
             Iniciar sesión
@@ -167,7 +167,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
             marginTop: "20px",
           }}
         >
-          © UNMSM - Sistema de Registro Hospitalario
+          © UNMSM - Facultad de Medicina San Fernando
         </p>
       </div>
     </div>
