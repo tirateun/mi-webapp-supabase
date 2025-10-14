@@ -4,12 +4,12 @@ import { supabase } from "./supabaseClient";
 export default function Login({ onLogin, onRequirePasswordChange }: any) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setError("");
     setLoading(true);
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -22,71 +22,156 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
     if (error) {
       setError("❌ Credenciales incorrectas o usuario no registrado.");
     } else if (data?.user) {
-      onLogin(data.user);
+      // Verificar si el usuario debe cambiar su contraseña
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.must_change_password) {
+        onRequirePasswordChange(data.user);
+      } else {
+        onLogin(data.user);
+      }
     }
   };
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen bg-gray-100"
       style={{
-        backgroundImage: `url('/Fondo 2022 47111 UNMSM.png')`,
+        height: "100vh",
+        width: "100vw",
+        backgroundImage: "url('/Fondo 2022 47111 UNMSM.png')",
         backgroundSize: "cover",
         backgroundPosition: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      <div className="bg-white bg-opacity-95 rounded-2xl shadow-2xl p-10 w-[400px]">
-        <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">
-          Iniciar sesión
-        </h2>
+      <div
+        style={{
+          backgroundColor: "rgba(255, 255, 255, 0.95)",
+          padding: "40px",
+          borderRadius: "15px",
+          width: "380px",
+          boxShadow: "0 4px 10px rgba(0, 0, 0, 0.3)",
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: "20px" }}>
+          <img
+            src="/Escudo UNMSM.jpg"
+            alt="Logo UNMSM"
+            style={{ width: "80px", marginBottom: "10px" }}
+          />
+          <h2 style={{ color: "#1A2C59", marginBottom: "10px" }}>
+            Iniciar sesión
+          </h2>
+          <p style={{ fontSize: "14px", color: "#444" }}>
+            GESTIÓN DE CONVENIOS INSTITUCIONALES
+          </p>
+        </div>
 
         <form onSubmit={handleLogin}>
-          <label className="block mb-3">
-            <span className="text-gray-700">Correo electrónico</span>
+          <div style={{ marginBottom: "15px" }}>
+            <label
+              htmlFor="email"
+              style={{
+                display: "block",
+                fontWeight: "bold",
+                fontSize: "14px",
+                marginBottom: "5px",
+                color: "#1A2C59",
+              }}
+            >
+              Correo electrónico
+            </label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="usuario@unmsm.edu.pe"
+              required
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "8px",
+                border: "1px solid #ccc",
+                outline: "none",
+              }}
             />
-          </label>
+          </div>
 
-          <label className="block mb-4">
-            <span className="text-gray-700">Contraseña</span>
+          <div style={{ marginBottom: "15px" }}>
+            <label
+              htmlFor="password"
+              style={{
+                display: "block",
+                fontWeight: "bold",
+                fontSize: "14px",
+                marginBottom: "5px",
+                color: "#1A2C59",
+              }}
+            >
+              Contraseña
+            </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="********"
               required
-              className="mt-1 block w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: "8px",
+                border: "1px solid #ccc",
+                outline: "none",
+              }}
             />
-          </label>
+          </div>
 
           {error && (
-            <p className="text-red-600 text-center mb-4 font-medium">{error}</p>
+            <p style={{ color: "red", fontSize: "14px", marginBottom: "10px" }}>
+              {error}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 rounded-lg text-white font-semibold transition ${
-              loading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
+            style={{
+              width: "100%",
+              padding: "10px",
+              backgroundColor: "#1A2C59",
+              color: "#fff",
+              border: "none",
+              borderRadius: "8px",
+              fontWeight: "bold",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
           >
-            {loading ? "Verificando..." : "Ingresar"}
+            {loading ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
 
-        <p className="text-sm text-center text-gray-500 mt-6">
+        <p
+          style={{
+            fontSize: "12px",
+            textAlign: "center",
+            color: "#555",
+            marginTop: "20px",
+          }}
+        >
           © UNMSM - Sistema de Registro Hospitalario
         </p>
       </div>
     </div>
   );
 }
+
 
