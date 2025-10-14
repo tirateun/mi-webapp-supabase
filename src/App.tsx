@@ -14,7 +14,7 @@ export default function App() {
   const [role, setRole] = useState<string>("");
   const [activePage, setActivePage] = useState<
     "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm"
-  >("agreementsList"); // ✅ Se agrega "institucionesForm"
+  >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +47,8 @@ export default function App() {
     };
   }, []);
 
-  const handleLogin = async (user: any) => {
+  // ✅ Se agregó tipado explícito a `user`
+  const handleLogin = async (user: any): Promise<void> => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, must_change_password")
@@ -59,7 +60,7 @@ export default function App() {
     setSession({ user });
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
@@ -71,8 +72,8 @@ export default function App() {
   if (!session)
     return (
       <Login
-        onLogin={handleLogin}
-        onRequirePasswordChange={(user) => {
+        onLogin={(user: any) => handleLogin(user)} // ✅ tipado explícito
+        onRequirePasswordChange={(user: any) => {
           setMustChangePassword(true);
           setSession({ user });
         }}
@@ -129,7 +130,7 @@ export default function App() {
         )}
 
         {activePage === "instituciones" && <Instituciones />}
-        {activePage === "institucionesForm" && ( // ✅ Nueva vista
+        {activePage === "institucionesForm" && (
           <InstitucionesForm
             onSave={() => setActivePage("instituciones")}
             onCancel={() => setActivePage("instituciones")}
@@ -140,6 +141,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
