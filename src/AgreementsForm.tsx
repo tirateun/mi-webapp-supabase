@@ -1,266 +1,162 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "./supabaseClient";
-import countries from "./countries.json";
 
-interface AgreementsFormProps {
+export default function AgreementsForm({
+  existingAgreement = null,
+  onSave,
+  onCancel,
+}: {
   existingAgreement?: any;
   onSave: () => void;
   onCancel: () => void;
-}
+}) {
+  const [formData, setFormData] = useState({
+    nombre: existingAgreement?.nombre || "",
+    descripcion: existingAgreement?.descripcion || "",
+    fecha_inicio: existingAgreement?.fecha_inicio || "",
+    fecha_fin: existingAgreement?.fecha_fin || "",
+    tipo_convenio: existingAgreement?.tipo_convenio || [], // ✅ nuevo campo
+  });
 
-export default function AgreementsForm({
-  existingAgreement,
-  onSave,
-  onCancel,
-}: AgreementsFormProps) {
-  const [name, setName] = useState("");
-  const [institucionId, setInstitucionId] = useState("");
-  const [instituciones, setInstituciones] = useState<any[]>([]);
-  const [convenio, setConvenio] = useState("marco");
-  const [pais, setPais] = useState("");
-  const [signatureDate, setSignatureDate] = useState("");
-  const [durationYears, setDurationYears] = useState(1);
-  const [internalResponsible, setInternalResponsible] = useState("");
-  const [externalResponsible, setExternalResponsible] = useState("");
-  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  useEffect(() => {
-    fetchProfiles();
-    fetchInstituciones();
-
-    if (existingAgreement) {
-      setName(existingAgreement.name);
-      setInstitucionId(existingAgreement.institucion_id);
-      setConvenio(existingAgreement.convenio);
-      setPais(existingAgreement.pais);
-      setSignatureDate(existingAgreement.signature_date);
-      setDurationYears(existingAgreement.duration_years);
-      setInternalResponsible(existingAgreement.internal_responsible || "");
-      setExternalResponsible(existingAgreement.external_responsible || "");
-    }
-  }, [existingAgreement]);
-
-  const fetchProfiles = async () => {
-    const { data, error } = await supabase.from("profiles").select("id, full_name");
-    if (error) console.error("❌ Error al cargar perfiles:", error);
-    if (data) setProfiles(data);
-  };
-
-  const fetchInstituciones = async () => {
-    const { data, error } = await supabase.from("instituciones").select("id, nombre");
-    if (error) console.error("❌ Error al cargar instituciones:", error);
-    if (data) setInstituciones(data);
-  };
+  const tiposConvenio = [
+    "Docente Asistencial",
+    "Cooperación técnica",
+    "Movilidad académica",
+    "Investigación",
+    "Colaboración académica",
+    "Consultoría",
+    "Cotutela",
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
 
-    const agreementData = {
-      name,
-      institucion_id: institucionId,
-      convenio,
-      pais,
-      signature_date: signatureDate,
-      duration_years: durationYears,
-      internal_responsible: internalResponsible || null,
-      external_responsible: externalResponsible || null,
-    };
+    const { error } = await supabase.from("agreements").upsert([
+      {
+        id: existingAgreement?.id,
+        nombre: formData.nombre,
+        descripcion: formData.descripcion,
+        fecha_inicio: formData.fecha_inicio,
+        fecha_fin: formData.fecha_fin,
+        tipo_convenio: formData.tipo_convenio, // ✅ nuevo campo
+      },
+    ]);
 
-    console.log("📦 Datos a guardar:", agreementData);
+    setLoading(false);
 
-    let result;
-    if (existingAgreement) {
-      result = await supabase
-        .from("agreements")
-        .update(agreementData)
-        .eq("id", existingAgreement.id);
-    } else {
-      result = await supabase.from("agreements").insert([agreementData]);
-    }
-
-    const { error } = result;
     if (error) {
-      console.error("❌ Error real de Supabase:", error);
-      alert("❌ Error al guardar convenio: " + error.message);
+      console.error(error);
+      setErrorMsg("Error al guardar el convenio.");
     } else {
-      alert("✅ Convenio guardado correctamente");
-      onSave(); // 🔄 vuelve a lista y refresca
+      onSave();
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        maxWidth: "800px",
-        margin: "0 auto",
-        background: "white",
-        padding: "20px",
-        borderRadius: "12px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-      }}
-    >
-      <h2 style={{ textAlign: "center", color: "#1e3a8a", marginBottom: "20px" }}>
-        {existingAgreement ? "✏️ Editar Convenio" : "📝 Crear Nuevo Convenio"}
+    <div className="max-w-2xl mx-auto bg-white shadow-md rounded p-6">
+      <h2 className="text-2xl font-bold mb-4">
+        {existingAgreement ? "Editar convenio" : "Nuevo convenio"}
       </h2>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "15px",
-        }}
-      >
+      {errorMsg && <p className="text-red-600 mb-3">{errorMsg}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label>Nombre del convenio</label>
+          <label className="block font-medium mb-1">Nombre:</label>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            className="border rounded p-2 w-full"
+            value={formData.nombre}
+            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
             required
-            style={{ width: "100%", padding: "8px" }}
           />
         </div>
 
         <div>
-          <label>Institución</label>
-          <select
-            value={institucionId}
-            onChange={(e) => setInstitucionId(e.target.value)}
-            required
-            style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="">Seleccionar institución</option>
-            {instituciones.map((inst) => (
-              <option key={inst.id} value={inst.id}>
-                {inst.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Tipo de convenio</label>
-          <select
-            value={convenio}
-            onChange={(e) => setConvenio(e.target.value)}
-            style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="marco">Marco</option>
-            <option value="específico">Específico</option>
-          </select>
-        </div>
-
-        <div>
-          <label>País</label>
-          <select
-            value={pais}
-            onChange={(e) => setPais(e.target.value)}
-            required
-            style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="">Seleccionar país</option>
-            {countries.map((c) => (
-              <option key={c.code} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Responsable interno</label>
-          <select
-            value={internalResponsible}
-            onChange={(e) => setInternalResponsible(e.target.value)}
-            style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="">Seleccionar</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Responsable externo</label>
-          <select
-            value={externalResponsible}
-            onChange={(e) => setExternalResponsible(e.target.value)}
-            style={{ width: "100%", padding: "8px" }}
-          >
-            <option value="">Seleccionar</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Fecha de firma</label>
-          <input
-            type="date"
-            value={signatureDate}
-            onChange={(e) => setSignatureDate(e.target.value)}
-            required
-            style={{ width: "100%", padding: "8px" }}
+          <label className="block font-medium mb-1">Descripción:</label>
+          <textarea
+            className="border rounded p-2 w-full"
+            value={formData.descripcion}
+            onChange={(e) =>
+              setFormData({ ...formData, descripcion: e.target.value })
+            }
+            rows={3}
           />
         </div>
 
-        <div>
-          <label>Duración (años)</label>
-          <input
-            type="number"
-            value={durationYears}
-            onChange={(e) => setDurationYears(Number(e.target.value))}
-            min={1}
-            required
-            style={{ width: "100%", padding: "8px" }}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium mb-1">Fecha inicio:</label>
+            <input
+              type="date"
+              className="border rounded p-2 w-full"
+              value={formData.fecha_inicio}
+              onChange={(e) =>
+                setFormData({ ...formData, fecha_inicio: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <label className="block font-medium mb-1">Fecha fin:</label>
+            <input
+              type="date"
+              className="border rounded p-2 w-full"
+              value={formData.fecha_fin}
+              onChange={(e) =>
+                setFormData({ ...formData, fecha_fin: e.target.value })
+              }
+            />
+          </div>
         </div>
-      </div>
 
-      <div
-        style={{
-          marginTop: "20px",
-          display: "flex",
-          justifyContent: "center",
-          gap: "15px",
-        }}
-      >
-        <button
-          type="submit"
-          style={{
-            background: "#2563eb",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
-        >
-          Guardar
-        </button>
+        {/* ✅ Nuevo campo múltiple */}
+        <div>
+          <label className="block font-medium mb-1">Tipo de convenio:</label>
+          <select
+            multiple
+            className="border p-2 rounded w-full h-32"
+            value={formData.tipo_convenio}
+            onChange={(e) => {
+              const selected = Array.from(e.target.selectedOptions).map(
+                (opt) => opt.value
+              );
+              setFormData({ ...formData, tipo_convenio: selected });
+            }}
+          >
+            {tiposConvenio.map((tipo) => (
+              <option key={tipo} value={tipo}>
+                {tipo}
+              </option>
+            ))}
+          </select>
+          <small className="text-gray-500">
+            Mantén presionado Ctrl o Cmd para seleccionar varios tipos.
+          </small>
+        </div>
 
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            background: "#ef4444",
-            color: "white",
-            border: "none",
-            padding: "10px 20px",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
-        >
-          Cancelar
-        </button>
-      </div>
-    </form>
+        <div className="flex justify-end gap-3 pt-4">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            {loading ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
+
