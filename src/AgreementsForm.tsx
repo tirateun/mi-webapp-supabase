@@ -31,16 +31,28 @@ export default function AgreementsForm({
   );
 
   const [instituciones, setInstituciones] = useState<any[]>([]);
+  const [usuarios, setUsuarios] = useState<any[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInstituciones();
+    fetchUsuarios();
   }, []);
 
+  // 🔹 Obtener instituciones
   const fetchInstituciones = async () => {
     const { data, error } = await supabase.from("instituciones").select("id, nombre");
     if (!error && data) setInstituciones(data);
+  };
+
+  // 🔹 Obtener usuarios para los responsables
+  const fetchUsuarios = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, role");
+
+    if (!error && data) setUsuarios(data);
   };
 
   const handleSubmit = async (e: ChangeEvent<HTMLFormElement>) => {
@@ -78,6 +90,12 @@ export default function AgreementsForm({
       prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
     );
   };
+
+  // 🔹 Separar responsables internos y externos
+  const internos = usuarios.filter(
+    (u) => u.role === "interno" || u.role === "admin"
+  );
+  const externos = usuarios.filter((u) => u.role === "externo");
 
   return (
     <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow">
@@ -124,24 +142,42 @@ export default function AgreementsForm({
           />
         </div>
 
+        {/* ✅ Responsable Interno */}
         <div>
           <label className="block mb-1 font-semibold">Responsable interno</label>
-          <input
-            type="text"
+          <select
             value={responsableInterno}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setResponsableInterno(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              setResponsableInterno(e.target.value)
+            }
             className="border border-gray-300 rounded w-full p-2"
-          />
+          >
+            <option value="">Seleccione responsable interno</option>
+            {internos.map((user) => (
+              <option key={user.id} value={user.full_name}>
+                {user.full_name}
+              </option>
+            ))}
+          </select>
         </div>
 
+        {/* ✅ Responsable Externo */}
         <div>
           <label className="block mb-1 font-semibold">Responsable externo</label>
-          <input
-            type="text"
+          <select
             value={responsableExterno}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setResponsableExterno(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+              setResponsableExterno(e.target.value)
+            }
             className="border border-gray-300 rounded w-full p-2"
-          />
+          >
+            <option value="">Seleccione responsable externo</option>
+            {externos.map((user) => (
+              <option key={user.id} value={user.full_name}>
+                {user.full_name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -174,7 +210,7 @@ export default function AgreementsForm({
           />
         </div>
 
-        {/* ✅ NUEVO CAMPO MULTI-SELECCIÓN */}
+        {/* ✅ Campo multiselección de tipo de convenio */}
         <div className="col-span-2">
           <label className="block mb-2 font-semibold">Tipo de convenio</label>
           <div className="grid grid-cols-2 gap-2">
@@ -221,6 +257,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
