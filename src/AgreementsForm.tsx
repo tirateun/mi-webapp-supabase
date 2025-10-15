@@ -1,27 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function AgreementsForm({
-  existingAgreement = null,
-  onSave,
-  onCancel,
-}: {
-  existingAgreement?: any;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
+export default function AgreementsForm({ existingAgreement, onSave, onCancel }) {
   const [formData, setFormData] = useState({
-    nombre: existingAgreement?.nombre || "",
-    descripcion: existingAgreement?.descripcion || "",
-    fecha_inicio: existingAgreement?.fecha_inicio || "",
-    fecha_fin: existingAgreement?.fecha_fin || "",
-    tipo_convenio: existingAgreement?.tipo_convenio || [], // ✅ nuevo campo
+    nombre: "",
+    institucion: "",
+    pais: "",
+    responsable_interno: "",
+    responsable_externo: "",
+    fecha_inicio: "",
+    fecha_fin: "",
+    duracion: "",
+    tipo_convenio: [], // ✅ nuevo campo como array
   });
 
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-
-  const tiposConvenio = [
+  const tipos = [
     "Docente Asistencial",
     "Cooperación técnica",
     "Movilidad académica",
@@ -31,132 +24,140 @@ export default function AgreementsForm({
     "Cotutela",
   ];
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (existingAgreement) setFormData(existingAgreement);
+  }, [existingAgreement]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleTipoChange = (tipo) => {
+    const updatedTipos = formData.tipo_convenio.includes(tipo)
+      ? formData.tipo_convenio.filter((t) => t !== tipo)
+      : [...formData.tipo_convenio, tipo];
+    setFormData({ ...formData, tipo_convenio: updatedTipos });
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
-
-    const { error } = await supabase.from("agreements").upsert([
-      {
-        id: existingAgreement?.id,
-        nombre: formData.nombre,
-        descripcion: formData.descripcion,
-        fecha_inicio: formData.fecha_inicio,
-        fecha_fin: formData.fecha_fin,
-        tipo_convenio: formData.tipo_convenio, // ✅ nuevo campo
-      },
-    ]);
-
-    setLoading(false);
-
-    if (error) {
-      console.error(error);
-      setErrorMsg("Error al guardar el convenio.");
+    if (existingAgreement) {
+      await supabase.from("agreements").update(formData).eq("id", existingAgreement.id);
     } else {
-      onSave();
+      await supabase.from("agreements").insert([formData]);
     }
+    onSave();
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white shadow-md rounded p-6">
-      <h2 className="text-2xl font-bold mb-4">
-        {existingAgreement ? "Editar convenio" : "Nuevo convenio"}
+    <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-2xl p-6">
+      <h2 className="text-2xl font-bold mb-4 text-center">
+        {existingAgreement ? "Editar convenio" : "Registrar nuevo convenio"}
       </h2>
 
-      {errorMsg && <p className="text-red-600 mb-3">{errorMsg}</p>}
+      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+        <input
+          type="text"
+          name="nombre"
+          placeholder="Nombre del convenio"
+          value={formData.nombre}
+          onChange={handleChange}
+          className="border p-2 rounded col-span-2"
+          required
+        />
+        <input
+          type="text"
+          name="institucion"
+          placeholder="Institución"
+          value={formData.institucion}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="text"
+          name="pais"
+          placeholder="País"
+          value={formData.pais}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="text"
+          name="responsable_interno"
+          placeholder="Responsable interno"
+          value={formData.responsable_interno}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="text"
+          name="responsable_externo"
+          placeholder="Responsable externo"
+          value={formData.responsable_externo}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="date"
+          name="fecha_inicio"
+          placeholder="Fecha de inicio"
+          value={formData.fecha_inicio}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="date"
+          name="fecha_fin"
+          placeholder="Fecha de fin"
+          value={formData.fecha_fin}
+          onChange={handleChange}
+          className="border p-2 rounded"
+        />
+        <input
+          type="text"
+          name="duracion"
+          placeholder="Duración"
+          value={formData.duracion}
+          onChange={handleChange}
+          className="border p-2 rounded col-span-2"
+        />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block font-medium mb-1">Nombre:</label>
-          <input
-            type="text"
-            className="border rounded p-2 w-full"
-            value={formData.nombre}
-            onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block font-medium mb-1">Descripción:</label>
-          <textarea
-            className="border rounded p-2 w-full"
-            value={formData.descripcion}
-            onChange={(e) =>
-              setFormData({ ...formData, descripcion: e.target.value })
-            }
-            rows={3}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block font-medium mb-1">Fecha inicio:</label>
-            <input
-              type="date"
-              className="border rounded p-2 w-full"
-              value={formData.fecha_inicio}
-              onChange={(e) =>
-                setFormData({ ...formData, fecha_inicio: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block font-medium mb-1">Fecha fin:</label>
-            <input
-              type="date"
-              className="border rounded p-2 w-full"
-              value={formData.fecha_fin}
-              onChange={(e) =>
-                setFormData({ ...formData, fecha_fin: e.target.value })
-              }
-            />
-          </div>
-        </div>
-
-        {/* ✅ Nuevo campo múltiple */}
-        <div>
-          <label className="block font-medium mb-1">Tipo de convenio:</label>
-          <select
-            multiple
-            className="border p-2 rounded w-full h-32"
-            value={formData.tipo_convenio}
-            onChange={(e) => {
-              const selected = Array.from(e.target.selectedOptions).map(
-                (opt) => opt.value
-              );
-              setFormData({ ...formData, tipo_convenio: selected });
-            }}
-          >
-            {tiposConvenio.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {tipo}
-              </option>
+        {/* ✅ NUEVO CAMPO: Tipo de convenio */}
+        <div className="col-span-2 border p-3 rounded">
+          <label className="font-semibold mb-2 block">Tipo de convenio:</label>
+          <div className="grid grid-cols-2 gap-2">
+            {tipos.map((tipo) => (
+              <label key={tipo} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={formData.tipo_convenio.includes(tipo)}
+                  onChange={() => handleTipoChange(tipo)}
+                />
+                <span>{tipo}</span>
+              </label>
             ))}
-          </select>
-          <small className="text-gray-500">
-            Mantén presionado Ctrl o Cmd para seleccionar varios tipos.
-          </small>
+          </div>
         </div>
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="col-span-2 flex justify-end gap-3 mt-4">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+            className="bg-gray-300 hover:bg-gray-400 text-black font-semibold py-2 px-4 rounded"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded"
           >
-            {loading ? "Guardando..." : "Guardar"}
+            Guardar
           </button>
         </div>
       </form>
     </div>
   );
 }
+
 
