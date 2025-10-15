@@ -73,7 +73,7 @@ export default function App() {
     return (
       <Login
         onLogin={handleLogin}
-        onRequirePasswordChange={(user) => {
+        onRequirePasswordChange={(user: any) => {
           setMustChangePassword(true);
           setSession({ user });
         }}
@@ -100,7 +100,15 @@ export default function App() {
       <div style={{ flex: 1, padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>
           👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
-          <span style={{ color: "#555" }}>({role === "admin" ? "Administrador interno" : role === "interno" ? "Usuario interno" : "Usuario externo"})</span>
+          <span style={{ color: "#555" }}>
+            (
+            {role === "admin"
+              ? "Administrador interno"
+              : role === "interno"
+              ? "Usuario interno"
+              : "Usuario externo"}
+            )
+          </span>
         </h2>
 
         {activePage === "agreementsList" && (
