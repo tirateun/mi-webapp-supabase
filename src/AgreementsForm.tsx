@@ -47,45 +47,48 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [success, setSuccess] = useState(false);
 
   // 🔹 Cargar datos desde Supabase
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoadingResponsables(true);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoadingResponsables(true);
 
-        // Responsables internos
-        const { data: internos, error: errInt } = await supabase
-          .from("profiles")
-          .select("id, full_name, role")
-          .eq("role", "interno");
+      // ✅ Buscar responsables internos (role = 'internal')
+      const { data: internos, error: errInt } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("role", "internal");
 
-        if (errInt) console.error("Error internos:", errInt);
+      // ✅ Buscar responsables externos (role = 'external')
+      const { data: externos, error: errExt } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("role", "external");
 
-        // Responsables externos
-        const { data: externos, error: errExt } = await supabase
-          .from("profiles")
-          .select("id, full_name, role")
-          .eq("role", "externo");
+      // ✅ Buscar instituciones
+      const { data: inst, error: errInst } = await supabase
+        .from("instituciones")
+        .select("id, name");
 
-        if (errExt) console.error("Error externos:", errExt);
-
-        const { data: inst, error: errInst } = await supabase
-          .from("instituciones")
-          .select("id, name");
-
-        if (errInst) console.error("Error instituciones:", errInst);
-
-        setResponsablesInternos(internos || []);
-        setResponsablesExternos(externos || []);
-        setInstituciones(inst || []);
-      } catch (e) {
-        console.error("Error general al cargar datos:", e);
-      } finally {
-        setLoadingResponsables(false);
+      if (errInt || errExt || errInst) {
+        console.error("⚠️ Errores en carga:", { errInt, errExt, errInst });
       }
-    };
 
-    fetchData();
-  }, []);
+      console.log("👤 Internos encontrados:", internos);
+      console.log("🌎 Externos encontrados:", externos);
+
+      setResponsablesInternos(internos || []);
+      setResponsablesExternos(externos || []);
+      setInstituciones(inst || []);
+    } catch (e) {
+      console.error("❌ Error general al cargar datos:", e);
+    } finally {
+      setLoadingResponsables(false);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
