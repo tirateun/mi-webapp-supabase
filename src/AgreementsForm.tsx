@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsFormProps {
@@ -7,228 +7,235 @@ interface AgreementsFormProps {
   onCancel: () => void;
 }
 
-export default function AgreementsForm({
-  existingAgreement,
-  onSave,
-  onCancel,
-}: AgreementsFormProps) {
-  const [name, setName] = useState(existingAgreement?.name || "");
-  const [institucionId, setInstitucionId] = useState(existingAgreement?.institucion_id || "");
+const countries = [
+  "Perú", "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Costa Rica",
+  "Cuba", "Ecuador", "El Salvador", "España", "Estados Unidos", "Francia",
+  "Guatemala", "Honduras", "Italia", "México", "Nicaragua", "Panamá", "Paraguay",
+  "Portugal", "Reino Unido", "República Dominicana", "Uruguay", "Venezuela"
+];
+
+const tiposConvenio = [
+  "Docente Asistencial",
+  "Cooperación técnica",
+  "Movilidad académica",
+  "Investigación",
+  "Colaboración académica",
+  "Consultoría",
+  "Cotutela",
+];
+
+export default function AgreementsForm({ existingAgreement, onSave, onCancel }: AgreementsFormProps) {
+  const [formData, setFormData] = useState<any>({
+    name: existingAgreement?.name || "",
+    internal_responsible: existingAgreement?.internal_responsible || "",
+    external_responsible: existingAgreement?.external_responsible || "",
+    signature_date: existingAgreement?.signature_date || "",
+    duration_years: existingAgreement?.duration_years || "",
+    convenio: existingAgreement?.convenio || "Marco",
+    pais: existingAgreement?.pais || "",
+    Resolución_Rectoral: existingAgreement?.Resolución_Rectoral || "",
+    institucion_id: existingAgreement?.institucion_id || "",
+    tipo_convenio: existingAgreement?.tipo_convenio || [],
+  });
+
+  const [responsablesInternos, setResponsablesInternos] = useState<any[]>([]);
+  const [responsablesExternos, setResponsablesExternos] = useState<any[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
-  const [pais, setPais] = useState(existingAgreement?.pais || "");
-  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
-  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
-  const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [convenio, setConvenio] = useState(existingAgreement?.convenio || "Marco");
-  const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
-  const [resolucionRectoral, setResolucionRectoral] = useState(existingAgreement?.["Resolución Rectoral"] || "");
-  const [tipoConvenio, setTipoConvenio] = useState<string[]>(existingAgreement?.tipo_convenio || []);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const tiposDisponibles = [
-    "Docente Asistencial",
-    "Cooperación Técnica",
-    "Movilidad Académica",
-    "Investigación",
-    "Colaboración Académica",
-    "Consultoría",
-    "Cotutela",
-  ];
-
+  // 🔹 Cargar datos desde Supabase
   useEffect(() => {
-    fetchUsuarios();
-    fetchInstituciones();
+    const fetchData = async () => {
+      const { data: internos } = await supabase.from("profiles").select("id, full_name").eq("role", "interno");
+      setResponsablesInternos(internos || []);
+
+      const { data: externos } = await supabase.from("profiles").select("id, full_name").eq("role", "externo");
+      setResponsablesExternos(externos || []);
+
+      const { data: inst } = await supabase.from("instituciones").select("id, name");
+      setInstituciones(inst || []);
+    };
+
+    fetchData();
   }, []);
 
-  const fetchUsuarios = async () => {
-    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
-    if (error) console.error("Error cargando usuarios:", error);
-    else setUsuarios(data || []);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const fetchInstituciones = async () => {
-    const { data, error } = await supabase.from("instituciones").select("id, nombre");
-    if (error) console.error("Error cargando instituciones:", error);
-    else setInstituciones(data || []);
-  };
-
-  const handleTipoChange = (tipo: string) => {
-    if (tipoConvenio.includes(tipo)) {
-      setTipoConvenio(tipoConvenio.filter((t) => t !== tipo));
-    } else {
-      setTipoConvenio([...tipoConvenio, tipo]);
-    }
+  const handleTipoConvenioChange = (tipo: string) => {
+    setFormData((prev: any) => {
+      const tipos = prev.tipo_convenio.includes(tipo)
+        ? prev.tipo_convenio.filter((t: string) => t !== tipo)
+        : [...prev.tipo_convenio, tipo];
+      return { ...prev, tipo_convenio: tipos };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
+    setError(null);
 
-    const nuevoConvenio = {
-      name,
-      institucion_id: institucionId || null,
-      pais,
-      internal_responsible: internalResponsible,
-      external_responsible: externalResponsible,
-      duration_years: durationYears,
-      "Resolución Rectoral": resolucionRectoral,
-      convenio,
-      tipo_convenio: tipoConvenio,
-    };
-
-    console.log("Insertando convenio:", nuevoConvenio);
+    const expirationDate = formData.signature_date
+      ? new Date(new Date(formData.signature_date).setFullYear(new Date(formData.signature_date).getFullYear() + Number(formData.duration_years)))
+      : null;
 
     const { error } = existingAgreement
-      ? await supabase.from("agreements").update(nuevoConvenio).eq("id", existingAgreement.id)
-      : await supabase.from("agreements").insert([nuevoConvenio]);
+      ? await supabase
+          .from("agreements")
+          .update({ ...formData, expiration_date: expirationDate })
+          .eq("id", existingAgreement.id)
+      : await supabase.from("agreements").insert([{ ...formData, expiration_date: expirationDate }]);
 
-    setLoading(false);
+    setSaving(false);
 
     if (error) {
-      alert("❌ Error al guardar el convenio");
-      console.error(error);
+      console.error("❌ Error al guardar:", error);
+      setError("❌ Error al guardar el convenio");
     } else {
-      alert("✅ Convenio guardado correctamente");
-      onSave();
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        onSave();
+      }, 1200);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto bg-white shadow-xl rounded-2xl p-8 mt-6">
-      <h2 className="text-2xl font-bold mb-6 text-blue-800">
-        {existingAgreement ? "✏️ Editar Convenio" : "📝 Registrar Nuevo Convenio"}
+    <div className="max-w-3xl mx-auto bg-white shadow-2xl rounded-2xl p-8 mt-8 border border-gray-200">
+      <h2 className="text-2xl font-bold mb-6 text-center text-blue-800">
+        {existingAgreement ? "Editar Convenio" : "Registrar Nuevo Convenio"}
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block font-semibold mb-1">Nombre del Convenio</label>
+          <label className="block font-medium text-gray-700">Nombre del convenio</label>
           <input
             type="text"
-            className="w-full border rounded-lg p-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Institución</label>
-          <select
-            className="w-full border rounded-lg p-2"
-            value={institucionId}
-            onChange={(e) => setInstitucionId(e.target.value)}
-            required
-          >
-            <option value="">Seleccione institución</option>
-            {instituciones.map((inst) => (
-              <option key={inst.id} value={inst.id}>
-                {inst.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">País</label>
-          <input
-            type="text"
-            className="w-full border rounded-lg p-2"
-            value={pais}
-            onChange={(e) => setPais(e.target.value)}
-            placeholder="Ejemplo: Perú"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full border-gray-300 rounded-lg p-2"
             required
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block font-semibold mb-1">Responsable Interno</label>
+            <label className="block font-medium text-gray-700">Responsable Interno</label>
             <select
-              className="w-full border rounded-lg p-2"
-              value={internalResponsible}
-              onChange={(e) => setInternalResponsible(e.target.value)}
+              name="internal_responsible"
+              value={formData.internal_responsible}
+              onChange={handleChange}
+              className="w-full border-gray-300 rounded-lg p-2"
               required
             >
               <option value="">Seleccione</option>
-              {usuarios
-                .filter((u) => u.role === "interno" || u.role === "admin")
-                .map((u) => (
-                  <option key={u.id} value={u.full_name}>
-                    {u.full_name}
-                  </option>
-                ))}
+              {responsablesInternos.map((r) => (
+                <option key={r.id} value={r.full_name}>{r.full_name}</option>
+              ))}
             </select>
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Responsable Externo</label>
+            <label className="block font-medium text-gray-700">Responsable Externo</label>
             <select
-              className="w-full border rounded-lg p-2"
-              value={externalResponsible}
-              onChange={(e) => setExternalResponsible(e.target.value)}
+              name="external_responsible"
+              value={formData.external_responsible}
+              onChange={handleChange}
+              className="w-full border-gray-300 rounded-lg p-2"
               required
             >
               <option value="">Seleccione</option>
-              {usuarios
-                .filter((u) => u.role === "externo")
-                .map((u) => (
-                  <option key={u.id} value={u.full_name}>
-                    {u.full_name}
-                  </option>
-                ))}
+              {responsablesExternos.map((r) => (
+                <option key={r.id} value={r.full_name}>{r.full_name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block font-medium text-gray-700">Fecha de firma</label>
+            <input
+              type="date"
+              name="signature_date"
+              value={formData.signature_date}
+              onChange={handleChange}
+              className="w-full border-gray-300 rounded-lg p-2"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700">Duración (años)</label>
+            <select
+              name="duration_years"
+              value={formData.duration_years}
+              onChange={handleChange}
+              className="w-full border-gray-300 rounded-lg p-2"
+              required
+            >
+              <option value="">Seleccione</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium text-gray-700">Tipo de convenio (Marco/Específico)</label>
+            <select
+              name="convenio"
+              value={formData.convenio}
+              onChange={handleChange}
+              className="w-full border-gray-300 rounded-lg p-2"
+            >
+              <option value="Marco">Marco</option>
+              <option value="Específico">Específico</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label className="block font-semibold mb-1">Duración (años)</label>
+          <label className="block font-medium text-gray-700">Resolución Rectoral</label>
+          <input
+            type="text"
+            name="Resolución_Rectoral"
+            value={formData.Resolución_Rectoral}
+            onChange={handleChange}
+            className="w-full border-gray-300 rounded-lg p-2"
+          />
+        </div>
+
+        <div>
+          <label className="block font-medium text-gray-700">País</label>
           <select
-            className="w-full border rounded-lg p-2"
-            value={durationYears}
-            onChange={(e) => setDurationYears(Number(e.target.value))}
+            name="pais"
+            value={formData.pais}
+            onChange={handleChange}
+            className="w-full border-gray-300 rounded-lg p-2"
+            required
           >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+            <option value="">Seleccione un país</option>
+            {countries.map((pais) => (
+              <option key={pais} value={pais}>{pais}</option>
             ))}
           </select>
         </div>
 
         <div>
-          <label className="block font-semibold mb-1">Convenio</label>
-          <select
-            className="w-full border rounded-lg p-2"
-            value={convenio}
-            onChange={(e) => setConvenio(e.target.value)}
-          >
-            <option value="Marco">Marco</option>
-            <option value="Específico">Específico</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-1">Resolución Rectoral</label>
-          <input
-            type="text"
-            className="w-full border rounded-lg p-2"
-            value={resolucionRectoral}
-            onChange={(e) => setResolucionRectoral(e.target.value)}
-            placeholder="Ejemplo: Resolución N° 123-2023-UNMSM"
-          />
-        </div>
-
-        <div>
-          <label className="block font-semibold mb-2 text-blue-700">
-            Tipos de Convenio
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {tiposDisponibles.map((tipo) => (
+          <label className="block font-medium text-gray-700 mb-2">Tipos de convenio</label>
+          <div className="grid grid-cols-2 gap-2">
+            {tiposConvenio.map((tipo) => (
               <label key={tipo} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={tipoConvenio.includes(tipo)}
-                  onChange={() => handleTipoChange(tipo)}
+                  checked={formData.tipo_convenio.includes(tipo)}
+                  onChange={() => handleTipoConvenioChange(tipo)}
                 />
                 <span>{tipo}</span>
               </label>
@@ -236,26 +243,22 @@ export default function AgreementsForm({
           </div>
         </div>
 
-        <div className="flex justify-end gap-4 mt-6">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="bg-gray-300 px-5 py-2 rounded-lg hover:bg-gray-400"
-          >
+        {error && <p className="text-red-600 text-center">{error}</p>}
+        {success && <p className="text-green-600 text-center">✅ Convenio guardado correctamente</p>}
+
+        <div className="flex justify-between mt-6">
+          <button type="button" onClick={onCancel} className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg">
             Cancelar
           </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700"
-          >
-            {loading ? "Guardando..." : "Guardar Convenio"}
+          <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
+            {saving ? "Guardando..." : "Guardar Convenio"}
           </button>
         </div>
       </form>
     </div>
   );
 }
+
 
 
 
