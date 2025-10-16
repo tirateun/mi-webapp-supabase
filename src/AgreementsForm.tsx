@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsFormProps {
@@ -12,256 +12,223 @@ export default function AgreementsForm({
   onSave,
   onCancel,
 }: AgreementsFormProps) {
-  const [nombre, setNombre] = useState(existingAgreement?.nombre || "");
-  const [institucion, setInstitucion] = useState(existingAgreement?.institucion || "");
-  const [pais, setPais] = useState(existingAgreement?.pais || "");
-  const [responsableInterno, setResponsableInterno] = useState(
-    existingAgreement?.responsable_interno || ""
-  );
-  const [responsableExterno, setResponsableExterno] = useState(
-    existingAgreement?.responsable_externo || ""
-  );
-  const [duracion, setDuracion] = useState(existingAgreement?.duracion || "1");
-  const [tipoConvenio, setTipoConvenio] = useState(existingAgreement?.tipo_convenio || []);
-  const [categoriaConvenio, setCategoriaConvenio] = useState(
-    existingAgreement?.categoria_convenio || "Marco"
-  );
-  const [resolucionRectoral, setResolucionRectoral] = useState(
-    existingAgreement?.resolucion_rectoral || ""
-  );
-
+  const [name, setName] = useState(existingAgreement?.name || "");
+  const [institucionId, setInstitucionId] = useState(existingAgreement?.institucion_id || "");
   const [instituciones, setInstituciones] = useState<any[]>([]);
+  const [pais, setPais] = useState(existingAgreement?.pais || "");
+  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
+  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
   const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [guardando, setGuardando] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [convenio, setConvenio] = useState(existingAgreement?.convenio || "Marco");
+  const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
+  const [resolucionRectoral, setResolucionRectoral] = useState(existingAgreement?.["Resolución Rectoral"] || "");
+  const [tipoConvenio, setTipoConvenio] = useState<string[]>(existingAgreement?.tipo_convenio || []);
+  const [loading, setLoading] = useState(false);
 
-  const paises = [
-    "Perú", "Argentina", "Bolivia", "Brasil", "Chile", "Colombia", "Ecuador",
-    "México", "Paraguay", "Uruguay", "Venezuela", "España", "Estados Unidos",
-    "Canadá", "Francia", "Alemania", "Italia", "Japón", "Corea del Sur", "China",
+  const tiposDisponibles = [
+    "Docente Asistencial",
+    "Cooperación Técnica",
+    "Movilidad Académica",
+    "Investigación",
+    "Colaboración Académica",
+    "Consultoría",
+    "Cotutela",
   ];
 
   useEffect(() => {
-    fetchInstituciones();
     fetchUsuarios();
+    fetchInstituciones();
   }, []);
+
+  const fetchUsuarios = async () => {
+    const { data, error } = await supabase.from("profiles").select("id, full_name, role");
+    if (error) console.error("Error cargando usuarios:", error);
+    else setUsuarios(data || []);
+  };
 
   const fetchInstituciones = async () => {
     const { data, error } = await supabase.from("instituciones").select("id, nombre");
-    if (!error && data) setInstituciones(data);
+    if (error) console.error("Error cargando instituciones:", error);
+    else setInstituciones(data || []);
   };
 
-  const fetchUsuarios = async () => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, role");
-
-    if (!error && data) setUsuarios(data);
+  const handleTipoChange = (tipo: string) => {
+    if (tipoConvenio.includes(tipo)) {
+      setTipoConvenio(tipoConvenio.filter((t) => t !== tipo));
+    } else {
+      setTipoConvenio([...tipoConvenio, tipo]);
+    }
   };
 
-  const internos = usuarios.filter(
-    (u) => u.role === "interno" || u.role === "admin"
-  );
-  const externos = usuarios.filter((u) => u.role === "externo");
-
-  const handleTipoConvenioChange = (tipo: string) => {
-    setTipoConvenio((prev: string[]) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
-    );
-  };
-
-  const handleSubmit = async (e: ChangeEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGuardando(true);
-    setError(null);
+    setLoading(true);
 
-    const dataToSave = {
-      nombre,
-      institucion,
+    const nuevoConvenio = {
+      name,
+      institucion_id: institucionId || null,
       pais,
-      responsable_interno: responsableInterno,
-      responsable_externo: responsableExterno,
-      duracion,
+      internal_responsible: internalResponsible,
+      external_responsible: externalResponsible,
+      duration_years: durationYears,
+      "Resolución Rectoral": resolucionRectoral,
+      convenio,
       tipo_convenio: tipoConvenio,
-      categoria_convenio: categoriaConvenio,
-      resolucion_rectoral: resolucionRectoral,
     };
 
+    console.log("Insertando convenio:", nuevoConvenio);
+
     const { error } = existingAgreement
-      ? await supabase.from("agreements").update(dataToSave).eq("id", existingAgreement.id)
-      : await supabase.from("agreements").insert([dataToSave]);
+      ? await supabase.from("agreements").update(nuevoConvenio).eq("id", existingAgreement.id)
+      : await supabase.from("agreements").insert([nuevoConvenio]);
+
+    setLoading(false);
 
     if (error) {
-      console.error("Error al guardar:", error);
-      setError("❌ Error al guardar el convenio");
+      alert("❌ Error al guardar el convenio");
+      console.error(error);
     } else {
+      alert("✅ Convenio guardado correctamente");
       onSave();
     }
-
-    setGuardando(false);
   };
 
   return (
-    <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-2xl p-8 mt-8 border border-gray-200">
-      <h2 className="text-3xl font-bold text-blue-800 mb-6 text-center">
-        {existingAgreement ? "Editar Convenio" : "Registrar Nuevo Convenio"}
+    <div className="max-w-3xl mx-auto bg-white shadow-xl rounded-2xl p-8 mt-6">
+      <h2 className="text-2xl font-bold mb-6 text-blue-800">
+        {existingAgreement ? "✏️ Editar Convenio" : "📝 Registrar Nuevo Convenio"}
       </h2>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
-        {/* Nombre */}
-        <div className="col-span-2">
-          <label className="block text-gray-700 font-semibold mb-1">
-            Nombre del convenio
-          </label>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block font-semibold mb-1">Nombre del Convenio</label>
           <input
             type="text"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400"
+            className="w-full border rounded-lg p-2"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             required
           />
         </div>
 
-        {/* Institución */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">Institución</label>
+          <label className="block font-semibold mb-1">Institución</label>
           <select
-            value={institucion}
-            onChange={(e) => setInstitucion(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            className="w-full border rounded-lg p-2"
+            value={institucionId}
+            onChange={(e) => setInstitucionId(e.target.value)}
             required
           >
-            <option value="">Seleccione una institución</option>
+            <option value="">Seleccione institución</option>
             {instituciones.map((inst) => (
-              <option key={inst.id} value={inst.nombre}>
+              <option key={inst.id} value={inst.id}>
                 {inst.nombre}
               </option>
             ))}
           </select>
         </div>
 
-        {/* País */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">País</label>
-          <select
+          <label className="block font-semibold mb-1">País</label>
+          <input
+            type="text"
+            className="w-full border rounded-lg p-2"
             value={pais}
             onChange={(e) => setPais(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            placeholder="Ejemplo: Perú"
             required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-semibold mb-1">Responsable Interno</label>
+            <select
+              className="w-full border rounded-lg p-2"
+              value={internalResponsible}
+              onChange={(e) => setInternalResponsible(e.target.value)}
+              required
+            >
+              <option value="">Seleccione</option>
+              {usuarios
+                .filter((u) => u.role === "interno" || u.role === "admin")
+                .map((u) => (
+                  <option key={u.id} value={u.full_name}>
+                    {u.full_name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1">Responsable Externo</label>
+            <select
+              className="w-full border rounded-lg p-2"
+              value={externalResponsible}
+              onChange={(e) => setExternalResponsible(e.target.value)}
+              required
+            >
+              <option value="">Seleccione</option>
+              {usuarios
+                .filter((u) => u.role === "externo")
+                .map((u) => (
+                  <option key={u.id} value={u.full_name}>
+                    {u.full_name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-semibold mb-1">Duración (años)</label>
+          <select
+            className="w-full border rounded-lg p-2"
+            value={durationYears}
+            onChange={(e) => setDurationYears(Number(e.target.value))}
           >
-            <option value="">Seleccione país</option>
-            {paises.map((p) => (
-              <option key={p} value={p}>
-                {p}
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              <option key={n} value={n}>
+                {n}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Responsable Interno */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-1">
-            Responsable Interno
-          </label>
+          <label className="block font-semibold mb-1">Convenio</label>
           <select
-            value={responsableInterno}
-            onChange={(e) => setResponsableInterno(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Seleccione responsable interno</option>
-            {internos.map((user) => (
-              <option key={user.id} value={user.full_name}>
-                {user.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Responsable Externo */}
-        <div>
-          <label className="block text-gray-700 font-semibold mb-1">
-            Responsable Externo
-          </label>
-          <select
-            value={responsableExterno}
-            onChange={(e) => setResponsableExterno(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Seleccione responsable externo</option>
-            {externos.map((user) => (
-              <option key={user.id} value={user.full_name}>
-                {user.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Duración */}
-        <div>
-          <label className="block text-gray-700 font-semibold mb-1">
-            Duración (en años)
-          </label>
-          <select
-            value={duracion}
-            onChange={(e) => setDuracion(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
-          >
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((año) => (
-              <option key={año} value={año}>
-                {año} año{año > 1 ? "s" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Convenio Marco / Específico */}
-        <div>
-          <label className="block text-gray-700 font-semibold mb-1">
-            Tipo de convenio
-          </label>
-          <select
-            value={categoriaConvenio}
-            onChange={(e) => setCategoriaConvenio(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            className="w-full border rounded-lg p-2"
+            value={convenio}
+            onChange={(e) => setConvenio(e.target.value)}
           >
             <option value="Marco">Marco</option>
             <option value="Específico">Específico</option>
           </select>
         </div>
 
-        {/* Resolución Rectoral */}
-        <div className="col-span-2">
-          <label className="block text-gray-700 font-semibold mb-1">
-            Resolución Rectoral
-          </label>
+        <div>
+          <label className="block font-semibold mb-1">Resolución Rectoral</label>
           <input
             type="text"
+            className="w-full border rounded-lg p-2"
             value={resolucionRectoral}
             onChange={(e) => setResolucionRectoral(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400"
+            placeholder="Ejemplo: Resolución N° 123-2023-UNMSM"
           />
         </div>
 
-        {/* Tipo de convenio múltiple */}
-        <div className="col-span-2 mt-2">
-          <label className="block text-gray-700 font-semibold mb-1">
-            Ámbito del convenio
+        <div>
+          <label className="block font-semibold mb-2 text-blue-700">
+            Tipos de Convenio
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              "Docente Asistencial",
-              "Cooperación técnica",
-              "Movilidad académica",
-              "Investigación",
-              "Colaboración académica",
-              "Consultoría",
-              "Cotutela",
-            ].map((tipo) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {tiposDisponibles.map((tipo) => (
               <label key={tipo} className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   checked={tipoConvenio.includes(tipo)}
-                  onChange={() => handleTipoConvenioChange(tipo)}
+                  onChange={() => handleTipoChange(tipo)}
                 />
                 <span>{tipo}</span>
               </label>
@@ -269,22 +236,20 @@ export default function AgreementsForm({
           </div>
         </div>
 
-        {/* Botones */}
-        {error && <p className="text-red-500 col-span-2">{error}</p>}
-        <div className="col-span-2 flex justify-end mt-6">
+        <div className="flex justify-end gap-4 mt-6">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg mr-2"
+            className="bg-gray-300 px-5 py-2 rounded-lg hover:bg-gray-400"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            disabled={guardando}
-            className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-2 rounded-lg shadow-md transition-all duration-200"
+            disabled={loading}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700"
           >
-            {guardando ? "Guardando..." : "Guardar"}
+            {loading ? "Guardando..." : "Guardar Convenio"}
           </button>
         </div>
       </form>
