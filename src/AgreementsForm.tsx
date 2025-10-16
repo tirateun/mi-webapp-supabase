@@ -216,7 +216,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             onChange={(e) => setTipoConvenio(e.target.value)}
           >
             <option value="Marco">Marco</option>
-            <option value="Específico">Específico</option>
+            <option value="Especifico">Específico</option>
           </select>
         </div>
 
