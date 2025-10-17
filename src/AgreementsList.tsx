@@ -30,10 +30,10 @@ export default function AgreementsList({
   const [filtered, setFiltered] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filtros
+  // 🔹 Filtros
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroConvenio, setFiltroConvenio] = useState("todos");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtrosTipo, setFiltrosTipo] = useState<string[]>([]);
 
   const tiposConvenio = [
     "Docente Asistencial",
@@ -45,6 +45,7 @@ export default function AgreementsList({
     "Cotutela",
   ];
 
+  // 🔹 Cargar convenios
   const fetchAgreements = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -70,7 +71,6 @@ export default function AgreementsList({
       setAgreements(data || []);
       setFiltered(data || []);
     }
-
     setLoading(false);
   };
 
@@ -78,10 +78,20 @@ export default function AgreementsList({
     fetchAgreements();
   }, []);
 
+  // 🔹 Manejo de cambios en el filtro múltiple
+  const toggleFiltroTipo = (tipo: string) => {
+    setFiltrosTipo((prev) =>
+      prev.includes(tipo)
+        ? prev.filter((t) => t !== tipo)
+        : [...prev, tipo]
+    );
+  };
+
   // 🔹 Aplicar filtros dinámicos
   useEffect(() => {
     let result = agreements;
 
+    // 🔍 Búsqueda por nombre o país
     if (searchTerm.trim() !== "") {
       result = result.filter(
         (a) =>
@@ -90,20 +100,24 @@ export default function AgreementsList({
       );
     }
 
+    // 📘 Filtro por tipo de convenio (marco / específico)
     if (filtroConvenio !== "todos") {
       result = result.filter((a) => a.convenio === filtroConvenio);
     }
 
-    if (filtroTipo !== "todos") {
-      result = result.filter((a) =>
-        Array.isArray(a.tipo_convenio)
-          ? a.tipo_convenio.includes(filtroTipo)
-          : a.tipo_convenio === filtroTipo
-      );
+    // ✅ Filtro múltiple por tipos de convenio
+    if (filtrosTipo.length > 0) {
+      result = result.filter((a) => {
+        if (!a.tipo_convenio) return false;
+        const tipos = Array.isArray(a.tipo_convenio)
+          ? a.tipo_convenio
+          : [a.tipo_convenio];
+        return filtrosTipo.every((f) => tipos.includes(f));
+      });
     }
 
     setFiltered(result);
-  }, [searchTerm, filtroConvenio, filtroTipo, agreements]);
+  }, [searchTerm, filtroConvenio, filtrosTipo, agreements]);
 
   if (loading) {
     return (
@@ -125,18 +139,20 @@ export default function AgreementsList({
       </div>
 
       {/* FILTROS */}
-      <div className="card shadow-sm mb-4 p-3 border-0 bg-light">
+      <div className="card shadow-sm mb-4 p-4 border-0 bg-light">
         <div className="row g-3 align-items-center">
+          {/* 🔍 Buscar */}
           <div className="col-md-4">
             <input
               type="text"
               className="form-control"
-              placeholder="🔍 Buscar por nombre o país..."
+              placeholder="Buscar por nombre o país..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
+          {/* 📘 Tipo de convenio (Marco / Específico) */}
           <div className="col-md-4">
             <select
               className="form-select"
@@ -148,20 +164,26 @@ export default function AgreementsList({
               <option value="específico">Específico</option>
             </select>
           </div>
+        </div>
 
-          <div className="col-md-4">
-            <select
-              className="form-select"
-              value={filtroTipo}
-              onChange={(e) => setFiltroTipo(e.target.value)}
-            >
-              <option value="todos">Todos los tipos</option>
-              {tiposConvenio.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+        {/* ✅ Filtros múltiples */}
+        <div className="mt-3">
+          <label className="fw-semibold text-secondary">Filtrar por tipo:</label>
+          <div className="d-flex flex-wrap mt-2">
+            {tiposConvenio.map((tipo) => (
+              <div key={tipo} className="form-check me-3 mb-2">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id={`chk-${tipo}`}
+                  checked={filtrosTipo.includes(tipo)}
+                  onChange={() => toggleFiltroTipo(tipo)}
+                />
+                <label className="form-check-label" htmlFor={`chk-${tipo}`}>
+                  {tipo}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -225,6 +247,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
