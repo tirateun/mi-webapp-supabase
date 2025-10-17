@@ -1,24 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-interface AgreementsListProps {
-  user: any;
-  role: string;
-  onEdit: (agreement: any) => void;
-  onCreate: () => void;
-}
-
-export default function AgreementsList({ user, role, onEdit, onCreate }: AgreementsListProps) {
+export default function AgreementsList({ user, role, onEdit, onCreate }) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    fetchAgreements();
-  }, []);
 
   const fetchAgreements = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from("agreements")
       .select(`
@@ -27,109 +15,99 @@ export default function AgreementsList({ user, role, onEdit, onCreate }: Agreeme
         pais,
         convenio,
         duration_years,
-        tipo_convenio,
         signature_date,
-        profiles_internal:internal_responsible (full_name),
-        profiles_external:external_responsible (full_name)
+        "Resolución Rectoral",
+        tipo_convenio,
+        internal_responsible,
+        external_responsible,
+        created_at
       `)
       .order("created_at", { ascending: false });
-  
+
     if (error) {
-      console.error("Error al cargar convenios:", error);
+      console.error("❌ Error al cargar convenios:", error.message);
+      setAgreements([]);
     } else {
       setAgreements(data || []);
     }
+
+    setLoading(false);
   };
-  
 
-  const filteredAgreements = agreements.filter((a) =>
-    a.nombre?.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    fetchAgreements();
+  }, []);
 
-  if (loading) return <p className="text-center">Cargando convenios...</p>;
-  if (error) return <p className="text-center text-red-500">{error}</p>;
+  if (loading) {
+    return (
+      <div className="text-center mt-5">
+        <div className="spinner-border text-primary" role="status"></div>
+        <p className="mt-3">Cargando convenios...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Listado de Convenios</h2>
-        {role === "admin" && (
-          <button
-            onClick={onCreate}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow"
-          >
-            + Nuevo Convenio
-          </button>
-        )}
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h3 className="fw-bold text-primary">Listado de Convenios</h3>
+        <button className="btn btn-success" onClick={onCreate}>
+          ➕ Nuevo Convenio
+        </button>
       </div>
 
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Buscar convenio por nombre..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 w-full"
-        />
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-gray-300 text-sm">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="border p-2">ID</th>
-              <th className="border p-2">Nombre</th>
-              <th className="border p-2">Institución</th>
-              <th className="border p-2">País</th>
-              <th className="border p-2">Responsable interno</th>
-              <th className="border p-2">Responsable externo</th>
-              <th className="border p-2">Fecha inicio</th>
-              <th className="border p-2">Fecha fin</th>
-              <th className="border p-2">Duración</th>
-              <th className="border p-2">Tipo de convenio</th> {/* ✅ Nuevo campo */}
-              <th className="border p-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredAgreements.length > 0 ? (
-              filteredAgreements.map((agreement) => (
-                <tr key={agreement.id} className="hover:bg-gray-100">
-                  <td className="border p-2 text-center">{agreement.id}</td>
-                  <td className="border p-2">{agreement.nombre}</td>
-                  <td className="border p-2">{agreement.institucion}</td>
-                  <td className="border p-2">{agreement.pais}</td>
-                  <td className="border p-2">{agreement.responsable_interno}</td>
-                  <td className="border p-2">{agreement.responsable_externo}</td>
-                  <td className="border p-2 text-center">{agreement.fecha_inicio}</td>
-                  <td className="border p-2 text-center">{agreement.fecha_fin}</td>
-                  <td className="border p-2 text-center">{agreement.duracion}</td>
-                  <td className="border p-2">
-                    {agreement.tipo_convenio?.length
-                      ? agreement.tipo_convenio.join(", ")
-                      : "-"}
+      {agreements.length === 0 ? (
+        <p className="text-muted text-center">No hay convenios registrados aún.</p>
+      ) : (
+        <div className="table-responsive shadow-sm">
+          <table className="table table-hover align-middle">
+            <thead className="table-primary">
+              <tr>
+                <th>Nombre</th>
+                <th>País</th>
+                <th>Convenio</th>
+                <th>Duración (años)</th>
+                <th>Fecha Firma</th>
+                <th>Resolución Rectoral</th>
+                <th>Tipo(s)</th>
+                <th>Interno</th>
+                <th>Externo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agreements.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.name}</td>
+                  <td>{a.pais}</td>
+                  <td className="text-capitalize">{a.convenio}</td>
+                  <td>{a.duration_years}</td>
+                  <td>{a.signature_date ? new Date(a.signature_date).toLocaleDateString() : "-"}</td>
+                  <td>{a["Resolución Rectoral"] || "-"}</td>
+                  <td>
+                    {Array.isArray(a.tipo_convenio)
+                      ? a.tipo_convenio.join(", ")
+                      : a.tipo_convenio || "-"}
                   </td>
-                  <td className="border p-2 text-center">
+                  <td>{a.internal_responsible || "-"}</td>
+                  <td>{a.external_responsible || "-"}</td>
+                  <td>
                     <button
-                      onClick={() => onEdit(agreement)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded mr-2"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => onEdit(a)}
                     >
-                      Editar
+                      ✏️ Editar
                     </button>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={11} className="text-center py-4">
-                  No hay convenios registrados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
