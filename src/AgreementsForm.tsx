@@ -71,7 +71,7 @@ export default function AgreementsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🔹 Normalizar tipo de convenio para coincidir con el constraint
+    // Normalizar tipo de convenio según constraint
     const convenioNormalizado =
       tipoConvenio.toLowerCase().includes("marco")
         ? "marco"
@@ -103,136 +103,141 @@ export default function AgreementsForm({
   };
 
   return (
-    <div className="container mt-4">
-      <h3 className="mb-3">Registrar Nuevo Convenio</h3>
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <label>Nombre del convenio</label>
-          <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required />
-        </div>
+    <div className="container mt-5" style={{ maxWidth: "800px" }}>
+      <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
+        <h3 className="mb-4 text-center text-primary fw-bold">Registrar Nuevo Convenio</h3>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-3">
+            <label>Nombre del convenio</label>
+            <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
 
-        <div className="mb-3">
-          <label>Responsable Interno</label>
-          <select
-            className="form-select"
-            value={internalResponsible}
-            onChange={(e) => setInternalResponsible(e.target.value)}
-          >
-            <option value="">Seleccione</option>
-            {internos.map((p) => (
-              <option key={p.id} value={p.full_name}>
-                {p.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label>Responsable Interno</label>
+              <select
+                className="form-select"
+                value={internalResponsible}
+                onChange={(e) => setInternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {internos.map((p) => (
+                  <option key={p.id} value={p.full_name}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div className="mb-3">
-          <label>Responsable Externo</label>
-          <select
-            className="form-select"
-            value={externalResponsible}
-            onChange={(e) => setExternalResponsible(e.target.value)}
-          >
-            <option value="">Seleccione</option>
-            {externos.map((p) => (
-              <option key={p.id} value={p.full_name}>
-                {p.full_name}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="col-md-6 mb-3">
+              <label>Responsable Externo</label>
+              <select
+                className="form-select"
+                value={externalResponsible}
+                onChange={(e) => setExternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {externos.map((p) => (
+                  <option key={p.id} value={p.full_name}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-        <div className="row">
-          <div className="col-md-4 mb-3">
-            <label>Fecha de firma</label>
+          <div className="row">
+            <div className="col-md-4 mb-3">
+              <label>Fecha de firma</label>
+              <input
+                type="date"
+                className="form-control"
+                value={signatureDate}
+                onChange={(e) => setSignatureDate(e.target.value)}
+              />
+            </div>
+
+            <div className="col-md-4 mb-3">
+              <label>Duración (años)</label>
+              <select
+                className="form-select"
+                value={durationYears}
+                onChange={(e) => setDurationYears(Number(e.target.value))}
+              >
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-4 mb-3">
+              <label>Tipo de convenio</label>
+              <select
+                className="form-select"
+                value={tipoConvenio}
+                onChange={(e) => setTipoConvenio(e.target.value)}
+              >
+                <option value="marco">Marco</option>
+                <option value="específico">Específico</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mb-3">
+            <label>Resolución Rectoral</label>
             <input
-              type="date"
               className="form-control"
-              value={signatureDate}
-              onChange={(e) => setSignatureDate(e.target.value)}
+              value={resolucion}
+              onChange={(e) => setResolucion(e.target.value)}
+              placeholder="Ingrese número de resolución"
             />
           </div>
 
-          <div className="col-md-4 mb-3">
-            <label>Duración (años)</label>
-            <select
-              className="form-select"
-              value={durationYears}
-              onChange={(e) => setDurationYears(Number(e.target.value))}
-            >
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((year) => (
-                <option key={year} value={year}>
-                  {year}
+          <div className="mb-3">
+            <label>País</label>
+            <select className="form-select" value={pais} onChange={(e) => setPais(e.target.value)}>
+              <option value="">Seleccione un país</option>
+              {paises.map((p) => (
+                <option key={p} value={p}>
+                  {p}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="col-md-4 mb-3">
-            <label>Tipo de convenio</label>
-            <select
-              className="form-select"
-              value={tipoConvenio}
-              onChange={(e) => setTipoConvenio(e.target.value)}
-            >
-              <option value="marco">Marco</option>
-              <option value="específico">Específico</option>
-            </select>
+          <div className="mb-4">
+            <label>Tipos de convenio</label>
+            <div className="border rounded p-3 bg-light">
+              {tipos.map((tipo) => (
+                <label key={tipo} className="me-3">
+                  <input
+                    type="checkbox"
+                    checked={tipoSeleccionados.includes(tipo)}
+                    onChange={() => handleTipoChange(tipo)}
+                    className="me-1"
+                  />
+                  {tipo}
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="mb-3">
-          <label>Resolución Rectoral</label>
-          <input
-            className="form-control"
-            value={resolucion}
-            onChange={(e) => setResolucion(e.target.value)}
-            placeholder="Ingrese número de resolución"
-          />
-        </div>
-
-        <div className="mb-3">
-          <label>País</label>
-          <select className="form-select" value={pais} onChange={(e) => setPais(e.target.value)}>
-            <option value="">Seleccione un país</option>
-            {paises.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mb-3">
-          <label>Tipos de convenio</label>
-          <div>
-            {tipos.map((tipo) => (
-              <label key={tipo} className="me-3">
-                <input
-                  type="checkbox"
-                  checked={tipoSeleccionados.includes(tipo)}
-                  onChange={() => handleTipoChange(tipo)}
-                  className="me-1"
-                />
-                {tipo}
-              </label>
-            ))}
+          <div className="d-flex justify-content-end">
+            <button type="button" className="btn btn-secondary me-3" onClick={onCancel}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Guardar Convenio
+            </button>
           </div>
-        </div>
-
-        <div className="d-flex justify-content-end mt-4">
-          <button type="button" className="btn btn-secondary me-3" onClick={onCancel}>
-            Cancelar
-          </button>
-          <button type="submit" className="btn btn-primary">
-            Guardar Convenio
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
+
 
 
 
