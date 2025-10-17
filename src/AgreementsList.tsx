@@ -91,7 +91,7 @@ export default function AgreementsList({
   useEffect(() => {
     let result = agreements;
 
-    // 🔍 Búsqueda por nombre o país
+    // 🔍 Filtro por nombre o país
     if (searchTerm.trim() !== "") {
       result = result.filter(
         (a) =>
@@ -105,14 +105,14 @@ export default function AgreementsList({
       result = result.filter((a) => a.convenio === filtroConvenio);
     }
 
-    // ✅ Filtro múltiple por tipos de convenio
+    // ✅ Filtro múltiple (modo OR)
     if (filtrosTipo.length > 0) {
       result = result.filter((a) => {
         if (!a.tipo_convenio) return false;
         const tipos = Array.isArray(a.tipo_convenio)
           ? a.tipo_convenio
           : [a.tipo_convenio];
-        return filtrosTipo.every((f) => tipos.includes(f));
+        return tipos.some((t) => filtrosTipo.includes(t));
       });
     }
 
@@ -247,6 +247,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
