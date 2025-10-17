@@ -19,16 +19,28 @@ export default function AgreementsList({ user, role, onEdit, onCreate }: Agreeme
   }, []);
 
   const fetchAgreements = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.from("agreements").select("*").order("id", { ascending: false });
+    const { data, error } = await supabase
+      .from("agreements")
+      .select(`
+        id,
+        name,
+        pais,
+        convenio,
+        duration_years,
+        tipo_convenio,
+        signature_date,
+        profiles_internal:internal_responsible (full_name),
+        profiles_external:external_responsible (full_name)
+      `)
+      .order("created_at", { ascending: false });
+  
     if (error) {
       console.error("Error al cargar convenios:", error);
-      setError("No se pudieron cargar los convenios");
     } else {
       setAgreements(data || []);
     }
-    setLoading(false);
   };
+  
 
   const filteredAgreements = agreements.filter((a) =>
     a.nombre?.toLowerCase().includes(search.toLowerCase())
