@@ -115,7 +115,7 @@ export default function App() {
           <AgreementsList
             user={session.user}
             role={role}
-            onEdit={(agreement) => {
+            onEdit={(agreement: any) => {
               setEditingAgreement(agreement);
               setActivePage("agreementsForm");
             }}

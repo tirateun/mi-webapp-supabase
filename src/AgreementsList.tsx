@@ -1,8 +1,34 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function AgreementsList({ user, role, onEdit, onCreate }) {
-  const [agreements, setAgreements] = useState<any[]>([]);
+interface AgreementsListProps {
+  user: any;
+  role: string;
+  onEdit: (agreement: any) => void;
+  onCreate: () => void;
+}
+
+interface Agreement {
+  id: string;
+  name: string;
+  pais: string;
+  convenio: string;
+  duration_years: number;
+  signature_date: string;
+  "Resolución Rectoral"?: string;
+  tipo_convenio?: string[] | string;
+  internal_responsible?: string;
+  external_responsible?: string;
+  created_at?: string;
+}
+
+export default function AgreementsList({
+  user,
+  role,
+  onEdit,
+  onCreate,
+}: AgreementsListProps) {
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAgreements = async () => {
@@ -108,6 +134,7 @@ export default function AgreementsList({ user, role, onEdit, onCreate }) {
     </div>
   );
 }
+
 
 
 
