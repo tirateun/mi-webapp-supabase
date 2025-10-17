@@ -17,8 +17,6 @@ interface Agreement {
   signature_date: string;
   "Resolución Rectoral"?: string;
   tipo_convenio?: string[] | string;
-  internal_responsible?: string;
-  external_responsible?: string;
   created_at?: string;
 }
 
@@ -29,7 +27,23 @@ export default function AgreementsList({
   onCreate,
 }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [filtered, setFiltered] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filtroConvenio, setFiltroConvenio] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+
+  const tiposConvenio = [
+    "Docente Asistencial",
+    "Cooperación técnica",
+    "Movilidad académica",
+    "Investigación",
+    "Colaboración académica",
+    "Consultoría",
+    "Cotutela",
+  ];
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -44,8 +58,6 @@ export default function AgreementsList({
         signature_date,
         "Resolución Rectoral",
         tipo_convenio,
-        internal_responsible,
-        external_responsible,
         created_at
       `)
       .order("created_at", { ascending: false });
@@ -53,8 +65,10 @@ export default function AgreementsList({
     if (error) {
       console.error("❌ Error al cargar convenios:", error.message);
       setAgreements([]);
+      setFiltered([]);
     } else {
       setAgreements(data || []);
+      setFiltered(data || []);
     }
 
     setLoading(false);
@@ -63,6 +77,33 @@ export default function AgreementsList({
   useEffect(() => {
     fetchAgreements();
   }, []);
+
+  // 🔹 Aplicar filtros dinámicos
+  useEffect(() => {
+    let result = agreements;
+
+    if (searchTerm.trim() !== "") {
+      result = result.filter(
+        (a) =>
+          a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          a.pais.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (filtroConvenio !== "todos") {
+      result = result.filter((a) => a.convenio === filtroConvenio);
+    }
+
+    if (filtroTipo !== "todos") {
+      result = result.filter((a) =>
+        Array.isArray(a.tipo_convenio)
+          ? a.tipo_convenio.includes(filtroTipo)
+          : a.tipo_convenio === filtroTipo
+      );
+    }
+
+    setFiltered(result);
+  }, [searchTerm, filtroConvenio, filtroTipo, agreements]);
 
   if (loading) {
     return (
@@ -74,63 +115,113 @@ export default function AgreementsList({
   }
 
   return (
-    <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="fw-bold text-primary">Listado de Convenios</h3>
-        <button className="btn btn-success" onClick={onCreate}>
-          ➕ Nuevo Convenio
+    <div className="container-fluid mt-4">
+      {/* ENCABEZADO */}
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <h3 className="fw-bold text-primary mb-3 mb-md-0">📄 Gestor de Convenios</h3>
+        <button className="btn btn-success shadow-sm" onClick={onCreate}>
+          ➕ Registrar Convenio
         </button>
       </div>
 
-      {agreements.length === 0 ? (
-        <p className="text-muted text-center">No hay convenios registrados aún.</p>
-      ) : (
-        <div className="table-responsive shadow-sm">
-          <table className="table table-hover align-middle">
-            <thead className="table-primary">
+      {/* FILTROS */}
+      <div className="card shadow-sm mb-4 p-3 border-0 bg-light">
+        <div className="row g-3 align-items-center">
+          <div className="col-md-4">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="🔍 Buscar por nombre o país..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="col-md-4">
+            <select
+              className="form-select"
+              value={filtroConvenio}
+              onChange={(e) => setFiltroConvenio(e.target.value)}
+            >
+              <option value="todos">Todos los convenios</option>
+              <option value="marco">Marco</option>
+              <option value="específico">Específico</option>
+            </select>
+          </div>
+
+          <div className="col-md-4">
+            <select
+              className="form-select"
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+            >
+              <option value="todos">Todos los tipos</option>
+              {tiposConvenio.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* TABLA */}
+      <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
+        <div className="table-responsive">
+          <table className="table align-middle mb-0">
+            <thead className="bg-primary text-white">
               <tr>
                 <th>Nombre</th>
                 <th>País</th>
                 <th>Convenio</th>
-                <th>Duración (años)</th>
+                <th>Duración</th>
                 <th>Fecha Firma</th>
-                <th>Resolución Rectoral</th>
+                <th>Resolución</th>
                 <th>Tipo(s)</th>
-                <th>Interno</th>
-                <th>Externo</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {agreements.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.name}</td>
-                  <td>{a.pais}</td>
-                  <td className="text-capitalize">{a.convenio}</td>
-                  <td>{a.duration_years}</td>
-                  <td>{a.signature_date ? new Date(a.signature_date).toLocaleDateString() : "-"}</td>
-                  <td>{a["Resolución Rectoral"] || "-"}</td>
-                  <td>
-                    {Array.isArray(a.tipo_convenio)
-                      ? a.tipo_convenio.join(", ")
-                      : a.tipo_convenio || "-"}
-                  </td>
-                  <td>{a.internal_responsible || "-"}</td>
-                  <td>{a.external_responsible || "-"}</td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={() => onEdit(a)}
-                    >
-                      ✏️ Editar
-                    </button>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-4 text-muted">
+                    No se encontraron convenios.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((a) => (
+                  <tr key={a.id}>
+                    <td className="fw-semibold">{a.name}</td>
+                    <td>{a.pais}</td>
+                    <td className="text-capitalize">{a.convenio}</td>
+                    <td>{a.duration_years} año(s)</td>
+                    <td>
+                      {a.signature_date
+                        ? new Date(a.signature_date).toLocaleDateString()
+                        : "-"}
+                    </td>
+                    <td>{a["Resolución Rectoral"] || "-"}</td>
+                    <td>
+                      {Array.isArray(a.tipo_convenio)
+                        ? a.tipo_convenio.join(", ")
+                        : a.tipo_convenio || "-"}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={() => onEdit(a)}
+                      >
+                        ✏️ Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
     </div>
   );
 }
