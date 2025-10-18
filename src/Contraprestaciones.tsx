@@ -2,19 +2,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface Contraprestacion {
-  id?: string;
+  id: string;
   tipo: string;
   descripcion: string;
   unidades_comprometidas: number;
   periodo_inicio: string;
   periodo_fin: string;
-  cumplido?: boolean;
-  evidencia_url?: string;
+  agreement_id: string;
 }
 
-interface Catalogo {
+interface ContraprestacionCatalogo {
   id: string;
-  tipo: string;
+  nombre: string;
   unidad: string;
 }
 
@@ -24,27 +23,33 @@ interface Props {
 }
 
 export default function Contraprestaciones({ agreementId, onBack }: Props) {
-  const [catalogo, setCatalogo] = useState<Catalogo[]>([]);
   const [contraprestaciones, setContraprestaciones] = useState<Contraprestacion[]>([]);
-  const [nueva, setNueva] = useState<Contraprestacion>({
-    tipo: "",
-    descripcion: "",
-    unidades_comprometidas: 1,
-    periodo_inicio: "",
-    periodo_fin: "",
-  });
-  const [subiendo, setSubiendo] = useState(false);
+  const [tipos, setTipos] = useState<ContraprestacionCatalogo[]>([]);
+  const [tipo, setTipo] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [unidades, setUnidades] = useState(1);
+  const [periodoInicio, setPeriodoInicio] = useState("");
+  const [periodoFin, setPeriodoFin] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // 📦 Cargar catálogo y contraprestaciones existentes
+  // 🔹 Cargar catálogo de tipos y contraprestaciones existentes
   useEffect(() => {
     fetchCatalogo();
     fetchContraprestaciones();
-  }, [agreementId]);
+  }, []);
 
   const fetchCatalogo = async () => {
-    const { data, error } = await supabase.from("contraprestaciones_catalogo").select("*");
-    if (error) console.error("Error al cargar catálogo:", error);
-    else setCatalogo(data || []);
+    const { data, error } = await supabase
+      .from("contraprestaciones_catalogo")
+      .select("id, nombre, unidad")
+      .order("nombre", { ascending: true });
+
+    if (error) {
+      console.error("Error al cargar catálogo:", error);
+      alert("Error al cargar el catálogo de contraprestaciones.");
+    } else {
+      setTipos(data || []);
+    }
   };
 
   const fetchContraprestaciones = async () => {
@@ -52,229 +57,198 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       .from("contraprestaciones")
       .select("*")
       .eq("agreement_id", agreementId)
-      .order("periodo_inicio", { ascending: true });
-    if (error) console.error("Error al cargar contraprestaciones:", error);
-    else setContraprestaciones(data || []);
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error al cargar contraprestaciones:", error);
+    } else {
+      setContraprestaciones(data || []);
+    }
   };
 
-  // 📝 Agregar nueva contraprestación
-  const handleAdd = async (e: React.FormEvent) => {
+  // 🔹 Registrar nueva contraprestación
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nueva.tipo || !nueva.periodo_inicio || !nueva.periodo_fin) {
-      alert("Completa todos los campos obligatorios");
+    setLoading(true);
+
+    if (!tipo || !periodoInicio || !periodoFin) {
+      alert("Por favor, complete todos los campos obligatorios.");
+      setLoading(false);
       return;
     }
+
+    const selectedTipo = tipos.find((t) => t.nombre === tipo);
+    const tipoDescripcion = selectedTipo
+      ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
+      : tipo;
 
     const { error } = await supabase.from("contraprestaciones").insert([
       {
         agreement_id: agreementId,
-        tipo: nueva.tipo,
-        descripcion: nueva.descripcion,
-        unidades_comprometidas: nueva.unidades_comprometidas,
-        periodo_inicio: nueva.periodo_inicio,
-        periodo_fin: nueva.periodo_fin,
+        tipo: tipoDescripcion,
+        descripcion,
+        unidades_comprometidas: unidades,
+        periodo_inicio: periodoInicio,
+        periodo_fin: periodoFin,
       },
     ]);
 
+    setLoading(false);
+
     if (error) {
-      console.error(error);
-      alert("❌ Error al guardar: " + error.message);
+      console.error("Error al guardar:", error);
+      alert("❌ Error al guardar la contraprestación: " + error.message);
     } else {
-      alert("✅ Contraprestación registrada");
-      setNueva({
-        tipo: "",
-        descripcion: "",
-        unidades_comprometidas: 1,
-        periodo_inicio: "",
-        periodo_fin: "",
-      });
+      alert("✅ Contraprestación registrada correctamente.");
+      setTipo("");
+      setDescripcion("");
+      setUnidades(1);
+      setPeriodoInicio("");
+      setPeriodoFin("");
       fetchContraprestaciones();
     }
   };
 
-  // ✅ Marcar cumplimiento
-  const handleCumplido = async (id: string, checked: boolean) => {
-    const { error } = await supabase
-      .from("contraprestaciones")
-      .update({ cumplido: checked })
-      .eq("id", id);
-    if (error) console.error(error);
-    else fetchContraprestaciones();
-  };
+  // 🔹 Eliminar contraprestación
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Deseas eliminar esta contraprestación?")) return;
 
-  // 📎 Subir evidencia PDF
-  const handleUpload = async (id: string, file: File) => {
-    try {
-      setSubiendo(true);
-      const filePath = `evidencias/${id}/${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("evidencias")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
-      const { error: updateError } = await supabase
-        .from("contraprestaciones")
-        .update({ evidencia_url: urlData.publicUrl })
-        .eq("id", id);
-
-      if (updateError) throw updateError;
-      fetchContraprestaciones();
-      alert("📎 Evidencia subida correctamente");
-    } catch (error: any) {
-      console.error(error);
-      alert("❌ Error al subir evidencia: " + error.message);
-    } finally {
-      setSubiendo(false);
+    const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
+    if (error) {
+      alert("❌ Error al eliminar: " + error.message);
+    } else {
+      setContraprestaciones(contraprestaciones.filter((c) => c.id !== id));
     }
   };
 
   return (
-    <div className="container mt-4" style={{ maxWidth: "1000px" }}>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="fw-bold text-primary">📋 Contraprestaciones del Convenio</h3>
-        <button className="btn btn-secondary" onClick={onBack}>
-          ⬅ Volver
-        </button>
-      </div>
+    <div className="container mt-4" style={{ maxWidth: "900px" }}>
+      <div className="card shadow p-4 border-0" style={{ borderRadius: "16px" }}>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h4 className="fw-bold text-primary mb-0">🏛️ Contraprestaciones del Convenio</h4>
+          <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+            ← Volver
+          </button>
+        </div>
 
-      {/* Formulario */}
-      <div className="card shadow-sm mb-4 p-4 border-0">
-        <h5 className="fw-semibold mb-3 text-secondary">Agregar nueva contraprestación</h5>
-        <form onSubmit={handleAdd} className="row g-3">
-          <div className="col-md-4">
-            <label>Tipo</label>
-            <select
-              className="form-select"
-              value={nueva.tipo}
-              onChange={(e) => setNueva({ ...nueva, tipo: e.target.value })}
-              required
-            >
-              <option value="">Seleccione tipo</option>
-              {catalogo.map((c) => (
-                <option key={c.id} value={c.tipo}>
-                  {c.tipo}
-                </option>
-              ))}
-            </select>
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="mb-4">
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label className="fw-semibold">Tipo de contraprestación</label>
+              <select
+                className="form-select"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+                required
+              >
+                <option value="">Seleccione...</option>
+                {tipos.map((t) => (
+                  <option key={t.id} value={t.nombre}>
+                    {t.nombre} ({t.unidad})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-6 mb-3">
+              <label className="fw-semibold">Unidades comprometidas</label>
+              <input
+                type="number"
+                className="form-control"
+                min={1}
+                value={unidades}
+                onChange={(e) => setUnidades(Number(e.target.value))}
+              />
+            </div>
           </div>
 
-          <div className="col-md-4">
-            <label>Unidades comprometidas</label>
-            <input
-              type="number"
-              className="form-control"
-              min={1}
-              value={nueva.unidades_comprometidas}
-              onChange={(e) =>
-                setNueva({ ...nueva, unidades_comprometidas: Number(e.target.value) })
-              }
-            />
-          </div>
-
-          <div className="col-md-4">
-            <label>Periodo de inicio</label>
-            <input
-              type="date"
-              className="form-control"
-              value={nueva.periodo_inicio}
-              onChange={(e) => setNueva({ ...nueva, periodo_inicio: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="col-md-4">
-            <label>Periodo de fin</label>
-            <input
-              type="date"
-              className="form-control"
-              value={nueva.periodo_fin}
-              onChange={(e) => setNueva({ ...nueva, periodo_fin: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="col-md-8">
-            <label>Descripción / Detalles</label>
+          <div className="mb-3">
+            <label className="fw-semibold">Descripción / Detalle</label>
             <textarea
               className="form-control"
-              value={nueva.descripcion}
-              onChange={(e) => setNueva({ ...nueva, descripcion: e.target.value })}
-              placeholder="Ejemplo: Beca parcial del 50% en maestría"
+              rows={2}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Ejemplo: 2 becas del 50% para maestría en salud pública"
             />
           </div>
 
-          <div className="col-12 text-end mt-3">
-            <button type="submit" className="btn btn-primary px-4">
-              ➕ Agregar
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label className="fw-semibold">Periodo inicio</label>
+              <input
+                type="date"
+                className="form-control"
+                value={periodoInicio}
+                onChange={(e) => setPeriodoInicio(e.target.value)}
+                required
+              />
+            </div>
+            <div className="col-md-6 mb-3">
+              <label className="fw-semibold">Periodo fin</label>
+              <input
+                type="date"
+                className="form-control"
+                value={periodoFin}
+                onChange={(e) => setPeriodoFin(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="d-flex justify-content-end">
+            <button
+              type="submit"
+              className="btn btn-primary px-4"
+              disabled={loading}
+            >
+              {loading ? "Guardando..." : "Guardar Contraprestación"}
             </button>
           </div>
         </form>
-      </div>
 
-      {/* Tabla de contraprestaciones */}
-      <div className="card shadow-sm p-3 border-0">
-        <h5 className="fw-semibold text-secondary mb-3">Lista de contraprestaciones</h5>
-        <table className="table table-striped align-middle">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Unidades</th>
-              <th>Inicio</th>
-              <th>Fin</th>
-              <th>Cumplido</th>
-              <th>Evidencia</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contraprestaciones.length > 0 ? (
-              contraprestaciones.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.tipo}</td>
-                  <td>{c.unidades_comprometidas}</td>
-                  <td>{c.periodo_inicio}</td>
-                  <td>{c.periodo_fin}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={!!c.cumplido}
-                      onChange={(e) => handleCumplido(c.id!, e.target.checked)}
-                    />
-                  </td>
-                  <td>
-                    {c.evidencia_url ? (
-                      <a
-                        href={c.evidencia_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-outline-success"
-                      >
-                        📎 Ver PDF
-                      </a>
-                    ) : (
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) =>
-                          e.target.files?.[0] && handleUpload(c.id!, e.target.files[0])
-                        }
-                        disabled={subiendo}
-                      />
-                    )}
-                  </td>
+        {/* Lista */}
+        <h5 className="fw-bold text-secondary mt-4">📋 Contraprestaciones registradas</h5>
+        {contraprestaciones.length === 0 ? (
+          <p className="text-muted mt-2">No hay contraprestaciones registradas.</p>
+        ) : (
+          <div className="table-responsive mt-3">
+            <table className="table table-hover align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Tipo</th>
+                  <th>Descripción</th>
+                  <th>Unidades</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Acciones</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-3">
-                  No hay contraprestaciones registradas.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {contraprestaciones.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.tipo}</td>
+                    <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
+                    <td>{c.unidades_comprometidas}</td>
+                    <td>{new Date(c.periodo_inicio).toLocaleDateString()}</td>
+                    <td>{new Date(c.periodo_fin).toLocaleDateString()}</td>
+                    <td>
+                      <button
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={() => handleDelete(c.id)}
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
