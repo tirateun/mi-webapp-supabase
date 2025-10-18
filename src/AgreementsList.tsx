@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import Contraprestaciones from "./Contraprestaciones";
 
 interface AgreementsListProps {
   user: any;
@@ -19,6 +20,7 @@ export default function AgreementsList({
   const [search, setSearch] = useState("");
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAgreement, setSelectedAgreement] = useState<string | null>(null);
 
   const tipos = [
     "Docente Asistencial",
@@ -62,9 +64,7 @@ export default function AgreementsList({
 
     if (selectedTipos.length > 0) {
       filteredData = filteredData.filter((a) =>
-        a.tipo_convenio?.some((t: string) =>
-          selectedTipos.includes(t)
-        )
+        a.tipo_convenio?.some((t: string) => selectedTipos.includes(t))
       );
     }
 
@@ -79,17 +79,28 @@ export default function AgreementsList({
     );
   };
 
+  // 🔁 Si se está visualizando las contraprestaciones
+  if (selectedAgreement) {
+    return (
+      <Contraprestaciones
+        agreementId={selectedAgreement}
+        onBack={() => setSelectedAgreement(null)}
+      />
+    );
+  }
+
   return (
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
-        {role === "admin" || role === "internal" ? (
+        {(role === "admin" || role === "internal") && (
           <button className="btn btn-success" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
-        ) : null}
+        )}
       </div>
 
+      {/* 🔍 Filtros y búsqueda */}
       <div className="card p-3 shadow-sm border-0 mb-4">
         <div className="row">
           <div className="col-md-6 mb-2">
@@ -121,12 +132,11 @@ export default function AgreementsList({
         </div>
       </div>
 
+      {/* 🔹 Tabla de convenios */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-center text-muted">
-          No se encontraron convenios.
-        </p>
+        <p className="text-center text-muted">No se encontraron convenios.</p>
       ) : (
         <div className="table-responsive">
           <table className="table table-hover align-middle">
@@ -148,11 +158,12 @@ export default function AgreementsList({
                 <tr key={a.id}>
                   <td className="fw-semibold">{a.name}</td>
                   <td>
-                    {a.convenio.charAt(0).toUpperCase() +
-                      a.convenio.slice(1)}
+                    {a.convenio
+                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
+                      : "-"}
                   </td>
                   <td>{a.sub_tipo_docente || "-"}</td>
-                  <td>{a.pais}</td>
+                  <td>{a.pais || "-"}</td>
                   <td>{a["Resolución Rectoral"] || "-"}</td>
                   <td>{a.duration_years}</td>
                   <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
@@ -160,17 +171,25 @@ export default function AgreementsList({
                   </td>
                   <td>
                     {a.signature_date
-                      ? new Date(a.signature_date).toLocaleDateString()
+                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
                       : "-"}
                   </td>
-                  <td>
+                  <td className="d-flex flex-wrap gap-2">
                     {(role === "admin" || role === "internal") && (
-                      <button
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => onEdit(a)}
-                      >
-                        ✏️ Editar
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => onEdit(a)}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          className="btn btn-outline-success btn-sm"
+                          onClick={() => setSelectedAgreement(a.id)}
+                        >
+                          📋 Contraprestaciones
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -182,6 +201,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 

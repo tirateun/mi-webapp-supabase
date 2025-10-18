@@ -8,6 +8,7 @@ import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
+import Contraprestaciones from "./Contraprestaciones";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
