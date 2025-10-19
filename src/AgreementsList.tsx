@@ -189,6 +189,18 @@ export default function AgreementsList({
                         >
                           📋 Contraprestaciones
                         </button>
+                        <button
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent("openEvidencias", {
+                                detail: a.id,
+                              })
+                            )
+                          }
+                        >
+                          📂 Cumplimiento
+                        </button>
                       </>
                     )}
                   </td>
@@ -201,6 +213,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 

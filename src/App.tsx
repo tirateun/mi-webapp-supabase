@@ -9,6 +9,7 @@ import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
 import Contraprestaciones from "./Contraprestaciones";
+import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -20,7 +21,10 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<"main" | "evidencias">("main");
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
 
+  // 🔹 Obtener sesión y perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -47,6 +51,17 @@ export default function App() {
     return () => {
       listener.subscription.unsubscribe();
     };
+  }, []);
+
+  // 🔹 Escucha global del evento de cumplimiento
+  useEffect(() => {
+    const handleOpenEvidencias = (e: any) => {
+      setSelectedAgreementId(e.detail);
+      setActiveView("evidencias");
+    };
+
+    window.addEventListener("openEvidencias", handleOpenEvidencias);
+    return () => window.removeEventListener("openEvidencias", handleOpenEvidencias);
   }, []);
 
   const handleLogin = async (user: any) => {
@@ -90,6 +105,20 @@ export default function App() {
     );
   }
 
+  // 🔹 Nueva vista de cumplimiento
+  if (activeView === "evidencias" && selectedAgreementId) {
+    return (
+      <ContraprestacionesEvidencias
+        agreementId={selectedAgreementId}
+        onBack={() => {
+          setActiveView("main");
+          setSelectedAgreementId(null);
+        }}
+      />
+    );
+  }
+
+  // 🔹 Vista principal
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
@@ -105,7 +134,7 @@ export default function App() {
             (
             {role === "admin"
               ? "Administrador interno"
-              : role === "interno"
+              : role === "internal"
               ? "Usuario interno"
               : "Usuario externo"}
             )
@@ -153,6 +182,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
