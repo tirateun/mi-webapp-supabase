@@ -10,162 +10,171 @@ export default function ContraprestacionesEvidencias({
   agreementId,
   onBack,
 }: ContraprestacionesEvidenciasProps) {
-  const [contraprestaciones, setContraprestaciones] = useState<any[]>([]);
-  const [uploading, setUploading] = useState<string | null>(null);
+  const [seguimientos, setSeguimientos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchContraprestaciones();
+    fetchSeguimientos();
   }, [agreementId]);
 
-  // 🔹 Obtener contraprestaciones y su seguimiento
-  const fetchContraprestaciones = async () => {
+  const fetchSeguimientos = async () => {
     setLoading(true);
 
     const { data, error } = await supabase
-      .from("contraprestaciones_seguimiento")
-      .select("*")
-      .eq("agreement_id", agreementId)
-      .order("periodo_inicio", { ascending: true });
+      .from("contraprestaciones")
+      .select(`
+        id,
+        tipo,
+        descripcion,
+        contraprestaciones_seguimiento (
+          id,
+          año,
+          estado,
+          observaciones,
+          fecha_verificacion,
+          responsable,
+          evidencia_url,
+          ejecutado
+        )
+      `)
+      .eq("agreement_id", agreementId);
 
-    if (error) console.error("Error al cargar contraprestaciones:", error);
-    else setContraprestaciones(data || []);
+    if (error) {
+      console.error("Error al cargar contraprestaciones:", error);
+      setSeguimientos([]);
+    } else {
+      setSeguimientos(data || []);
+    }
 
     setLoading(false);
   };
 
-  // 🔹 Marcar cumplimiento (check)
-  const toggleCumplido = async (id: string, cumplido: boolean) => {
-    const { error } = await supabase
-      .from("contraprestaciones_seguimiento")
-      .update({ cumplido: !cumplido })
-      .eq("id", id);
+  const handleFileUpload = async (seguimientoId: string, file: File) => {
+    const filePath = `${seguimientoId}/${file.name}`;
 
-    if (error) alert("❌ Error al actualizar: " + error.message);
-    else fetchContraprestaciones();
+    const { error: uploadError } = await supabase.storage
+      .from("evidencias")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      alert("❌ Error al subir archivo: " + uploadError.message);
+      return;
+    }
+
+    const publicUrl = supabase.storage.from("evidencias").getPublicUrl(filePath)
+      .data.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from("contraprestaciones_seguimiento")
+      .update({ evidencia_url: publicUrl })
+      .eq("id", seguimientoId);
+
+    if (updateError) {
+      alert("❌ Error al guardar evidencia: " + updateError.message);
+    } else {
+      alert("✅ Evidencia subida correctamente");
+      fetchSeguimientos();
+    }
   };
 
-  // 🔹 Subir archivo PDF como evidencia
-  const handleFileUpload = async (id: string, file: File) => {
-    try {
-      setUploading(id);
+  const toggleEjecutado = async (seguimientoId: string, currentValue: boolean) => {
+    const { error } = await supabase
+      .from("contraprestaciones_seguimiento")
+      .update({
+        ejecutado: !currentValue,
+        estado: !currentValue ? "cumplido" : "pendiente",
+        fecha_verificacion: !currentValue ? new Date().toISOString() : null,
+      })
+      .eq("id", seguimientoId);
 
-      if (file.type !== "application/pdf") {
-        alert("Solo se permiten archivos PDF.");
-        return;
-      }
-
-      const filePath = `${agreementId}/${id}-${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("evidencias")
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("evidencias")
-        .getPublicUrl(filePath);
-
-      const { error: updateError } = await supabase
-        .from("contraprestaciones_seguimiento")
-        .update({ evidencia_url: publicUrlData.publicUrl })
-        .eq("id", id);
-
-      if (updateError) throw updateError;
-
-      alert("✅ Evidencia subida correctamente");
-      fetchContraprestaciones();
-    } catch (err: any) {
-      alert("❌ Error al subir archivo: " + err.message);
-    } finally {
-      setUploading(null);
+    if (error) {
+      alert("❌ Error al actualizar estado: " + error.message);
+    } else {
+      fetchSeguimientos();
     }
   };
 
   return (
     <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className="fw-bold text-primary">
-          📂 Cumplimiento de Contraprestaciones
-        </h3>
-        <button className="btn btn-secondary" onClick={onBack}>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h3 className="fw-bold text-primary">📂 Cumplimiento de Contraprestaciones</h3>
+        <button className="btn btn-outline-secondary" onClick={onBack}>
           🔙 Volver
         </button>
       </div>
 
       {loading ? (
-        <p className="text-center">Cargando contraprestaciones...</p>
-      ) : contraprestaciones.length === 0 ? (
+        <p className="text-center">Cargando...</p>
+      ) : seguimientos.length === 0 ? (
         <p className="text-center text-muted">
           No hay contraprestaciones registradas para este convenio.
         </p>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-striped align-middle">
-            <thead className="table-primary">
-              <tr>
-                <th>Tipo</th>
-                <th>Descripción</th>
-                <th>Periodo</th>
-                <th>Unidades comprometidas</th>
-                <th>Cumplido</th>
-                <th>Evidencia (PDF)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contraprestaciones.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.tipo}</td>
-                  <td style={{ whiteSpace: "pre-wrap" }}>
-                    {c.descripcion || "-"}
-                  </td>
-                  <td>
-                    {new Date(c.periodo_inicio).toLocaleDateString("es-PE")}{" "}
-                    - {new Date(c.periodo_fin).toLocaleDateString("es-PE")}
-                  </td>
-                  <td>{c.unidades_comprometidas}</td>
-                  <td>
+        seguimientos.map((contrap) => (
+          <div key={contrap.id} className="card mb-4 shadow-sm">
+            <div className="card-header bg-primary text-white fw-bold">
+              {contrap.tipo} — {contrap.descripcion}
+            </div>
+            <div className="card-body">
+              {contrap.contraprestaciones_seguimiento.map((seg: any) => (
+                <div
+                  key={seg.id}
+                  className="d-flex align-items-center justify-content-between border-bottom py-2"
+                >
+                  <div>
+                    <p className="mb-1">
+                      <strong>Año {seg.año}</strong> — Estado:{" "}
+                      <span
+                        className={`badge ${
+                          seg.ejecutado ? "bg-success" : "bg-warning text-dark"
+                        }`}
+                      >
+                        {seg.estado || (seg.ejecutado ? "Cumplido" : "Pendiente")}
+                      </span>
+                    </p>
+                    <small className="text-muted">
+                      {seg.observaciones || "Sin observaciones"}
+                    </small>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={!!c.cumplido}
-                      onChange={() => toggleCumplido(c.id, !!c.cumplido)}
+                      checked={!!seg.ejecutado}
+                      onChange={() => toggleEjecutado(seg.id, seg.ejecutado)}
                     />
-                  </td>
-                  <td>
-                    {c.evidencia_url ? (
+                    {seg.evidencia_url ? (
                       <a
-                        href={c.evidencia_url}
+                        href={seg.evidencia_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn btn-outline-primary btn-sm"
+                        className="btn btn-outline-success btn-sm"
                       >
                         📎 Ver PDF
                       </a>
                     ) : (
-                      <div>
-                        <label className="btn btn-outline-secondary btn-sm">
-                          {uploading === c.id ? "Subiendo..." : "Subir PDF"}
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            hidden
-                            onChange={(e) => {
-                              if (e.target.files?.[0])
-                                handleFileUpload(c.id, e.target.files[0]);
-                            }}
-                          />
-                        </label>
-                      </div>
+                      <label className="btn btn-outline-primary btn-sm mb-0">
+                        📤 Subir PDF
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          hidden
+                          onChange={(e) =>
+                            e.target.files &&
+                            handleFileUpload(seg.id, e.target.files[0])
+                          }
+                        />
+                      </label>
                     )}
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        ))
       )}
     </div>
   );
 }
+
 
