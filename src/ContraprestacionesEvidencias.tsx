@@ -17,7 +17,6 @@ interface ContraprestacionSeguimiento {
   responsable: string | null;
   evidencia_url: string | null;
   ejecutado: boolean;
-  // campo opcional que llenaremos al unir los datos
   contraprestacion?: {
     tipo: string;
     descripcion: string | null;
@@ -47,12 +46,10 @@ export default function ContraprestacionesEvidencias({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
-  // 1) buscar seguimientos y detalles y unirlos en JS (más robusto que select anidado)
   const fetchSeguimientos = async () => {
     setLoading(true);
-
     try {
-      // traer ids de contraprestaciones del convenio
+      // Traer IDs de contraprestaciones
       const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
         .select("id")
@@ -60,36 +57,42 @@ export default function ContraprestacionesEvidencias({
 
       if (errIds) throw errIds;
       const ids = (contraprestacionesIds || []).map((r: any) => r.id);
-      if (ids.length === 0) {
+
+      if (!ids.length) {
         setSeguimientos([]);
         setLoading(false);
         return;
       }
 
-      // traer seguimientos asociados a esas contraprestaciones
+      console.log("🧩 IDs de contraprestaciones:", ids);
+
+      // Construir OR dinámico en vez de usar `.in()`
+      const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
+
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
-        .in("contraprestacion_id", ids)
+        .or(orCondition)
         .order("anio", { ascending: true });
 
       if (errSeg) throw errSeg;
 
-      // traer detalles de contraprestaciones (tipo, descripcion)
       const { data: detalles, error: errDet } = await supabase
         .from("contraprestaciones")
         .select("id, tipo, descripcion")
-        .in("id", ids);
+        .or(orCondition);
 
       if (errDet) throw errDet;
 
-      // crear mapa id -> detalle
       const detalleMap: Record<string, ContraprestacionDetalle> = {};
       (detalles || []).forEach((d: any) => {
-        detalleMap[d.id] = { id: d.id, tipo: d.tipo, descripcion: d.descripcion || null };
+        detalleMap[d.id] = {
+          id: d.id,
+          tipo: d.tipo,
+          descripcion: d.descripcion || null,
+        };
       });
 
-      // unir y normalizar tipos
       const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
         id: s.id,
         contraprestacion_id: s.contraprestacion_id,
@@ -118,15 +121,12 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  // Toggle ejecutado (marcar / desmarcar) — se pueden aplicar reglas de permiso aquí
   const handleToggleEjecutado = async (s: ContraprestacionSeguimiento) => {
-    // permiso: solo admin o responsable interno para cambiar (ajusta según tu RLS)
     if (!(role === "admin" || role === "internal" || role === "interno")) {
       alert("No tienes permisos para cambiar el estado de cumplimiento.");
       return;
     }
 
-    // si ya hay evidencia y quieres bloquear desmarcar en frontend:
     if (s.evidencia_url && role !== "admin") {
       alert("No puedes desmarcar una contraprestación que ya tiene evidencia (solo admin).");
       return;
@@ -142,7 +142,6 @@ export default function ContraprestacionesEvidencias({
       payload.responsable = userId || null;
       payload.fecha_verificacion = new Date().toISOString();
     } else {
-      // al desmarcar limpiamos responsable/fecha si no es admin (dependiendo de reglas)
       payload.responsable = null;
       payload.fecha_verificacion = null;
     }
@@ -160,12 +159,10 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  // Subir evidencia a bucket 'evidencias' y guardar URL pública en la tabla seguimiento
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: ContraprestacionSeguimiento) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // validaciones simples
     if (file.type !== "application/pdf") {
       alert("Solo se permiten archivos PDF como evidencia.");
       return;
@@ -190,9 +187,6 @@ export default function ContraprestacionesEvidencias({
         .eq("id", s.id);
 
       if (updateError) throw updateError;
-
-      // opcional: si queremos marcar como cumplido al subir evidencia:
-      // await supabase.from("contraprestaciones_seguimiento").update({ ejecutado: true, estado: 'cumplido', responsable: userId, fecha_verificacion: new Date().toISOString() }).eq('id', s.id);
 
       fetchSeguimientos();
     } catch (err: any) {
@@ -274,6 +268,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
