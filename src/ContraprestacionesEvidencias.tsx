@@ -136,21 +136,22 @@ export default function ContraprestacionesEvidencias({
                   <td>
                     <input
                       type="checkbox"
-                      checked={s.ejecutado || false}
-                      onChange={(e) => handleCheck(s.id, e.target.checked)}
+                      checked={seguimiento.ejecutado}
+                      disabled={!!seguimiento.evidencia_url || role !== "admin"}
+                      onChange={() => handleCheck(seguimiento)}
                     />
                   </td>
                   <td>
                     {s.evidencia_url ? (
                       <a
-                        href={s.evidencia_url}
+                        href={seguimiento.evidencia_url}
                         target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-outline-primary"
-                      >
+                        rel="noopener noreferrer">
                         📄 Ver evidencia
                       </a>
                     ) : (
+                      <input type="file" accept="application/pdf" onChange={(e) => handleUpload(e, seguimiento.id)} />
+                    )}
                       <label className="btn btn-sm btn-outline-secondary mb-0">
                         {uploading === s.id ? "Subiendo..." : "Subir PDF"}
                         <input
