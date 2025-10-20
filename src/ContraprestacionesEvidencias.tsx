@@ -6,12 +6,23 @@ interface ContraprestacionesEvidenciasProps {
   onBack: () => void;
 }
 
+interface Seguimiento {
+  id: string;
+  tipo: string;
+  descripcion: string;
+  unidades_comprometidas: number;
+  ejecutado: boolean;
+  evidencia_url: string | null;
+  estado: string | null;
+}
+
 export default function ContraprestacionesEvidencias({
   agreementId,
   onBack,
 }: ContraprestacionesEvidenciasProps) {
-  const [seguimientos, setSeguimientos] = useState<any[]>([]);
+  const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSeguimientos();
@@ -19,162 +30,160 @@ export default function ContraprestacionesEvidencias({
 
   const fetchSeguimientos = async () => {
     setLoading(true);
-
     const { data, error } = await supabase
       .from("contraprestaciones")
-      .select(`
-        id,
-        tipo,
-        descripcion,
-        contraprestaciones_seguimiento (
-          id,
-          año,
-          estado,
-          observaciones,
-          fecha_verificacion,
-          responsable,
-          evidencia_url,
-          ejecutado
-        )
-      `)
+      .select("id, tipo, descripcion, unidades_comprometidas, seguimiento:contraprestaciones_seguimiento(*)")
       .eq("agreement_id", agreementId);
 
     if (error) {
       console.error("Error al cargar contraprestaciones:", error);
-      setSeguimientos([]);
     } else {
-      setSeguimientos(data || []);
+      // Aplanar los registros de seguimiento
+      const items: Seguimiento[] = [];
+      data?.forEach((c: any) => {
+        c.seguimiento?.forEach((s: any) => {
+          items.push({
+            id: s.id,
+            tipo: c.tipo,
+            descripcion: c.descripcion,
+            unidades_comprometidas: c.unidades_comprometidas,
+            ejecutado: s.ejecutado,
+            evidencia_url: s.evidencia_url,
+            estado: s.estado,
+          });
+        });
+      });
+      setSeguimientos(items);
     }
-
     setLoading(false);
   };
 
-  const handleFileUpload = async (seguimientoId: string, file: File) => {
-    const filePath = `${seguimientoId}/${file.name}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("evidencias")
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      alert("❌ Error al subir archivo: " + uploadError.message);
-      return;
-    }
-
-    const publicUrl = supabase.storage.from("evidencias").getPublicUrl(filePath)
-      .data.publicUrl;
-
-    const { error: updateError } = await supabase
+  const handleCheck = async (id: string, checked: boolean) => {
+    const { error } = await supabase
       .from("contraprestaciones_seguimiento")
-      .update({ evidencia_url: publicUrl })
-      .eq("id", seguimientoId);
+      .update({ ejecutado: checked })
+      .eq("id", id);
 
-    if (updateError) {
-      alert("❌ Error al guardar evidencia: " + updateError.message);
+    if (error) {
+      alert("❌ Error al actualizar el estado: " + error.message);
     } else {
-      alert("✅ Evidencia subida correctamente");
       fetchSeguimientos();
     }
   };
 
-  const toggleEjecutado = async (seguimientoId: string, currentValue: boolean) => {
-    const { error } = await supabase
-      .from("contraprestaciones_seguimiento")
-      .update({
-        ejecutado: !currentValue,
-        estado: !currentValue ? "cumplido" : "pendiente",
-        fecha_verificacion: !currentValue ? new Date().toISOString() : null,
-      })
-      .eq("id", seguimientoId);
+  const handleUpload = async (id: string, file: File) => {
+    try {
+      setUploading(id);
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${id}-${Date.now()}.${fileExt}`;
 
-    if (error) {
-      alert("❌ Error al actualizar estado: " + error.message);
-    } else {
+      const { error: uploadError } = await supabase.storage
+        .from("evidencias")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("evidencias")
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("contraprestaciones_seguimiento")
+        .update({ evidencia_url: urlData.publicUrl })
+        .eq("id", id);
+
+      if (updateError) throw updateError;
+
+      alert("✅ Evidencia subida correctamente");
       fetchSeguimientos();
+    } catch (err: any) {
+      alert("❌ Error al subir evidencia: " + err.message);
+    } finally {
+      setUploading(null);
     }
   };
 
   return (
     <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="fw-bold text-primary">📂 Cumplimiento de Contraprestaciones</h3>
-        <button className="btn btn-outline-secondary" onClick={onBack}>
-          🔙 Volver
-        </button>
-      </div>
+      <h3 className="fw-bold text-primary mb-3">📂 Cumplimiento de Contraprestaciones</h3>
+      <button className="btn btn-outline-secondary mb-4" onClick={onBack}>
+        🔙 Volver
+      </button>
 
       {loading ? (
-        <p className="text-center">Cargando...</p>
+        <p>Cargando contraprestaciones...</p>
       ) : seguimientos.length === 0 ? (
-        <p className="text-center text-muted">
-          No hay contraprestaciones registradas para este convenio.
-        </p>
+        <p>No hay contraprestaciones registradas para este convenio.</p>
       ) : (
-        seguimientos.map((contrap) => (
-          <div key={contrap.id} className="card mb-4 shadow-sm">
-            <div className="card-header bg-primary text-white fw-bold">
-              {contrap.tipo} — {contrap.descripcion}
-            </div>
-            <div className="card-body">
-              {contrap.contraprestaciones_seguimiento.map((seg: any) => (
-                <div
-                  key={seg.id}
-                  className="d-flex align-items-center justify-content-between border-bottom py-2"
-                >
-                  <div>
-                    <p className="mb-1">
-                      <strong>Año {seg.año}</strong> — Estado:{" "}
-                      <span
-                        className={`badge ${
-                          seg.ejecutado ? "bg-success" : "bg-warning text-dark"
-                        }`}
-                      >
-                        {seg.estado || (seg.ejecutado ? "Cumplido" : "Pendiente")}
-                      </span>
-                    </p>
-                    <small className="text-muted">
-                      {seg.observaciones || "Sin observaciones"}
-                    </small>
-                  </div>
-
-                  <div className="d-flex align-items-center gap-2">
+        <div className="table-responsive">
+          <table className="table table-bordered align-middle">
+            <thead className="table-light">
+              <tr>
+                <th>Tipo</th>
+                <th>Descripción</th>
+                <th>Unidades</th>
+                <th>Ejecutado</th>
+                <th>Evidencia (PDF)</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {seguimientos.map((s) => (
+                <tr key={s.id}>
+                  <td>{s.tipo}</td>
+                  <td>{s.descripcion}</td>
+                  <td>{s.unidades_comprometidas}</td>
+                  <td>
                     <input
                       type="checkbox"
-                      checked={!!seg.ejecutado}
-                      onChange={() => toggleEjecutado(seg.id, seg.ejecutado)}
+                      checked={s.ejecutado || false}
+                      onChange={(e) => handleCheck(s.id, e.target.checked)}
                     />
-                    {seg.evidencia_url ? (
+                  </td>
+                  <td>
+                    {s.evidencia_url ? (
                       <a
-                        href={seg.evidencia_url}
+                        href={s.evidencia_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn btn-outline-success btn-sm"
+                        className="btn btn-sm btn-outline-primary"
                       >
-                        📎 Ver PDF
+                        📄 Ver evidencia
                       </a>
                     ) : (
-                      <label className="btn btn-outline-primary btn-sm mb-0">
-                        📤 Subir PDF
+                      <label className="btn btn-sm btn-outline-secondary mb-0">
+                        {uploading === s.id ? "Subiendo..." : "Subir PDF"}
                         <input
                           type="file"
                           accept="application/pdf"
                           hidden
                           onChange={(e) =>
-                            e.target.files &&
-                            handleFileUpload(seg.id, e.target.files[0])
+                            e.target.files && handleUpload(s.id, e.target.files[0])
                           }
                         />
                       </label>
                     )}
-                  </div>
-                </div>
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        s.estado === "Cumplido"
+                          ? "bg-success"
+                          : "bg-warning text-dark"
+                      }`}
+                    >
+                      {s.estado || "Pendiente"}
+                    </span>
+                  </td>
+                </tr>
               ))}
-            </div>
-          </div>
-        ))
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
 }
+
 
 
