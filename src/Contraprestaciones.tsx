@@ -28,19 +28,18 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
-  const [anioSeleccionado, setAnioSeleccionado] = useState("");
-  const [aniosDisponibles, setAniosDisponibles] = useState<
-    { label: string; inicio: string; fin: string }[]
-  >([]);
+  const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
+  const [anioSeleccionado, setAnioSeleccionado] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Cargar catálogo y contraprestaciones
+  // 🔹 Cargar catálogo y datos iniciales
   useEffect(() => {
     fetchCatalogo();
     fetchContraprestaciones();
-    calcularPeriodos();
+    fetchDuracionConvenio();
   }, []);
 
+  // 🔹 Cargar catálogo desde tabla
   const fetchCatalogo = async () => {
     const { data, error } = await supabase
       .from("contraprestaciones_catalogo")
@@ -55,6 +54,23 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
+  // 🔹 Obtener duración (en años) desde agreements
+  const fetchDuracionConvenio = async () => {
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("duration_years")
+      .eq("id", agreementId)
+      .single();
+
+    if (error) {
+      console.error("Error al obtener duración del convenio:", error);
+    } else {
+      const years = data?.duration_years || 1;
+      setAniosDisponibles(Array.from({ length: years }, (_, i) => i + 1));
+    }
+  };
+
+  // 🔹 Cargar contraprestaciones registradas
   const fetchContraprestaciones = async () => {
     const { data, error } = await supabase
       .from("contraprestaciones")
@@ -62,43 +78,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       .eq("agreement_id", agreementId)
       .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("Error al cargar contraprestaciones:", error);
-    } else {
-      setContraprestaciones(data || []);
-    }
-  };
-
-  // 🔹 Calcular periodos según el convenio
-  const calcularPeriodos = async () => {
-    const { data, error } = await supabase
-      .from("agreements")
-      .select("signature_date, duration_years")
-      .eq("id", agreementId)
-      .single();
-
-    if (error || !data) return;
-
-    const inicio = new Date(data.signature_date);
-    const duracion = data.duration_years || 1;
-
-    const periodos = Array.from({ length: duracion }, (_, i) => {
-      const inicioAnio = new Date(inicio);
-      inicioAnio.setFullYear(inicio.getFullYear() + i);
-
-      const finAnio = new Date(inicioAnio);
-      finAnio.setFullYear(inicioAnio.getFullYear() + 1);
-      finAnio.setDate(finAnio.getDate() - 1);
-
-      const label = `Año ${i + 1}`;
-      return {
-        label,
-        inicio: inicioAnio.toISOString().split("T")[0],
-        fin: finAnio.toISOString().split("T")[0],
-      };
-    });
-
-    setAniosDisponibles(periodos);
+    if (error) console.error("Error al cargar contraprestaciones:", error);
+    else setContraprestaciones(data || []);
   };
 
   // 🔹 Registrar nueva contraprestación
@@ -107,14 +88,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     setLoading(true);
 
     if (!tipo || !anioSeleccionado) {
-      alert("Por favor, complete todos los campos obligatorios.");
-      setLoading(false);
-      return;
-    }
-
-    const periodo = aniosDisponibles.find((a) => a.label === anioSeleccionado);
-    if (!periodo) {
-      alert("Debe seleccionar un periodo válido.");
+      alert("Por favor, seleccione el tipo y el año del convenio.");
       setLoading(false);
       return;
     }
@@ -124,30 +98,53 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
       : tipo;
 
-    const { error } = await supabase.from("contraprestaciones").insert([
-      {
-        agreement_id: agreementId,
-        tipo: tipoDescripcion,
-        descripcion,
-        unidades_comprometidas: unidades,
-        periodo_inicio: periodo.inicio,
-        periodo_fin: periodo.fin,
-      },
-    ]);
-
-    setLoading(false);
+    // 🔹 Insertar la contraprestación principal
+    const { data: inserted, error } = await supabase
+      .from("contraprestaciones")
+      .insert([
+        {
+          agreement_id: agreementId,
+          tipo: tipoDescripcion,
+          descripcion,
+          unidades_comprometidas: unidades,
+        },
+      ])
+      .select("id")
+      .single();
 
     if (error) {
       console.error("Error al guardar:", error);
       alert("❌ Error al guardar la contraprestación: " + error.message);
-    } else {
-      alert("✅ Contraprestación registrada correctamente.");
-      setTipo("");
-      setDescripcion("");
-      setUnidades(1);
-      setAnioSeleccionado("");
-      fetchContraprestaciones();
+      setLoading(false);
+      return;
     }
+
+    // 🔹 Crear registros de seguimiento automático para todos los años del convenio
+    if (inserted && aniosDisponibles.length > 0) {
+      const seguimientoData = aniosDisponibles.map((a, i) => ({
+        contraprestacion_id: inserted.id,
+        año: i + 1,
+        estado: "pendiente",
+        ejecutado: false,
+      }));
+
+      const { error: seguimientoError } = await supabase
+        .from("contraprestaciones_seguimiento")
+        .insert(seguimientoData);
+
+      if (seguimientoError) {
+        console.error("Error creando seguimiento:", seguimientoError);
+        alert("⚠️ Se registró la contraprestación pero no el seguimiento.");
+      }
+    }
+
+    alert("✅ Contraprestación registrada correctamente.");
+    setTipo("");
+    setDescripcion("");
+    setUnidades(1);
+    setAnioSeleccionado(null);
+    setLoading(false);
+    fetchContraprestaciones();
   };
 
   // 🔹 Eliminar contraprestación
@@ -192,7 +189,24 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
               </select>
             </div>
 
-            <div className="col-md-6 mb-3">
+            <div className="col-md-3 mb-3">
+              <label className="fw-semibold">Año</label>
+              <select
+                className="form-select"
+                value={anioSeleccionado || ""}
+                onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
+                required
+              >
+                <option value="">Seleccione año...</option>
+                {aniosDisponibles.map((a) => (
+                  <option key={a} value={a}>
+                    {a}° año
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-3 mb-3">
               <label className="fw-semibold">Unidades comprometidas</label>
               <input
                 type="number"
@@ -213,24 +227,6 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Ejemplo: 2 becas del 50% para maestría en salud pública"
             />
-          </div>
-
-          <div className="mb-3">
-            <label className="fw-semibold">Periodo</label>
-            <select
-              className="form-select"
-              value={anioSeleccionado}
-              onChange={(e) => setAnioSeleccionado(e.target.value)}
-              required
-            >
-              <option value="">Seleccione un año...</option>
-              {aniosDisponibles.map((a) => (
-                <option key={a.label} value={a.label}>
-                  {a.label} ({new Date(a.inicio).toLocaleDateString()} →{" "}
-                  {new Date(a.fin).toLocaleDateString()})
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="d-flex justify-content-end">
@@ -256,7 +252,6 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                   <th>Tipo</th>
                   <th>Descripción</th>
                   <th>Unidades</th>
-                  <th>Periodo</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -264,12 +259,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                 {contraprestaciones.map((c) => (
                   <tr key={c.id}>
                     <td>{c.tipo}</td>
-                    <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
+                    <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
                     <td>{c.unidades_comprometidas}</td>
-                    <td>
-                      {new Date(c.periodo_inicio).toLocaleDateString()} –{" "}
-                      {new Date(c.periodo_fin).toLocaleDateString()}
-                    </td>
                     <td>
                       <button
                         className="btn btn-outline-danger btn-sm"
@@ -288,5 +279,6 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     </div>
   );
 }
+
 
 
