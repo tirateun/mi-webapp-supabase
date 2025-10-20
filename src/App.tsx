@@ -8,7 +8,6 @@ import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
-import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 
 export default function App() {
@@ -16,15 +15,13 @@ export default function App() {
   const [role, setRole] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm"
+    "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm" | "contraprestacionesEvidencias"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<"main" | "evidencias">("main");
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 🔹 Obtener sesión y perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -51,17 +48,6 @@ export default function App() {
     return () => {
       listener.subscription.unsubscribe();
     };
-  }, []);
-
-  // 🔹 Escucha global del evento de cumplimiento
-  useEffect(() => {
-    const handleOpenEvidencias = (e: any) => {
-      setSelectedAgreementId(e.detail);
-      setActiveView("evidencias");
-    };
-
-    window.addEventListener("openEvidencias", handleOpenEvidencias);
-    return () => window.removeEventListener("openEvidencias", handleOpenEvidencias);
   }, []);
 
   const handleLogin = async (user: any) => {
@@ -105,20 +91,6 @@ export default function App() {
     );
   }
 
-  // 🔹 Nueva vista de cumplimiento
-  if (activeView === "evidencias" && selectedAgreementId) {
-    return (
-      <ContraprestacionesEvidencias
-        agreementId={selectedAgreementId}
-        onBack={() => {
-          setActiveView("main");
-          setSelectedAgreementId(null);
-        }}
-      />
-    );
-  }
-
-  // 🔹 Vista principal
   return (
     <div style={{ display: "flex" }}>
       <Sidebar
@@ -127,6 +99,7 @@ export default function App() {
         role={role}
         userName={fullName || session.user.email}
       />
+
       <div style={{ flex: 1, padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>
           👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
@@ -171,18 +144,31 @@ export default function App() {
         )}
 
         {activePage === "instituciones" && <Instituciones />}
+
         {activePage === "institucionesForm" && (
           <InstitucionesForm
             onSave={() => setActivePage("instituciones")}
             onCancel={() => setActivePage("instituciones")}
           />
         )}
+
         {activePage === "users" && <Users />}
+
+        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
+          <ContraprestacionesEvidencias
+            agreementId={selectedAgreementId}
+            onBack={() => {
+              setSelectedAgreementId(null);
+              setActivePage("agreementsList");
+            }}
+            role={role}
+            userId={session.user.id}
+          />
+        )}
       </div>
     </div>
   );
 }
-
 
 
 
