@@ -134,9 +134,16 @@ export default function App() {
               setEditingAgreement(null);
               setActivePage("agreementsForm");
             }}
+            onOpenContraprestaciones={(id: string) => {
+              setSelectedAgreementId(id);
+              setActivePage("contraprestaciones");
+            }}
+            onOpenEvidencias={(id: string) => {
+              setSelectedAgreementId(id);
+              setActivePage("contraprestacionesEvidencias");
+            )}
           />
-        )}
-
+          
         {/* 📝 FORMULARIO DE CONVENIO */}
         {activePage === "agreementsForm" && (
           <AgreementsForm

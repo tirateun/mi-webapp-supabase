@@ -6,6 +6,8 @@ interface AgreementsListProps {
   role: string;
   onEdit: (agreement: any) => void;
   onCreate: () => void;
+  onOpenContraprestaciones: (agreementId: string) => void;
+  onOpenEvidencias: (agreementId: string) => void;
 }
 
 export default function AgreementsList({
@@ -13,6 +15,8 @@ export default function AgreementsList({
   role,
   onEdit,
   onCreate,
+  onOpenContraprestaciones,
+  onOpenEvidencias,
 }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
@@ -62,9 +66,7 @@ export default function AgreementsList({
 
     if (selectedTipos.length > 0) {
       filteredData = filteredData.filter((a) =>
-        a.tipo_convenio?.some((t: string) =>
-          selectedTipos.includes(t)
-        )
+        a.tipo_convenio?.some((t: string) => selectedTipos.includes(t))
       );
     }
 
@@ -83,13 +85,14 @@ export default function AgreementsList({
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
-        {role === "admin" || role === "internal" ? (
+        {(role === "admin" || role === "internal") && (
           <button className="btn btn-success" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
-        ) : null}
+        )}
       </div>
 
+      {/* 🔍 Filtros y búsqueda */}
       <div className="card p-3 shadow-sm border-0 mb-4">
         <div className="row">
           <div className="col-md-6 mb-2">
@@ -121,12 +124,11 @@ export default function AgreementsList({
         </div>
       </div>
 
+      {/* 🔹 Tabla de convenios */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
-        <p className="text-center text-muted">
-          No se encontraron convenios.
-        </p>
+        <p className="text-center text-muted">No se encontraron convenios.</p>
       ) : (
         <div className="table-responsive">
           <table className="table table-hover align-middle">
@@ -148,11 +150,12 @@ export default function AgreementsList({
                 <tr key={a.id}>
                   <td className="fw-semibold">{a.name}</td>
                   <td>
-                    {a.convenio.charAt(0).toUpperCase() +
-                      a.convenio.slice(1)}
+                    {a.convenio
+                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
+                      : "-"}
                   </td>
                   <td>{a.sub_tipo_docente || "-"}</td>
-                  <td>{a.pais}</td>
+                  <td>{a.pais || "-"}</td>
                   <td>{a["Resolución Rectoral"] || "-"}</td>
                   <td>{a.duration_years}</td>
                   <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
@@ -160,17 +163,31 @@ export default function AgreementsList({
                   </td>
                   <td>
                     {a.signature_date
-                      ? new Date(a.signature_date).toLocaleDateString()
+                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
                       : "-"}
                   </td>
-                  <td>
+                  <td className="d-flex flex-wrap gap-2">
                     {(role === "admin" || role === "internal") && (
-                      <button
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => onEdit(a)}
-                      >
-                        ✏️ Editar
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => onEdit(a)}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          className="btn btn-outline-success btn-sm"
+                          onClick={() => onOpenContraprestaciones(a.id)}
+                        >
+                          📋 Programar
+                        </button>
+                        <button
+                          className="btn btn-outline-info btn-sm"
+                          onClick={() => onOpenEvidencias(a.id)}
+                        >
+                          📂 Cumplimiento
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -182,6 +199,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
