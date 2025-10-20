@@ -28,14 +28,17 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
-  const [periodoInicio, setPeriodoInicio] = useState("");
-  const [periodoFin, setPeriodoFin] = useState("");
+  const [anioSeleccionado, setAnioSeleccionado] = useState("");
+  const [aniosDisponibles, setAniosDisponibles] = useState<
+    { label: string; inicio: string; fin: string }[]
+  >([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Cargar catálogo de tipos y contraprestaciones existentes
+  // 🔹 Cargar catálogo y contraprestaciones
   useEffect(() => {
     fetchCatalogo();
     fetchContraprestaciones();
+    calcularPeriodos();
   }, []);
 
   const fetchCatalogo = async () => {
@@ -66,13 +69,52 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
+  // 🔹 Calcular periodos según el convenio
+  const calcularPeriodos = async () => {
+    const { data, error } = await supabase
+      .from("agreements")
+      .select("signature_date, duration_years")
+      .eq("id", agreementId)
+      .single();
+
+    if (error || !data) return;
+
+    const inicio = new Date(data.signature_date);
+    const duracion = data.duration_years || 1;
+
+    const periodos = Array.from({ length: duracion }, (_, i) => {
+      const inicioAnio = new Date(inicio);
+      inicioAnio.setFullYear(inicio.getFullYear() + i);
+
+      const finAnio = new Date(inicioAnio);
+      finAnio.setFullYear(inicioAnio.getFullYear() + 1);
+      finAnio.setDate(finAnio.getDate() - 1);
+
+      const label = `Año ${i + 1}`;
+      return {
+        label,
+        inicio: inicioAnio.toISOString().split("T")[0],
+        fin: finAnio.toISOString().split("T")[0],
+      };
+    });
+
+    setAniosDisponibles(periodos);
+  };
+
   // 🔹 Registrar nueva contraprestación
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (!tipo || !periodoInicio || !periodoFin) {
+    if (!tipo || !anioSeleccionado) {
       alert("Por favor, complete todos los campos obligatorios.");
+      setLoading(false);
+      return;
+    }
+
+    const periodo = aniosDisponibles.find((a) => a.label === anioSeleccionado);
+    if (!periodo) {
+      alert("Debe seleccionar un periodo válido.");
       setLoading(false);
       return;
     }
@@ -88,8 +130,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
         tipo: tipoDescripcion,
         descripcion,
         unidades_comprometidas: unidades,
-        periodo_inicio: periodoInicio,
-        periodo_fin: periodoFin,
+        periodo_inicio: periodo.inicio,
+        periodo_fin: periodo.fin,
       },
     ]);
 
@@ -103,8 +145,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       setTipo("");
       setDescripcion("");
       setUnidades(1);
-      setPeriodoInicio("");
-      setPeriodoFin("");
+      setAnioSeleccionado("");
       fetchContraprestaciones();
     }
   };
@@ -174,27 +215,22 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
             />
           </div>
 
-          <div className="row">
-            <div className="col-md-6 mb-3">
-              <label className="fw-semibold">Periodo inicio</label>
-              <input
-                type="date"
-                className="form-control"
-                value={periodoInicio}
-                onChange={(e) => setPeriodoInicio(e.target.value)}
-                required
-              />
-            </div>
-            <div className="col-md-6 mb-3">
-              <label className="fw-semibold">Periodo fin</label>
-              <input
-                type="date"
-                className="form-control"
-                value={periodoFin}
-                onChange={(e) => setPeriodoFin(e.target.value)}
-                required
-              />
-            </div>
+          <div className="mb-3">
+            <label className="fw-semibold">Periodo</label>
+            <select
+              className="form-select"
+              value={anioSeleccionado}
+              onChange={(e) => setAnioSeleccionado(e.target.value)}
+              required
+            >
+              <option value="">Seleccione un año...</option>
+              {aniosDisponibles.map((a) => (
+                <option key={a.label} value={a.label}>
+                  {a.label} ({new Date(a.inicio).toLocaleDateString()} →{" "}
+                  {new Date(a.fin).toLocaleDateString()})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="d-flex justify-content-end">
@@ -220,8 +256,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                   <th>Tipo</th>
                   <th>Descripción</th>
                   <th>Unidades</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
+                  <th>Periodo</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -231,8 +266,10 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                     <td>{c.tipo}</td>
                     <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
                     <td>{c.unidades_comprometidas}</td>
-                    <td>{new Date(c.periodo_inicio).toLocaleDateString()}</td>
-                    <td>{new Date(c.periodo_fin).toLocaleDateString()}</td>
+                    <td>
+                      {new Date(c.periodo_inicio).toLocaleDateString()} –{" "}
+                      {new Date(c.periodo_fin).toLocaleDateString()}
+                    </td>
                     <td>
                       <button
                         className="btn btn-outline-danger btn-sm"
@@ -251,4 +288,5 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     </div>
   );
 }
+
 
