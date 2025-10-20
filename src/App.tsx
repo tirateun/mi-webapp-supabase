@@ -24,6 +24,7 @@ export default function App() {
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
   >("agreementsList");
+
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
@@ -106,7 +107,6 @@ export default function App() {
         role={role}
         userName={fullName || session.user.email}
       />
-
       <div style={{ flex: 1, padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>
           👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
@@ -121,7 +121,7 @@ export default function App() {
           </span>
         </h2>
 
-        {/* 📋 LISTA DE CONVENIOS */}
+        {/* PÁGINAS PRINCIPALES */}
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
@@ -141,10 +141,10 @@ export default function App() {
             onOpenEvidencias={(id: string) => {
               setSelectedAgreementId(id);
               setActivePage("contraprestacionesEvidencias");
-            )}
+            }}
           />
-          
-        {/* 📝 FORMULARIO DE CONVENIO */}
+        )}
+
         {activePage === "agreementsForm" && (
           <AgreementsForm
             existingAgreement={editingAgreement}
@@ -159,7 +159,22 @@ export default function App() {
           />
         )}
 
-        {/* 🏛️ INSTITUCIONES */}
+        {activePage === "contraprestaciones" && selectedAgreementId && (
+          <Contraprestaciones
+            agreementId={selectedAgreementId}
+            onBack={() => setActivePage("agreementsList")}
+          />
+        )}
+
+        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
+          <ContraprestacionesEvidencias
+            agreementId={selectedAgreementId}
+            userId={session.user.id}
+            role={role}
+            onBack={() => setActivePage("agreementsList")}
+          />
+        )}
+
         {activePage === "instituciones" && <Instituciones />}
         {activePage === "institucionesForm" && (
           <InstitucionesForm
@@ -167,37 +182,12 @@ export default function App() {
             onCancel={() => setActivePage("instituciones")}
           />
         )}
-
-        {/* 👥 USUARIOS */}
         {activePage === "users" && <Users />}
-
-        {/* 🤝 CONTRAPRESTACIONES (programación anual) */}
-        {activePage === "contraprestaciones" && selectedAgreementId && (
-          <Contraprestaciones
-            agreementId={selectedAgreementId}
-            onBack={() => {
-              setSelectedAgreementId(null);
-              setActivePage("agreementsList");
-            }}
-          />
-        )}
-
-        {/* 📂 EVIDENCIAS (cumplimiento) */}
-        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
-          <ContraprestacionesEvidencias
-            agreementId={selectedAgreementId}
-            onBack={() => {
-              setSelectedAgreementId(null);
-              setActivePage("agreementsList");
-            }}
-            role={role}
-            userId={session.user.id}
-          />
-        )}
       </div>
     </div>
   );
 }
+
 
 
 
