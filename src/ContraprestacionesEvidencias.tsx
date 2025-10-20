@@ -10,7 +10,7 @@ interface ContraprestacionDetalle {
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  anio: number;
+  año: number;
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -43,39 +43,49 @@ export default function ContraprestacionesEvidencias({
   useEffect(() => {
     if (!agreementId) return;
     fetchSeguimientos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // 1️⃣ Obtener IDs de contraprestaciones del convenio
-      const { data: contraprestaciones, error: errIds } = await supabase
+      // Obtener IDs de contraprestaciones asociadas al convenio
+      const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion")
+        .select("id")
         .eq("agreement_id", agreementId);
 
       if (errIds) throw errIds;
+      const ids = (contraprestacionesIds || []).map((r: any) => r.id);
 
-      const ids = (contraprestaciones || []).map((r: any) => r.id);
       if (!ids.length) {
         setSeguimientos([]);
         setLoading(false);
         return;
       }
 
-      // 2️⃣ Obtener seguimientos asociados
+      // Usar condición dinámica para traer los seguimientos
       const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
+
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
         .or(orCondition)
-        .order("anio", { ascending: true });
+        .order("año", { ascending: true });
 
       if (errSeg) throw errSeg;
 
-      // 3️⃣ Combinar seguimiento con detalle de contraprestación
+      // Ahora traemos los detalles, pero filtrando por id (no contraprestacion_id)
+      const orConditionDetalles = ids.map((id) => `id.eq.${id}`).join(",");
+      const { data: detalles, error: errDet } = await supabase
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion")
+        .or(orConditionDetalles);
+
+      if (errDet) throw errDet;
+
       const detalleMap: Record<string, ContraprestacionDetalle> = {};
-      (contraprestaciones || []).forEach((d: any) => {
+      (detalles || []).forEach((d: any) => {
         detalleMap[d.id] = {
           id: d.id,
           tipo: d.tipo,
@@ -86,7 +96,7 @@ export default function ContraprestacionesEvidencias({
       const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
         id: s.id,
         contraprestacion_id: s.contraprestacion_id,
-        anio: Number(s.anio),
+        año: typeof s.año === "number" ? s.año : Number(s.año),
         estado: s.estado ?? null,
         observaciones: s.observaciones ?? null,
         fecha_verificacion: s.fecha_verificacion ?? null,
@@ -149,10 +159,7 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  const handleFileUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-    s: ContraprestacionSeguimiento
-  ) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: ContraprestacionSeguimiento) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -164,15 +171,14 @@ export default function ContraprestacionesEvidencias({
     setUploadingId(s.id);
     try {
       const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("evidencias")
-        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+      const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabase.storage
-        .from("evidencias")
-        .getPublicUrl(filePath);
+      const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
       const publicUrl = publicData.publicUrl;
 
       const { error: updateError } = await supabase
@@ -191,24 +197,19 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  if (loading)
-    return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
+  if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
 
   return (
     <div className="container mt-4" style={{ maxWidth: 1000 }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold text-primary mb-0">
-          📂 Cumplimiento de Contraprestaciones
-        </h4>
+        <h4 className="fw-bold text-primary mb-0">📂 Cumplimiento de Contraprestaciones</h4>
         <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
           🔙 Volver
         </button>
       </div>
 
       {seguimientos.length === 0 ? (
-        <p className="text-muted">
-          No hay contraprestaciones registradas para este convenio.
-        </p>
+        <p className="text-muted">No hay contraprestaciones registradas para este convenio.</p>
       ) : (
         <div className="table-responsive">
           <table className="table table-hover align-middle">
@@ -225,30 +226,19 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td style={{ width: 80 }}>{s.anio}</td>
-                  <td style={{ minWidth: 180 }}>
-                    {s.contraprestacion?.tipo ?? "-"}
-                  </td>
-                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>
-                    {s.contraprestacion?.descripcion ?? "-"}
-                  </td>
+                  <td>{s.año}</td>
+                  <td>{s.contraprestacion?.tipo ?? "-"}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                   <td>
                     {s.ejecutado ? (
                       <span className="badge bg-success">Cumplido</span>
                     ) : (
-                      <span className="badge bg-warning text-dark">
-                        Pendiente
-                      </span>
+                      <span className="badge bg-warning text-dark">Pendiente</span>
                     )}
                   </td>
                   <td>
                     {s.evidencia_url ? (
-                      <a
-                        href={s.evidencia_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-sm btn-outline-info"
-                      >
+                      <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
                         📎 Ver PDF
                       </a>
                     ) : (
@@ -265,12 +255,9 @@ export default function ContraprestacionesEvidencias({
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={
-                        uploadingId === s.id ||
-                        !(role === "admin" || role === "internal" || role === "interno")
-                      }
-                    />{" "}
-                    {uploadingId === s.id && <small>Subiendo...</small>}
+                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
+                    />
+                    {uploadingId === s.id && <small> Subiendo...</small>}
                   </td>
                 </tr>
               ))}
@@ -281,6 +268,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
