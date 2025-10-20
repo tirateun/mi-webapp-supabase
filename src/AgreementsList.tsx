@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import Contraprestaciones from "./Contraprestaciones";
+import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
+
 
 interface AgreementsListProps {
   user: any;
@@ -82,12 +83,15 @@ export default function AgreementsList({
   // 🔁 Si se está visualizando las contraprestaciones
   if (selectedAgreement) {
     return (
-      <Contraprestaciones
+      <ContraprestacionesEvidencias
         agreementId={selectedAgreement}
         onBack={() => setSelectedAgreement(null)}
+        role={role}
+        userId={user.id}
       />
     );
   }
+  
 
   return (
     <div className="container mt-4">
