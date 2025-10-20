@@ -10,7 +10,7 @@ interface ContraprestacionDetalle {
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  anio: number;
+  año: number;
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -49,7 +49,7 @@ export default function ContraprestacionesEvidencias({
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // Traer IDs de contraprestaciones
+      // 1️⃣ Obtener IDs de contraprestaciones
       const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
         .select("id")
@@ -64,19 +64,17 @@ export default function ContraprestacionesEvidencias({
         return;
       }
 
-      console.log("🧩 IDs de contraprestaciones:", ids);
-
-      // Construir OR dinámico en vez de usar `.in()`
+      // 2️⃣ Obtener seguimientos
       const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
-
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
         .or(orCondition)
-        .order("anio", { ascending: true });
+        .order("año", { ascending: true });
 
       if (errSeg) throw errSeg;
 
+      // 3️⃣ Obtener detalles de contraprestaciones
       const { data: detalles, error: errDet } = await supabase
         .from("contraprestaciones")
         .select("id, tipo, descripcion")
@@ -93,10 +91,11 @@ export default function ContraprestacionesEvidencias({
         };
       });
 
+      // 4️⃣ Combinar resultados
       const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
         id: s.id,
         contraprestacion_id: s.contraprestacion_id,
-        anio: typeof s.anio === "number" ? s.anio : Number(s.anio),
+        año: typeof s.año === "number" ? s.año : Number(s.año),
         estado: s.estado ?? null,
         observaciones: s.observaciones ?? null,
         fecha_verificacion: s.fecha_verificacion ?? null,
@@ -159,7 +158,10 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: ContraprestacionSeguimiento) => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    s: ContraprestacionSeguimiento
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -171,14 +173,18 @@ export default function ContraprestacionesEvidencias({
     setUploadingId(s.id);
     try {
       const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from("evidencias")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
+      const { data: publicData } = supabase.storage
+        .from("evidencias")
+        .getPublicUrl(filePath);
       const publicUrl = publicData.publicUrl;
 
       const { error: updateError } = await supabase
@@ -202,14 +208,18 @@ export default function ContraprestacionesEvidencias({
   return (
     <div className="container mt-4" style={{ maxWidth: 1000 }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h4 className="fw-bold text-primary mb-0">📂 Cumplimiento de Contraprestaciones</h4>
+        <h4 className="fw-bold text-primary mb-0">
+          📂 Cumplimiento de Contraprestaciones
+        </h4>
         <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
           🔙 Volver
         </button>
       </div>
 
       {seguimientos.length === 0 ? (
-        <p className="text-muted">No hay contraprestaciones registradas para este convenio.</p>
+        <p className="text-muted">
+          No hay contraprestaciones registradas para este convenio.
+        </p>
       ) : (
         <div className="table-responsive">
           <table className="table table-hover align-middle">
@@ -226,9 +236,13 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td style={{ width: 80 }}>{s.anio}</td>
+                  <td style={{ width: 80 }}>{s.año}</td>
                   <td style={{ minWidth: 180 }}>{s.contraprestacion?.tipo ?? "-"}</td>
-                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
+                  <td
+                    style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}
+                  >
+                    {s.contraprestacion?.descripcion ?? "-"}
+                  </td>
                   <td>
                     {s.ejecutado ? (
                       <span className="badge bg-success">Cumplido</span>
@@ -238,7 +252,12 @@ export default function ContraprestacionesEvidencias({
                   </td>
                   <td>
                     {s.evidencia_url ? (
-                      <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
+                      <a
+                        href={s.evidencia_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-sm btn-outline-info"
+                      >
                         📎 Ver PDF
                       </a>
                     ) : (
@@ -255,7 +274,10 @@ export default function ContraprestacionesEvidencias({
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
+                      disabled={
+                        uploadingId === s.id ||
+                        !(role === "admin" || role === "internal" || role === "interno")
+                      }
                     />{" "}
                     {uploadingId === s.id && <small>Subiendo...</small>}
                   </td>
@@ -268,6 +290,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
