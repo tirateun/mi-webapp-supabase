@@ -10,7 +10,7 @@ interface ContraprestacionDetalle {
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  año: number;
+  anio: number;
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -43,47 +43,39 @@ export default function ContraprestacionesEvidencias({
   useEffect(() => {
     if (!agreementId) return;
     fetchSeguimientos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // 1️⃣ Obtener IDs de contraprestaciones
-      const { data: contraprestacionesIds, error: errIds } = await supabase
+      // 1️⃣ Obtener IDs de contraprestaciones del convenio
+      const { data: contraprestaciones, error: errIds } = await supabase
         .from("contraprestaciones")
-        .select("id")
+        .select("id, tipo, descripcion")
         .eq("agreement_id", agreementId);
 
       if (errIds) throw errIds;
-      const ids = (contraprestacionesIds || []).map((r: any) => r.id);
 
+      const ids = (contraprestaciones || []).map((r: any) => r.id);
       if (!ids.length) {
         setSeguimientos([]);
         setLoading(false);
         return;
       }
 
-      // 2️⃣ Obtener seguimientos
+      // 2️⃣ Obtener seguimientos asociados
       const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
         .or(orCondition)
-        .order("año", { ascending: true });
+        .order("anio", { ascending: true });
 
       if (errSeg) throw errSeg;
 
-      // 3️⃣ Obtener detalles de contraprestaciones
-      const { data: detalles, error: errDet } = await supabase
-        .from("contraprestaciones")
-        .select("id, tipo, descripcion")
-        .or(orCondition);
-
-      if (errDet) throw errDet;
-
+      // 3️⃣ Combinar seguimiento con detalle de contraprestación
       const detalleMap: Record<string, ContraprestacionDetalle> = {};
-      (detalles || []).forEach((d: any) => {
+      (contraprestaciones || []).forEach((d: any) => {
         detalleMap[d.id] = {
           id: d.id,
           tipo: d.tipo,
@@ -91,11 +83,10 @@ export default function ContraprestacionesEvidencias({
         };
       });
 
-      // 4️⃣ Combinar resultados
       const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
         id: s.id,
         contraprestacion_id: s.contraprestacion_id,
-        año: typeof s.año === "number" ? s.año : Number(s.año),
+        anio: Number(s.anio),
         estado: s.estado ?? null,
         observaciones: s.observaciones ?? null,
         fecha_verificacion: s.fecha_verificacion ?? null,
@@ -175,10 +166,7 @@ export default function ContraprestacionesEvidencias({
       const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("evidencias")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
       if (uploadError) throw uploadError;
 
@@ -203,7 +191,8 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
+  if (loading)
+    return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
 
   return (
     <div className="container mt-4" style={{ maxWidth: 1000 }}>
@@ -236,18 +225,20 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td style={{ width: 80 }}>{s.año}</td>
-                  <td style={{ minWidth: 180 }}>{s.contraprestacion?.tipo ?? "-"}</td>
-                  <td
-                    style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}
-                  >
+                  <td style={{ width: 80 }}>{s.anio}</td>
+                  <td style={{ minWidth: 180 }}>
+                    {s.contraprestacion?.tipo ?? "-"}
+                  </td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>
                     {s.contraprestacion?.descripcion ?? "-"}
                   </td>
                   <td>
                     {s.ejecutado ? (
                       <span className="badge bg-success">Cumplido</span>
                     ) : (
-                      <span className="badge bg-warning text-dark">Pendiente</span>
+                      <span className="badge bg-warning text-dark">
+                        Pendiente
+                      </span>
                     )}
                   </td>
                   <td>
@@ -290,6 +281,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
