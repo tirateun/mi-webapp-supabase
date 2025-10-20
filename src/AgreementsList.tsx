@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 
-
 interface AgreementsListProps {
   user: any;
   role: string;
@@ -80,7 +79,7 @@ export default function AgreementsList({
     );
   };
 
-  // 🔁 Si se está visualizando las contraprestaciones
+  // 🔁 Si se está visualizando las contraprestaciones y evidencias
   if (selectedAgreement) {
     return (
       <ContraprestacionesEvidencias
@@ -91,7 +90,6 @@ export default function AgreementsList({
       />
     );
   }
-  
 
   return (
     <div className="container mt-4">
@@ -192,18 +190,6 @@ export default function AgreementsList({
                           onClick={() => setSelectedAgreement(a.id)}
                         >
                           📋 Contraprestaciones
-                        </button>
-                        <button
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() =>
-                            window.dispatchEvent(
-                              new CustomEvent("openEvidencias", {
-                                detail: a.id,
-                              })
-                            )
-                          }
-                        >
-                          📂 Cumplimiento
                         </button>
                       </>
                     )}
