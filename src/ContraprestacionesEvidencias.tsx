@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
+interface ContraprestacionDetalle {
+  id: string;
+  tipo: string;
+  descripcion: string | null;
+}
+
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  año: number;
-  estado: string;
+  anio: number;
+  estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
   responsable: string | null;
   evidencia_url: string | null;
   ejecutado: boolean;
+  // campo opcional que llenaremos al unir los datos
   contraprestacion?: {
     tipo: string;
-    descripcion: string;
+    descripcion: string | null;
   };
 }
 
@@ -24,114 +31,182 @@ interface Props {
   userId: string;
 }
 
-export default function ContraprestacionesEvidencias({ agreementId, onBack, role, userId }: Props) {
+export default function ContraprestacionesEvidencias({
+  agreementId,
+  onBack,
+  role,
+  userId,
+}: Props) {
   const [seguimientos, setSeguimientos] = useState<ContraprestacionSeguimiento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  // 🔹 Cargar contraprestaciones con sus seguimientos
   useEffect(() => {
+    if (!agreementId) return;
     fetchSeguimientos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
+  // 1) buscar seguimientos y detalles y unirlos en JS (más robusto que select anidado)
   const fetchSeguimientos = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("contraprestaciones_seguimiento")
-      .select(`
-        id,
-        contraprestacion_id,
-        año,
-        estado,
-        observaciones,
-        fecha_verificacion,
-        responsable,
-        evidencia_url,
-        ejecutado,
-        contraprestaciones:contraprestacion_id (
-          tipo,
-          descripcion
-        )
-      `)
-      .in(
-        "contraprestacion_id",
-        (
-          await supabase
-            .from("contraprestaciones")
-            .select("id")
-            .eq("agreement_id", agreementId)
-        ).data?.map((c) => c.id) || []
-      )
-      .order("año", { ascending: true });
 
-    if (error) {
-      console.error("Error al cargar seguimientos:", error);
-      alert("Error al cargar los seguimientos de contraprestaciones.");
-    } else {
-      setSeguimientos(data || []);
+    try {
+      // traer ids de contraprestaciones del convenio
+      const { data: contraprestacionesIds, error: errIds } = await supabase
+        .from("contraprestaciones")
+        .select("id")
+        .eq("agreement_id", agreementId);
+
+      if (errIds) throw errIds;
+      const ids = (contraprestacionesIds || []).map((r: any) => r.id);
+      if (ids.length === 0) {
+        setSeguimientos([]);
+        setLoading(false);
+        return;
+      }
+
+      // traer seguimientos asociados a esas contraprestaciones
+      const { data: rawSeguimientos, error: errSeg } = await supabase
+        .from("contraprestaciones_seguimiento")
+        .select("*")
+        .in("contraprestacion_id", ids)
+        .order("anio", { ascending: true });
+
+      if (errSeg) throw errSeg;
+
+      // traer detalles de contraprestaciones (tipo, descripcion)
+      const { data: detalles, error: errDet } = await supabase
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion")
+        .in("id", ids);
+
+      if (errDet) throw errDet;
+
+      // crear mapa id -> detalle
+      const detalleMap: Record<string, ContraprestacionDetalle> = {};
+      (detalles || []).forEach((d: any) => {
+        detalleMap[d.id] = { id: d.id, tipo: d.tipo, descripcion: d.descripcion || null };
+      });
+
+      // unir y normalizar tipos
+      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
+        id: s.id,
+        contraprestacion_id: s.contraprestacion_id,
+        anio: typeof s.anio === "number" ? s.anio : Number(s.anio),
+        estado: s.estado ?? null,
+        observaciones: s.observaciones ?? null,
+        fecha_verificacion: s.fecha_verificacion ?? null,
+        responsable: s.responsable ?? null,
+        evidencia_url: s.evidencia_url ?? null,
+        ejecutado: !!s.ejecutado,
+        contraprestacion: detalleMap[s.contraprestacion_id]
+          ? {
+              tipo: detalleMap[s.contraprestacion_id].tipo,
+              descripcion: detalleMap[s.contraprestacion_id].descripcion,
+            }
+          : undefined,
+      }));
+
+      setSeguimientos(merged);
+    } catch (error: any) {
+      console.error("Error cargando seguimientos:", error);
+      alert("Error al cargar seguimientos. Revisa consola.");
+      setSeguimientos([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // 🔹 Marcar como ejecutado o pendiente
+  // Toggle ejecutado (marcar / desmarcar) — se pueden aplicar reglas de permiso aquí
   const handleToggleEjecutado = async (s: ContraprestacionSeguimiento) => {
-    if (role !== "admin" && role !== "interno") {
-      alert("❌ No tienes permisos para modificar el cumplimiento.");
+    // permiso: solo admin o responsable interno para cambiar (ajusta según tu RLS)
+    if (!(role === "admin" || role === "internal" || role === "interno")) {
+      alert("No tienes permisos para cambiar el estado de cumplimiento.");
       return;
     }
 
-    const nuevoEstado = !s.ejecutado;
+    // si ya hay evidencia y quieres bloquear desmarcar en frontend:
+    if (s.evidencia_url && role !== "admin") {
+      alert("No puedes desmarcar una contraprestación que ya tiene evidencia (solo admin).");
+      return;
+    }
+
+    const nuevoEjecutado = !s.ejecutado;
+    const payload: any = {
+      ejecutado: nuevoEjecutado,
+      estado: nuevoEjecutado ? "cumplido" : "pendiente",
+    };
+
+    if (nuevoEjecutado) {
+      payload.responsable = userId || null;
+      payload.fecha_verificacion = new Date().toISOString();
+    } else {
+      // al desmarcar limpiamos responsable/fecha si no es admin (dependiendo de reglas)
+      payload.responsable = null;
+      payload.fecha_verificacion = null;
+    }
 
     const { error } = await supabase
       .from("contraprestaciones_seguimiento")
-      .update({
-        ejecutado: nuevoEstado,
-        estado: nuevoEstado ? "cumplido" : "pendiente",
-        responsable: nuevoEstado ? userId : null,
-        fecha_verificacion: nuevoEstado ? new Date().toISOString() : null,
-      })
+      .update(payload)
       .eq("id", s.id);
 
     if (error) {
-      alert("Error al actualizar: " + error.message);
+      console.error("Error actualizando seguimiento:", error);
+      alert("Error al actualizar el estado: " + error.message);
     } else {
       fetchSeguimientos();
     }
   };
 
-  // 🔹 Subir evidencia PDF
+  // Subir evidencia a bucket 'evidencias' y guardar URL pública en la tabla seguimiento
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: ContraprestacionSeguimiento) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(s.id);
-
-    const filePath = `${userId}/${Date.now()}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file);
-
-    if (uploadError) {
-      alert("❌ Error al subir archivo: " + uploadError.message);
-      setUploading(null);
+    // validaciones simples
+    if (file.type !== "application/pdf") {
+      alert("Solo se permiten archivos PDF como evidencia.");
       return;
     }
 
-    const { data: publicUrl } = supabase.storage.from("evidencias").getPublicUrl(filePath);
+    setUploadingId(s.id);
+    try {
+      const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
-    const { error: updateError } = await supabase
-      .from("contraprestaciones_seguimiento")
-      .update({ evidencia_url: publicUrl.publicUrl })
-      .eq("id", s.id);
+      if (uploadError) throw uploadError;
 
-    if (updateError) alert("❌ Error al guardar evidencia.");
-    else fetchSeguimientos();
+      const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
+      const publicUrl = publicData.publicUrl;
 
-    setUploading(null);
+      const { error: updateError } = await supabase
+        .from("contraprestaciones_seguimiento")
+        .update({ evidencia_url: publicUrl })
+        .eq("id", s.id);
+
+      if (updateError) throw updateError;
+
+      // opcional: si queremos marcar como cumplido al subir evidencia:
+      // await supabase.from("contraprestaciones_seguimiento").update({ ejecutado: true, estado: 'cumplido', responsable: userId, fecha_verificacion: new Date().toISOString() }).eq('id', s.id);
+
+      fetchSeguimientos();
+    } catch (err: any) {
+      console.error("Error subiendo evidencia:", err);
+      alert("Error al subir la evidencia: " + (err.message || JSON.stringify(err)));
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
 
   return (
-    <div className="container mt-4" style={{ maxWidth: "900px" }}>
+    <div className="container mt-4" style={{ maxWidth: 1000 }}>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h4 className="fw-bold text-primary mb-0">📂 Cumplimiento de Contraprestaciones</h4>
         <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
@@ -157,11 +232,9 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.año}°</td>
-                  <td>{s.contraprestaciones?.tipo || "-"}</td>
-                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
-                    {s.contraprestaciones?.descripcion || "-"}
-                  </td>
+                  <td style={{ width: 80 }}>{s.anio}</td>
+                  <td style={{ minWidth: 180 }}>{s.contraprestacion?.tipo ?? "-"}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                   <td>
                     {s.ejecutado ? (
                       <span className="badge bg-success">Cumplido</span>
@@ -171,19 +244,14 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
                   </td>
                   <td>
                     {s.evidencia_url ? (
-                      <a
-                        href={s.evidencia_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-outline-info"
-                      >
+                      <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
                         📎 Ver PDF
                       </a>
                     ) : (
                       <input
                         type="file"
                         accept="application/pdf"
-                        disabled={uploading === s.id}
+                        disabled={uploadingId === s.id}
                         onChange={(e) => handleFileUpload(e, s)}
                       />
                     )}
@@ -193,12 +261,9 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={
-                        uploading === s.id ||
-                        (role !== "admin" && role !== "interno")
-                      }
+                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
                     />{" "}
-                    {uploading === s.id && "⏳"}
+                    {uploadingId === s.id && <small>Subiendo...</small>}
                   </td>
                 </tr>
               ))}
@@ -209,6 +274,8 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
     </div>
   );
 }
+
+
 
 
 
