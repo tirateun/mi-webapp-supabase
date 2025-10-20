@@ -8,6 +8,7 @@ import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
+import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 
 export default function App() {
@@ -15,7 +16,13 @@ export default function App() {
   const [role, setRole] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    "agreementsList" | "agreementsForm" | "users" | "instituciones" | "institucionesForm" | "contraprestacionesEvidencias"
+    | "agreementsList"
+    | "agreementsForm"
+    | "users"
+    | "instituciones"
+    | "institucionesForm"
+    | "contraprestaciones"
+    | "contraprestacionesEvidencias"
   >("agreementsList");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
@@ -114,6 +121,7 @@ export default function App() {
           </span>
         </h2>
 
+        {/* 📋 LISTA DE CONVENIOS */}
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
@@ -129,6 +137,7 @@ export default function App() {
           />
         )}
 
+        {/* 📝 FORMULARIO DE CONVENIO */}
         {activePage === "agreementsForm" && (
           <AgreementsForm
             existingAgreement={editingAgreement}
@@ -143,8 +152,8 @@ export default function App() {
           />
         )}
 
+        {/* 🏛️ INSTITUCIONES */}
         {activePage === "instituciones" && <Instituciones />}
-
         {activePage === "institucionesForm" && (
           <InstitucionesForm
             onSave={() => setActivePage("instituciones")}
@@ -152,8 +161,21 @@ export default function App() {
           />
         )}
 
+        {/* 👥 USUARIOS */}
         {activePage === "users" && <Users />}
 
+        {/* 🤝 CONTRAPRESTACIONES (programación anual) */}
+        {activePage === "contraprestaciones" && selectedAgreementId && (
+          <Contraprestaciones
+            agreementId={selectedAgreementId}
+            onBack={() => {
+              setSelectedAgreementId(null);
+              setActivePage("agreementsList");
+            }}
+          />
+        )}
+
+        {/* 📂 EVIDENCIAS (cumplimiento) */}
         {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
           <ContraprestacionesEvidencias
             agreementId={selectedAgreementId}
@@ -169,6 +191,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
