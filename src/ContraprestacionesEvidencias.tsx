@@ -4,156 +4,166 @@ import { supabase } from "./supabaseClient";
 interface ContraprestacionesEvidenciasProps {
   agreementId: string;
   onBack: () => void;
-}
-
-interface Seguimiento {
-  id: string;
-  tipo: string;
-  descripcion: string;
-  unidades_comprometidas: number;
-  ejecutado: boolean;
-  evidencia_url: string | null;
-  estado: string | null;
+  role: string; // admin | internal | external
+  userId: string;
 }
 
 export default function ContraprestacionesEvidencias({
   agreementId,
   onBack,
+  role,
+  userId,
 }: ContraprestacionesEvidenciasProps) {
-  const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
+  const [contraprestaciones, setContraprestaciones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState<string | null>(null);
+  const [internalResponsible, setInternalResponsible] = useState<string | null>(null);
 
+  // 🔹 Cargar contraprestaciones y responsable del convenio
   useEffect(() => {
-    fetchSeguimientos();
+    const fetchData = async () => {
+      setLoading(true);
+
+      const { data: convenio } = await supabase
+        .from("agreements")
+        .select("internal_responsible")
+        .eq("id", agreementId)
+        .single();
+
+      if (convenio) setInternalResponsible(convenio.internal_responsible);
+
+      const { data, error } = await supabase
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion, unidades_comprometidas, contraprestaciones_seguimiento(id, estado, evidencia_url, fecha_verificacion)")
+        .eq("agreement_id", agreementId);
+
+      if (error) console.error("Error al cargar contraprestaciones:", error);
+      else setContraprestaciones(data || []);
+
+      setLoading(false);
+    };
+
+    fetchData();
   }, [agreementId]);
 
-  const fetchSeguimientos = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("contraprestaciones")
-      .select("id, tipo, descripcion, unidades_comprometidas, seguimiento:contraprestaciones_seguimiento(*)")
-      .eq("agreement_id", agreementId);
+  // 🔹 Verificar si el usuario tiene permiso para editar
+  const canEdit =
+    role === "admin" ||
+    (role === "internal" && userId === internalResponsible);
 
-    if (error) {
-      console.error("Error al cargar contraprestaciones:", error);
-    } else {
-      // Aplanar los registros de seguimiento
-      const items: Seguimiento[] = [];
-      data?.forEach((c: any) => {
-        c.seguimiento?.forEach((s: any) => {
-          items.push({
-            id: s.id,
-            tipo: c.tipo,
-            descripcion: c.descripcion,
-            unidades_comprometidas: c.unidades_comprometidas,
-            ejecutado: s.ejecutado,
-            evidencia_url: s.evidencia_url,
-            estado: s.estado,
-          });
-        });
-      });
-      setSeguimientos(items);
-    }
-    setLoading(false);
-  };
+  // 🔹 Actualizar estado (cumplido / pendiente)
+  const handleCheck = async (seguimientoId: string, currentState: string) => {
+    if (!canEdit) return alert("❌ No tienes permiso para modificar esta contraprestación.");
 
-  const handleCheck = async (id: string, checked: boolean) => {
+    const newState = currentState === "cumplido" ? "pendiente" : "cumplido";
+
     const { error } = await supabase
       .from("contraprestaciones_seguimiento")
-      .update({ ejecutado: checked })
-      .eq("id", id);
+      .update({
+        estado: newState,
+        fecha_verificacion: new Date().toISOString(),
+      })
+      .eq("id", seguimientoId);
 
     if (error) {
-      alert("❌ Error al actualizar el estado: " + error.message);
+      alert("Error al actualizar el estado: " + error.message);
     } else {
-      fetchSeguimientos();
+      setContraprestaciones((prev) =>
+        prev.map((c) => ({
+          ...c,
+          contraprestaciones_seguimiento: c.contraprestaciones_seguimiento.map((s: any) =>
+            s.id === seguimientoId ? { ...s, estado: newState } : s
+          ),
+        }))
+      );
     }
   };
 
-  const handleUpload = async (id: string, file: File) => {
-    try {
-      setUploading(id);
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${id}-${Date.now()}.${fileExt}`;
+  // 🔹 Subir evidencia PDF
+  const handleUpload = async (seguimientoId: string, file: File) => {
+    if (!canEdit) return alert("❌ No tienes permiso para subir evidencia.");
 
-      const { error: uploadError } = await supabase.storage
-        .from("evidencias")
-        .upload(filePath, file, { upsert: true });
+    const fileName = `${seguimientoId}-${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("evidencias")
+      .upload(fileName, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+    if (uploadError) return alert("Error al subir el archivo: " + uploadError.message);
 
-      const { data: urlData } = supabase.storage
-        .from("evidencias")
-        .getPublicUrl(filePath);
+    const { data: publicUrl } = supabase.storage.from("evidencias").getPublicUrl(fileName);
 
-      const { error: updateError } = await supabase
-        .from("contraprestaciones_seguimiento")
-        .update({ evidencia_url: urlData.publicUrl })
-        .eq("id", id);
+    const { error } = await supabase
+      .from("contraprestaciones_seguimiento")
+      .update({ evidencia_url: publicUrl.publicUrl })
+      .eq("id", seguimientoId);
 
-      if (updateError) throw updateError;
-
-      alert("✅ Evidencia subida correctamente");
-      fetchSeguimientos();
-    } catch (err: any) {
-      alert("❌ Error al subir evidencia: " + err.message);
-    } finally {
-      setUploading(null);
-    }
+    if (error) alert("Error al guardar la evidencia: " + error.message);
+    else alert("✅ Evidencia subida correctamente.");
   };
+
+  if (loading) return <p className="text-center mt-5">Cargando contraprestaciones...</p>;
 
   return (
     <div className="container mt-4">
       <h3 className="fw-bold text-primary mb-3">📂 Cumplimiento de Contraprestaciones</h3>
-      <button className="btn btn-outline-secondary mb-4" onClick={onBack}>
+      <button className="btn btn-secondary mb-4" onClick={onBack}>
         🔙 Volver
       </button>
 
-      {loading ? (
-        <p>Cargando contraprestaciones...</p>
-      ) : seguimientos.length === 0 ? (
-        <p>No hay contraprestaciones registradas para este convenio.</p>
+      {contraprestaciones.length === 0 ? (
+        <p className="text-muted">No hay contraprestaciones registradas para este convenio.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-bordered align-middle">
-            <thead className="table-light">
-              <tr>
-                <th>Tipo</th>
-                <th>Descripción</th>
-                <th>Unidades</th>
-                <th>Ejecutado</th>
-                <th>Evidencia (PDF)</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {seguimientos.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.tipo}</td>
-                  <td>{s.descripcion}</td>
-                  <td>{s.unidades_comprometidas}</td>
-                  <td>
+        <div className="list-group shadow-sm">
+          {contraprestaciones.map((c) => (
+            <div key={c.id} className="list-group-item mb-3 border rounded p-3">
+              <h5 className="mb-2 text-dark fw-semibold">
+                {c.tipo} ({c.unidades_comprometidas} unidades)
+              </h5>
+              <p className="text-muted mb-3">{c.descripcion}</p>
+
+              {c.contraprestaciones_seguimiento.map((s: any) => (
+                <div
+                  key={s.id}
+                  className="d-flex align-items-center justify-content-between border-top pt-2 mt-2"
+                >
+                  <div>
+                    <strong>Estado:</strong>{" "}
+                    <span
+                      className={`badge ${
+                        s.estado === "cumplido" ? "bg-success" : "bg-warning text-dark"
+                      }`}
+                    >
+                      {s.estado}
+                    </span>
+                    <br />
+                    <small className="text-muted">
+                      Última verificación:{" "}
+                      {s.fecha_verificacion
+                        ? new Date(s.fecha_verificacion).toLocaleDateString("es-PE")
+                        : "—"}
+                    </small>
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={seguimiento.ejecutado}
-                      disabled={!!seguimiento.evidencia_url || role !== "admin"}
-                      onChange={() => handleCheck(seguimiento)}
+                      checked={s.estado === "cumplido"}
+                      onChange={() => handleCheck(s.id, s.estado)}
+                      disabled={!canEdit}
                     />
-                  </td>
-                  <td>
+                    <label className="ms-1">Cumplido</label>
+
                     {s.evidencia_url ? (
                       <a
-                        href={seguimiento.evidencia_url}
+                        href={s.evidencia_url}
                         target="_blank"
-                        rel="noopener noreferrer">
-                        📄 Ver evidencia
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        📎 Ver evidencia
                       </a>
                     ) : (
-                      <input type="file" accept="application/pdf" onChange={(e) => handleUpload(e, seguimiento.id)} />
-                    )}
-                      <label className="btn btn-sm btn-outline-secondary mb-0">
-                        {uploading === s.id ? "Subiendo..." : "Subir PDF"}
+                      <label className={`btn btn-sm ${canEdit ? "btn-outline-success" : "btn-outline-secondary disabled"}`}>
+                        📤 Subir evidencia
                         <input
                           type="file"
                           accept="application/pdf"
@@ -161,30 +171,21 @@ export default function ContraprestacionesEvidencias({
                           onChange={(e) =>
                             e.target.files && handleUpload(s.id, e.target.files[0])
                           }
+                          disabled={!canEdit}
                         />
                       </label>
                     )}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        s.estado === "Cumplido"
-                          ? "bg-success"
-                          : "bg-warning text-dark"
-                      }`}
-                    >
-                      {s.estado || "Pendiente"}
-                    </span>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
+
 
 
 
