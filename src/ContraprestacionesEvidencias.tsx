@@ -10,7 +10,7 @@ interface ContraprestacionDetalle {
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  anio: number; // usamos anio ASCII en el frontend
+  año: number;
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -43,13 +43,12 @@ export default function ContraprestacionesEvidencias({
   useEffect(() => {
     if (!agreementId) return;
     fetchSeguimientos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // 1) Obtener IDs de contraprestaciones asociadas al convenio
+      // Obtener IDs de contraprestaciones del convenio
       const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
         .select("id")
@@ -64,15 +63,16 @@ export default function ContraprestacionesEvidencias({
         return;
       }
 
-      // 2) Traer seguimientos usando .in() (más confiable)
+      const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
+
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
-        .in("contraprestacion_id", ids);
+        .or(orCondition)
+        .order("año", { ascending: true });
 
       if (errSeg) throw errSeg;
 
-      // 3) Traer detalles de contraprestaciones
       const { data: detalles, error: errDet } = await supabase
         .from("contraprestaciones")
         .select("id, tipo, descripcion")
@@ -80,49 +80,32 @@ export default function ContraprestacionesEvidencias({
 
       if (errDet) throw errDet;
 
-      // 4) Mapear detalles por id
       const detalleMap: Record<string, ContraprestacionDetalle> = {};
       (detalles || []).forEach((d: any) => {
         detalleMap[d.id] = {
           id: d.id,
           tipo: d.tipo,
-          descripcion: d.descripcion ?? null,
+          descripcion: d.descripcion || null,
         };
       });
 
-      // 5) Normalizar y mapear seguimientos
-      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => {
-        // normalizar año/anio (acepta ambas columnas: anio o "año")
-        const rawAnio =
-          s.anio !== undefined && s.anio !== null
-            ? s.anio
-            : s["año"] !== undefined && s["año"] !== null
-            ? s["año"]
-            : null;
-
-        const anioNum = rawAnio !== null ? Number(rawAnio) : NaN;
-
-        return {
-          id: s.id,
-          contraprestacion_id: s.contraprestacion_id,
-          anio: Number.isFinite(anioNum) ? anioNum : 0,
-          estado: s.estado ?? null,
-          observaciones: s.observaciones ?? null,
-          fecha_verificacion: s.fecha_verificacion ?? null,
-          responsable: s.responsable ?? null,
-          evidencia_url: s.evidencia_url ?? null,
-          ejecutado: !!s.ejecutado,
-          contraprestacion: detalleMap[s.contraprestacion_id]
-            ? {
-                tipo: detalleMap[s.contraprestacion_id].tipo,
-                descripcion: detalleMap[s.contraprestacion_id].descripcion,
-              }
-            : undefined,
-        };
-      });
-
-      // 6) Ordenar por anio en cliente (asc)
-      merged.sort((a, b) => a.anio - b.anio);
+      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
+        id: s.id,
+        contraprestacion_id: s.contraprestacion_id,
+        año: typeof s.año === "number" ? s.año : Number(s.año),
+        estado: s.estado ?? null,
+        observaciones: s.observaciones ?? null,
+        fecha_verificacion: s.fecha_verificacion ?? null,
+        responsable: s.responsable ?? null,
+        evidencia_url: s.evidencia_url ?? null,
+        ejecutado: !!s.ejecutado,
+        contraprestacion: detalleMap[s.contraprestacion_id]
+          ? {
+              tipo: detalleMap[s.contraprestacion_id].tipo,
+              descripcion: detalleMap[s.contraprestacion_id].descripcion,
+            }
+          : undefined,
+      }));
 
       setSeguimientos(merged);
     } catch (error: any) {
@@ -135,22 +118,22 @@ export default function ContraprestacionesEvidencias({
   };
 
   const handleToggleEjecutado = async (s: ContraprestacionSeguimiento) => {
-    // roles aceptados: admin o interno (puede venir como "internal" o "interno")
     if (!(role === "admin" || role === "internal" || role === "interno")) {
       alert("No tienes permisos para cambiar el estado de cumplimiento.");
       return;
     }
 
-    // Si ya tiene evidencia y no eres admin, no permitas desmarcar
     if (s.evidencia_url && role !== "admin") {
       alert("No puedes desmarcar una contraprestación que ya tiene evidencia (solo admin).");
       return;
     }
 
     const nuevoEjecutado = !s.ejecutado;
+    const nuevoEstado = nuevoEjecutado ? "Cumplido" : "Pendiente"; // ✅ corrige valores válidos
+
     const payload: any = {
       ejecutado: nuevoEjecutado,
-      estado: nuevoEjecutado ? "verificado" : "pendiente",
+      estado: nuevoEstado,
     };
 
     if (nuevoEjecutado) {
@@ -170,7 +153,6 @@ export default function ContraprestacionesEvidencias({
       console.error("Error actualizando seguimiento:", error);
       alert("Error al actualizar el estado: " + error.message);
     } else {
-      // refrescar la lista
       fetchSeguimientos();
     }
   };
@@ -186,35 +168,20 @@ export default function ContraprestacionesEvidencias({
 
     setUploadingId(s.id);
     try {
-      // path ergonomico: <agreementId>/<contraprestacionId>/<seguimientoId>_timestamp.pdf
-      const ext = file.name.split(".").pop();
-      const safeName = `${s.id}_${Date.now()}.${ext ?? "pdf"}`;
-      const filePath = `${agreementId}/${s.contraprestacion_id}/${safeName}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("evidencias")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
 
       if (uploadError) throw uploadError;
 
-      // obtener url pública
-      const { data: urlData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
-      const publicUrl = (urlData as any)?.publicUrl ?? null;
-
-      if (!publicUrl) throw new Error("No se obtuvo URL pública después de subir el archivo.");
+      const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
+      const publicUrl = publicData.publicUrl;
 
       const { error: updateError } = await supabase
         .from("contraprestaciones_seguimiento")
-        .update({
-          evidencia_url: publicUrl,
-          fecha_verificacion: new Date().toISOString(),
-          responsable: userId || null,
-          ejecutado: true,
-          estado: "cumplido",
-        })
+        .update({ evidencia_url: publicUrl })
         .eq("id", s.id);
 
       if (updateError) throw updateError;
@@ -246,7 +213,7 @@ export default function ContraprestacionesEvidencias({
           <table className="table table-hover align-middle">
             <thead className="table-light">
               <tr>
-                <th style={{ width: 80 }}>Año</th>
+                <th>Año</th>
                 <th>Tipo</th>
                 <th>Descripción</th>
                 <th>Estado</th>
@@ -257,26 +224,23 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td style={{ width: 80 }}>{s.anio > 0 ? s.anio : "-"}</td>
-                  <td style={{ minWidth: 180 }}>{s.contraprestacion?.tipo ?? "-"}</td>
-                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>
-                    {s.contraprestacion?.descripcion ?? "-"}
-                  </td>
+                  <td>{s.año}</td>
+                  <td>{s.contraprestacion?.tipo ?? "-"}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                   <td>
-                    {s.ejecutado ? (
+                    {s.estado === "Cumplido" ? (
                       <span className="badge bg-success">Cumplido</span>
+                    ) : s.estado === "En proceso" ? (
+                      <span className="badge bg-info text-dark">En proceso</span>
+                    ) : s.estado === "Incumplido" ? (
+                      <span className="badge bg-danger">Incumplido</span>
                     ) : (
                       <span className="badge bg-warning text-dark">Pendiente</span>
                     )}
                   </td>
                   <td>
                     {s.evidencia_url ? (
-                      <a
-                        href={s.evidencia_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-sm btn-outline-info"
-                      >
+                      <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
                         📎 Ver PDF
                       </a>
                     ) : (
@@ -293,12 +257,9 @@ export default function ContraprestacionesEvidencias({
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={
-                        uploadingId === s.id ||
-                        !(role === "admin" || role === "internal" || role === "interno")
-                      }
-                    />{" "}
-                    {uploadingId === s.id && <small>Subiendo...</small>}
+                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
+                    />
+                    {uploadingId === s.id && <small> Subiendo...</small>}
                   </td>
                 </tr>
               ))}
@@ -309,6 +270,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
