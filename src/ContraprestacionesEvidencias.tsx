@@ -150,7 +150,7 @@ export default function ContraprestacionesEvidencias({
     const nuevoEjecutado = !s.ejecutado;
     const payload: any = {
       ejecutado: nuevoEjecutado,
-      estado: nuevoEjecutado ? "cumplido" : "pendiente",
+      estado: nuevoEjecutado ? "verificado" : "pendiente",
     };
 
     if (nuevoEjecutado) {
