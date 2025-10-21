@@ -10,7 +10,7 @@ interface ContraprestacionDetalle {
 interface ContraprestacionSeguimiento {
   id: string;
   contraprestacion_id: string;
-  año: number;
+  anio: number; // usamos anio ASCII en el frontend
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -49,7 +49,7 @@ export default function ContraprestacionesEvidencias({
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // Obtener IDs de contraprestaciones asociadas al convenio
+      // 1) Obtener IDs de contraprestaciones asociadas al convenio
       const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
         .select("id")
@@ -64,52 +64,65 @@ export default function ContraprestacionesEvidencias({
         return;
       }
 
-      // Usar condición dinámica para traer los seguimientos
-      const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
-
+      // 2) Traer seguimientos usando .in() (más confiable)
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*")
-        .or(orCondition)
-        .order("año", { ascending: true });
+        .in("contraprestacion_id", ids);
 
       if (errSeg) throw errSeg;
 
-      // Ahora traemos los detalles, pero filtrando por id (no contraprestacion_id)
-      const orConditionDetalles = ids.map((id) => `id.eq.${id}`).join(",");
+      // 3) Traer detalles de contraprestaciones
       const { data: detalles, error: errDet } = await supabase
         .from("contraprestaciones")
         .select("id, tipo, descripcion")
-        .or(orConditionDetalles);
+        .in("id", ids);
 
       if (errDet) throw errDet;
 
+      // 4) Mapear detalles por id
       const detalleMap: Record<string, ContraprestacionDetalle> = {};
       (detalles || []).forEach((d: any) => {
         detalleMap[d.id] = {
           id: d.id,
           tipo: d.tipo,
-          descripcion: d.descripcion || null,
+          descripcion: d.descripcion ?? null,
         };
       });
 
-      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
-        id: s.id,
-        contraprestacion_id: s.contraprestacion_id,
-        año: typeof s.año === "number" ? s.año : Number(s.año),
-        estado: s.estado ?? null,
-        observaciones: s.observaciones ?? null,
-        fecha_verificacion: s.fecha_verificacion ?? null,
-        responsable: s.responsable ?? null,
-        evidencia_url: s.evidencia_url ?? null,
-        ejecutado: !!s.ejecutado,
-        contraprestacion: detalleMap[s.contraprestacion_id]
-          ? {
-              tipo: detalleMap[s.contraprestacion_id].tipo,
-              descripcion: detalleMap[s.contraprestacion_id].descripcion,
-            }
-          : undefined,
-      }));
+      // 5) Normalizar y mapear seguimientos
+      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => {
+        // normalizar año/anio (acepta ambas columnas: anio o "año")
+        const rawAnio =
+          s.anio !== undefined && s.anio !== null
+            ? s.anio
+            : s["año"] !== undefined && s["año"] !== null
+            ? s["año"]
+            : null;
+
+        const anioNum = rawAnio !== null ? Number(rawAnio) : NaN;
+
+        return {
+          id: s.id,
+          contraprestacion_id: s.contraprestacion_id,
+          anio: Number.isFinite(anioNum) ? anioNum : 0,
+          estado: s.estado ?? null,
+          observaciones: s.observaciones ?? null,
+          fecha_verificacion: s.fecha_verificacion ?? null,
+          responsable: s.responsable ?? null,
+          evidencia_url: s.evidencia_url ?? null,
+          ejecutado: !!s.ejecutado,
+          contraprestacion: detalleMap[s.contraprestacion_id]
+            ? {
+                tipo: detalleMap[s.contraprestacion_id].tipo,
+                descripcion: detalleMap[s.contraprestacion_id].descripcion,
+              }
+            : undefined,
+        };
+      });
+
+      // 6) Ordenar por anio en cliente (asc)
+      merged.sort((a, b) => a.anio - b.anio);
 
       setSeguimientos(merged);
     } catch (error: any) {
@@ -122,11 +135,13 @@ export default function ContraprestacionesEvidencias({
   };
 
   const handleToggleEjecutado = async (s: ContraprestacionSeguimiento) => {
+    // roles aceptados: admin o interno (puede venir como "internal" o "interno")
     if (!(role === "admin" || role === "internal" || role === "interno")) {
       alert("No tienes permisos para cambiar el estado de cumplimiento.");
       return;
     }
 
+    // Si ya tiene evidencia y no eres admin, no permitas desmarcar
     if (s.evidencia_url && role !== "admin") {
       alert("No puedes desmarcar una contraprestación que ya tiene evidencia (solo admin).");
       return;
@@ -155,6 +170,7 @@ export default function ContraprestacionesEvidencias({
       console.error("Error actualizando seguimiento:", error);
       alert("Error al actualizar el estado: " + error.message);
     } else {
+      // refrescar la lista
       fetchSeguimientos();
     }
   };
@@ -170,20 +186,35 @@ export default function ContraprestacionesEvidencias({
 
     setUploadingId(s.id);
     try {
-      const filePath = `${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+      // path ergonomico: <agreementId>/<contraprestacionId>/<seguimientoId>_timestamp.pdf
+      const ext = file.name.split(".").pop();
+      const safeName = `${s.id}_${Date.now()}.${ext ?? "pdf"}`;
+      const filePath = `${agreementId}/${s.contraprestacion_id}/${safeName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("evidencias")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
 
       if (uploadError) throw uploadError;
 
-      const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
-      const publicUrl = publicData.publicUrl;
+      // obtener url pública
+      const { data: urlData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
+      const publicUrl = (urlData as any)?.publicUrl ?? null;
+
+      if (!publicUrl) throw new Error("No se obtuvo URL pública después de subir el archivo.");
 
       const { error: updateError } = await supabase
         .from("contraprestaciones_seguimiento")
-        .update({ evidencia_url: publicUrl })
+        .update({
+          evidencia_url: publicUrl,
+          fecha_verificacion: new Date().toISOString(),
+          responsable: userId || null,
+          ejecutado: true,
+          estado: "cumplido",
+        })
         .eq("id", s.id);
 
       if (updateError) throw updateError;
@@ -215,7 +246,7 @@ export default function ContraprestacionesEvidencias({
           <table className="table table-hover align-middle">
             <thead className="table-light">
               <tr>
-                <th>Año</th>
+                <th style={{ width: 80 }}>Año</th>
                 <th>Tipo</th>
                 <th>Descripción</th>
                 <th>Estado</th>
@@ -226,9 +257,11 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.año}</td>
-                  <td>{s.contraprestacion?.tipo ?? "-"}</td>
-                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
+                  <td style={{ width: 80 }}>{s.anio > 0 ? s.anio : "-"}</td>
+                  <td style={{ minWidth: 180 }}>{s.contraprestacion?.tipo ?? "-"}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>
+                    {s.contraprestacion?.descripcion ?? "-"}
+                  </td>
                   <td>
                     {s.ejecutado ? (
                       <span className="badge bg-success">Cumplido</span>
@@ -238,7 +271,12 @@ export default function ContraprestacionesEvidencias({
                   </td>
                   <td>
                     {s.evidencia_url ? (
-                      <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
+                      <a
+                        href={s.evidencia_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-sm btn-outline-info"
+                      >
                         📎 Ver PDF
                       </a>
                     ) : (
@@ -255,9 +293,12 @@ export default function ContraprestacionesEvidencias({
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
-                    />
-                    {uploadingId === s.id && <small> Subiendo...</small>}
+                      disabled={
+                        uploadingId === s.id ||
+                        !(role === "admin" || role === "internal" || role === "interno")
+                      }
+                    />{" "}
+                    {uploadingId === s.id && <small>Subiendo...</small>}
                   </td>
                 </tr>
               ))}
@@ -268,6 +309,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
