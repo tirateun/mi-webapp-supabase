@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import countries from "./countries.json";
 
 interface InstitucionesFormProps {
-  existingInstitucion?: any; // ✅ agregado
+  existingInstitucion?: any;
   onSave: () => void;
   onCancel: () => void;
 }
@@ -51,18 +51,29 @@ export default function InstitucionesForm({
 
     let result;
     if (existingInstitucion) {
+      // 🧩 Actualizar institución existente
       result = await supabase
         .from("instituciones")
         .update(data)
         .eq("id", existingInstitucion.id);
     } else {
+      // 🧩 Crear nueva institución
       result = await supabase.from("instituciones").insert([data]);
     }
 
     const { error } = result;
+
+    // ✅ Nueva validación: solo muestra mensaje correcto
     if (error) {
       console.error("❌ Error al guardar institución:", error);
-      alert("❌ Error al guardar institución: " + error.message);
+      if (
+        error.message.includes("violates row-level security policy") ||
+        error.message.toLowerCase().includes("permission")
+      ) {
+        alert("❌ No tienes permisos para crear o editar instituciones.");
+      } else {
+        alert("❌ Error al guardar institución: " + error.message);
+      }
     } else {
       alert("✅ Institución guardada correctamente");
       onSave();
@@ -224,6 +235,7 @@ export default function InstitucionesForm({
     </form>
   );
 }
+
 
 
 
