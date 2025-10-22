@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import InstitucionesForm from "./InstitucionesForm";
 
-interface InstitucionesListProps {}
+interface InstitucionesListProps {
+  role: string; // 👈 añadimos el rol para controlar permisos
+}
 
-export default function InstitucionesList({}: InstitucionesListProps) {
+export default function InstitucionesList({ role }: InstitucionesListProps) {
   const [instituciones, setInstituciones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingInstitucion, setEditingInstitucion] = useState<any | null>(null);
@@ -62,21 +64,24 @@ export default function InstitucionesList({}: InstitucionesListProps) {
     <div style={{ padding: "20px" }}>
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>🏛️ Lista de Instituciones</h2>
 
-      <div style={{ textAlign: "right", marginBottom: "15px" }}>
-        <button
-          onClick={() => setCreating(true)}
-          style={{
-            background: "#2563eb",
-            color: "white",
-            padding: "8px 16px",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-          }}
-        >
-          ➕ Nueva Institución
-        </button>
-      </div>
+      {/* 👇 Solo los admin ven el botón "Nueva Institución" */}
+      {role === "admin" && (
+        <div style={{ textAlign: "right", marginBottom: "15px" }}>
+          <button
+            onClick={() => setCreating(true)}
+            style={{
+              background: "#2563eb",
+              color: "white",
+              padding: "8px 16px",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            ➕ Nueva Institución
+          </button>
+        </div>
+      )}
 
       <div style={{ overflowX: "auto" }}>
         <table
@@ -98,13 +103,14 @@ export default function InstitucionesList({}: InstitucionesListProps) {
               <th style={{ padding: "10px" }}>Contacto</th>
               <th style={{ padding: "10px" }}>Email</th>
               <th style={{ padding: "10px" }}>Teléfono</th>
-              <th style={{ padding: "10px" }}>Acciones</th>
+              {/* 👇 Solo admin ve la columna de Acciones */}
+              {role === "admin" && <th style={{ padding: "10px" }}>Acciones</th>}
             </tr>
           </thead>
           <tbody>
             {instituciones.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: "center", padding: "15px" }}>
+                <td colSpan={role === "admin" ? 9 : 8} style={{ textAlign: "center", padding: "15px" }}>
                   No hay instituciones registradas.
                 </td>
               </tr>
@@ -119,35 +125,39 @@ export default function InstitucionesList({}: InstitucionesListProps) {
                   <td style={{ padding: "10px" }}>{inst.contacto}</td>
                   <td style={{ padding: "10px" }}>{inst.email}</td>
                   <td style={{ padding: "10px" }}>{inst.telefono}</td>
-                  <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
-                    <button
-                      onClick={() => setEditingInstitucion(inst)}
-                      style={{
-                        background: "#3b82f6",
-                        color: "white",
-                        border: "none",
-                        padding: "5px 10px",
-                        borderRadius: "5px",
-                        marginRight: "5px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(inst.id)}
-                      style={{
-                        background: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        padding: "5px 10px",
-                        borderRadius: "5px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
+
+                  {/* 👇 Acciones solo visibles para admin */}
+                  {role === "admin" && (
+                    <td style={{ padding: "10px", whiteSpace: "nowrap" }}>
+                      <button
+                        onClick={() => setEditingInstitucion(inst)}
+                        style={{
+                          background: "#3b82f6",
+                          color: "white",
+                          border: "none",
+                          padding: "5px 10px",
+                          borderRadius: "5px",
+                          marginRight: "5px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(inst.id)}
+                        style={{
+                          background: "#ef4444",
+                          color: "white",
+                          border: "none",
+                          padding: "5px 10px",
+                          borderRadius: "5px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -157,6 +167,7 @@ export default function InstitucionesList({}: InstitucionesListProps) {
     </div>
   );
 }
+
 
 
 
