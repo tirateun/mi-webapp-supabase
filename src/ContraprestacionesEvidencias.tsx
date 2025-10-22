@@ -257,7 +257,7 @@ export default function ContraprestacionesEvidencias({
                       type="checkbox"
                       checked={s.ejecutado}
                       onChange={() => handleToggleEjecutado(s)}
-                      disabled={uploadingId === s.id || !(role === "admin" || role === "internal" || role === "interno")}
+                      disabled={uploadingId === s.id || !(role === "admin" || role === "Admin" || role === "Administrador")}
                     />
                     {uploadingId === s.id && <small> Subiendo...</small>}
                   </td>

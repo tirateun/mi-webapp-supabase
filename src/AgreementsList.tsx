@@ -42,27 +42,34 @@ export default function AgreementsList({
   const fetchAgreements = async () => {
     setLoading(true);
   
+    try {
     let query = supabase
       .from("agreements")
       .select("*")
       .order("created_at", { ascending: false });
   
     // 🔹 Filtra según rol del usuario
-    if (role === "internal" || role === "interno") {
+    if (["internal", "interno"].includes(role)) {
       query = query.eq("internal_responsible", user.id);
-    } else if (role === "external" || role === "externo") {
+    } else if (["external", "externo"].includes(role)) {
       query = query.eq("external_responsible", user.id);
     }
   
     const { data, error } = await query;
   
-    if (error) console.error("Error al cargar convenios:", error);
-    else {
+    if (error) {
+      console.error("Error al cargar convenios:", error);
+      alert("Error al cargar convenios. Revisa consola.");
+    } else {
       setAgreements(data || []);
       setFiltered(data || []);
     }
+  } catch (err) {
+    console.error("Error inesperado:", err);
+  } finally {
     setLoading(false);
-  };
+  }
+};
   
   // 🔹 Filtrar por búsqueda y tipo de convenio
   useEffect(() => {
