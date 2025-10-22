@@ -90,25 +90,34 @@ export default function AgreementsForm({
         ? "específico"
         : tipoConvenio;
 
-    const { error } = await supabase.from("agreements").insert([
-      {
-        name,
-        internal_responsible: internalResponsible,
-        external_responsible: externalResponsible,
-        signature_date: signatureDate,
-        duration_years: durationYears,
-        convenio: convenioNormalizado,
-        pais,
-        "Resolución Rectoral": resolucion,
-        tipo_convenio: tipoSeleccionados,
-        objetivos,
-        sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente : null,
-      },
-    ]);
+    const data = {
+      name,
+      internal_responsible: internalResponsible || null,
+      external_responsible: externalResponsible || null,
+      signature_date: signatureDate || null,
+      duration_years: durationYears,
+      convenio: convenioNormalizado,
+      pais,
+      "Resolución Rectoral": resolucion,
+      tipo_convenio: tipoSeleccionados,
+      objetivos,
+      sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente : null,
+    };
+
+    let error = null;
+
+    // ✅ Si hay convenio existente → actualizar (no duplicar)
+    if (existingAgreement && existingAgreement.id) {
+      const { error: updateError } = await supabase.from("agreements").update(data).eq("id", existingAgreement.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase.from("agreements").insert([data]);
+      error = insertError;
+    }
 
     if (error) {
-      console.error(error);
-      alert("❌ Error al guardar el convenio: " + error.message);
+      console.error("❌ Error al guardar convenio:", error);
+      alert("❌ Error al guardar convenio: " + error.message);
     } else {
       alert("✅ Convenio guardado correctamente");
       onSave();
@@ -118,7 +127,9 @@ export default function AgreementsForm({
   return (
     <div className="container mt-5" style={{ maxWidth: "850px" }}>
       <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
-        <h3 className="mb-4 text-center text-primary fw-bold">Registrar Nuevo Convenio</h3>
+        <h3 className="mb-4 text-center text-primary fw-bold">
+          {existingAgreement ? "✏️ Editar Convenio" : "📄 Registrar Nuevo Convenio"}
+        </h3>
         <form onSubmit={handleSubmit}>
           {/* NOMBRE */}
           <div className="mb-3">
@@ -240,7 +251,7 @@ export default function AgreementsForm({
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary">
-              Guardar Convenio
+              {existingAgreement ? "Guardar Cambios" : "Guardar Convenio"}
             </button>
           </div>
         </form>
