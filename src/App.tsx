@@ -26,7 +26,7 @@ export default function App() {
   >("agreementsList");
 
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [editingAgreement, setEditingAgreement] = useState<any | null>(null);
+  const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null); // ✅ renombrado y controlado correctamente
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -121,17 +121,17 @@ export default function App() {
           </span>
         </h2>
 
-        {/* PÁGINAS PRINCIPALES */}
+        {/* 📋 LISTA DE CONVENIOS */}
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
             role={role}
             onEdit={(agreement: any) => {
-              setEditingAgreement(agreement);
+              setSelectedAgreement(agreement); // ✅ guarda el convenio actual
               setActivePage("agreementsForm");
             }}
             onCreate={() => {
-              setEditingAgreement(null);
+              setSelectedAgreement(null); // ✅ limpia al crear
               setActivePage("agreementsForm");
             }}
             onOpenContraprestaciones={(id: string) => {
@@ -145,20 +145,22 @@ export default function App() {
           />
         )}
 
+        {/* 📝 FORMULARIO DE CONVENIOS */}
         {activePage === "agreementsForm" && (
           <AgreementsForm
-            existingAgreement={editingAgreement}
+            existingAgreement={selectedAgreement} // ✅ pasa correctamente el acuerdo actual
             onSave={() => {
               setActivePage("agreementsList");
-              setEditingAgreement(null);
+              setSelectedAgreement(null);
             }}
             onCancel={() => {
               setActivePage("agreementsList");
-              setEditingAgreement(null);
+              setSelectedAgreement(null);
             }}
           />
         )}
 
+        {/* 🔹 CONTRAPRESTACIONES */}
         {activePage === "contraprestaciones" && selectedAgreementId && (
           <Contraprestaciones
             agreementId={selectedAgreementId}
@@ -166,6 +168,7 @@ export default function App() {
           />
         )}
 
+        {/* 📂 EVIDENCIAS */}
         {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
           <ContraprestacionesEvidencias
             agreementId={selectedAgreementId}
@@ -175,6 +178,7 @@ export default function App() {
           />
         )}
 
+        {/* 🏢 INSTITUCIONES */}
         {activePage === "instituciones" && <Instituciones />}
         {activePage === "institucionesForm" && (
           <InstitucionesForm
@@ -182,6 +186,8 @@ export default function App() {
             onCancel={() => setActivePage("instituciones")}
           />
         )}
+
+        {/* 👥 USUARIOS */}
         {activePage === "users" && <Users />}
       </div>
     </div>
