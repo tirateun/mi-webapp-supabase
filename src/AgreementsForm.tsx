@@ -83,6 +83,19 @@ export default function AgreementsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 🧰 Verificación doble de permisos
+    const user = (await supabase.auth.getUser()).data.user;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "admin" && profile?.role !== "Admin" && profile?.role !== "Administrador") {
+      alert("❌ No tienes permisos para crear o editar convenios.");
+      return;
+    }
+
     const convenioNormalizado =
       tipoConvenio.toLowerCase().includes("marco")
         ? "marco"
@@ -90,7 +103,7 @@ export default function AgreementsForm({
         ? "específico"
         : tipoConvenio;
 
-    const payload = {
+    const dataToSave = {
       name,
       internal_responsible: internalResponsible,
       external_responsible: externalResponsible,
@@ -106,24 +119,19 @@ export default function AgreementsForm({
 
     let error = null;
 
-    // ✅ Detectar si se está editando o creando
-    if (existingAgreement && existingAgreement.id) {
-      console.log("📝 Editando convenio existente:", existingAgreement.id);
+    if (existingAgreement) {
       const { error: updateError } = await supabase
         .from("agreements")
-        .update(payload)
+        .update(dataToSave)
         .eq("id", existingAgreement.id);
       error = updateError;
     } else {
-      console.log("➕ Creando nuevo convenio");
-      const { error: insertError } = await supabase
-        .from("agreements")
-        .insert([payload]);
+      const { error: insertError } = await supabase.from("agreements").insert([dataToSave]);
       error = insertError;
     }
 
     if (error) {
-      console.error("❌ Error al guardar convenio:", error);
+      console.error(error);
       alert("❌ Error al guardar el convenio: " + error.message);
     } else {
       alert("✅ Convenio guardado correctamente");
@@ -135,7 +143,7 @@ export default function AgreementsForm({
     <div className="container mt-5" style={{ maxWidth: "850px" }}>
       <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
         <h3 className="mb-4 text-center text-primary fw-bold">
-          {existingAgreement ? "✏️ Editar Convenio" : "📄 Registrar Nuevo Convenio"}
+          {existingAgreement ? "✏️ Editar Convenio" : "Registrar Nuevo Convenio"}
         </h3>
         <form onSubmit={handleSubmit}>
           {/* NOMBRE */}
@@ -266,6 +274,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 

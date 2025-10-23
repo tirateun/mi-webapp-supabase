@@ -35,42 +35,42 @@ export default function AgreementsList({
   ];
 
   // 🔹 Cargar convenios
-  useEffect(() => { 
+  useEffect(() => {
     fetchAgreements();
   }, []);
 
   const fetchAgreements = async () => {
     setLoading(true);
-  
+
     try {
-    let query = supabase
-      .from("agreements")
-      .select("*")
-      .order("created_at", { ascending: false });
-  
-    // 🔹 Filtra según rol del usuario
-    if (["internal", "interno"].includes(role)) {
-      query = query.eq("internal_responsible", user.id);
-    } else if (["external", "externo"].includes(role)) {
-      query = query.eq("external_responsible", user.id);
+      let query = supabase
+        .from("agreements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      // 🔹 Filtra según rol del usuario
+      if (["internal", "interno"].includes(role)) {
+        query = query.eq("internal_responsible", user.id);
+      } else if (["external", "externo"].includes(role)) {
+        query = query.eq("external_responsible", user.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error al cargar convenios:", error);
+        alert("Error al cargar convenios. Revisa consola.");
+      } else {
+        setAgreements(data || []);
+        setFiltered(data || []);
+      }
+    } catch (err) {
+      console.error("Error inesperado:", err);
+    } finally {
+      setLoading(false);
     }
-  
-    const { data, error } = await query;
-  
-    if (error) {
-      console.error("Error al cargar convenios:", error);
-      alert("Error al cargar convenios. Revisa consola.");
-    } else {
-      setAgreements(data || []);
-      setFiltered(data || []);
-    }
-  } catch (err) {
-    console.error("Error inesperado:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-  
+  };
+
   // 🔹 Filtrar por búsqueda y tipo de convenio
   useEffect(() => {
     let filteredData = agreements;
@@ -102,7 +102,7 @@ export default function AgreementsList({
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
-        {(role === "admin" || role === "internal") && (
+        {role === "admin" && (
           <button className="btn btn-success" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
@@ -184,7 +184,7 @@ export default function AgreementsList({
                       : "-"}
                   </td>
                   <td className="d-flex flex-wrap gap-2">
-                    {(role === "admin" || role === "internal") && (
+                    {role === "admin" && (
                       <>
                         <button
                           className="btn btn-outline-secondary btn-sm"
@@ -192,20 +192,20 @@ export default function AgreementsList({
                         >
                           ✏️ Editar
                         </button>
-                        <button
-                          className="btn btn-outline-success btn-sm"
-                          onClick={() => onOpenContraprestaciones(a.id)}
-                        >
-                          📋 Programar
-                        </button>
-                        <button
-                          className="btn btn-outline-info btn-sm"
-                          onClick={() => onOpenEvidencias(a.id)}
-                        >
-                          📂 Cumplimiento
-                        </button>
                       </>
                     )}
+                    <button
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => onOpenContraprestaciones(a.id)}
+                    >
+                      📋 Programar
+                    </button>
+                    <button
+                      className="btn btn-outline-info btn-sm"
+                      onClick={() => onOpenEvidencias(a.id)}
+                    >
+                      📂 Cumplimiento
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -216,6 +216,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
