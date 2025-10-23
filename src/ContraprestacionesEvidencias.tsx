@@ -48,7 +48,6 @@ export default function ContraprestacionesEvidencias({
   const fetchSeguimientos = async () => {
     setLoading(true);
     try {
-      // Obtener IDs de contraprestaciones del convenio
       const { data: contraprestacionesIds, error: errIds } = await supabase
         .from("contraprestaciones")
         .select("id")
@@ -63,12 +62,10 @@ export default function ContraprestacionesEvidencias({
         return;
       }
 
-      const orCondition = ids.map((id) => `contraprestacion_id.eq.${id}`).join(",");
-
       const { data: rawSeguimientos, error: errSeg } = await supabase
         .from("contraprestaciones_seguimiento")
-        .select("*")
-        .or(orCondition)
+        .select("*, contraprestaciones(tipo, descripcion)")
+        .in("contraprestacion_id", ids)
         .order("año", { ascending: true });
 
       if (errSeg) throw errSeg;
@@ -80,31 +77,21 @@ export default function ContraprestacionesEvidencias({
 
       if (errDet) throw errDet;
 
-      const detalleMap: Record<string, ContraprestacionDetalle> = {};
-      (detalles || []).forEach((d: any) => {
-        detalleMap[d.id] = {
-          id: d.id,
-          tipo: d.tipo,
-          descripcion: d.descripcion || null,
-        };
-      });
+      const uniqueSeguimientos = Array.from(
+        new Map(rawSeguimientos.map((s: any) => [s.id, s])).values()
+      );
 
-      const merged: ContraprestacionSeguimiento[] = (rawSeguimientos || []).map((s: any) => ({
+      const merged = uniqueSeguimientos.map((s: any) => ({
         id: s.id,
         contraprestacion_id: s.contraprestacion_id,
-        año: typeof s.año === "number" ? s.año : Number(s.año),
+        año: Number(s.año),
         estado: s.estado ?? null,
         observaciones: s.observaciones ?? null,
         fecha_verificacion: s.fecha_verificacion ?? null,
         responsable: s.responsable ?? null,
         evidencia_url: s.evidencia_url ?? null,
         ejecutado: !!s.ejecutado,
-        contraprestacion: detalleMap[s.contraprestacion_id]
-          ? {
-              tipo: detalleMap[s.contraprestacion_id].tipo,
-              descripcion: detalleMap[s.contraprestacion_id].descripcion,
-            }
-          : undefined,
+        contraprestacion: s.contraprestaciones,
       }));
 
       setSeguimientos(merged);
@@ -129,7 +116,7 @@ export default function ContraprestacionesEvidencias({
     }
 
     const nuevoEjecutado = !s.ejecutado;
-    const nuevoEstado = nuevoEjecutado ? "Cumplido" : "Pendiente"; // ✅ corrige valores válidos
+    const nuevoEstado = nuevoEjecutado ? "Cumplido" : "Pendiente";
 
     const payload: any = {
       ejecutado: nuevoEjecutado,
@@ -195,6 +182,10 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
+  const formatAnio = (anio: number) => {
+    return `${anio}° año`;
+  };
+
   if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
 
   return (
@@ -224,7 +215,7 @@ export default function ContraprestacionesEvidencias({
             <tbody>
               {seguimientos.map((s) => (
                 <tr key={s.id}>
-                  <td>{s.año}</td>
+                  <td>{formatAnio(s.año)}</td>
                   <td>{s.contraprestacion?.tipo ?? "-"}</td>
                   <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                   <td>
@@ -270,6 +261,7 @@ export default function ContraprestacionesEvidencias({
     </div>
   );
 }
+
 
 
 
