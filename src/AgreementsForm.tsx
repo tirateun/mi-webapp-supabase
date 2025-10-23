@@ -83,15 +83,27 @@ export default function AgreementsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🧰 Verificación doble de permisos
-    const user = (await supabase.auth.getUser()).data.user;
+    // 🧰 Verificación doble de permisos (versión segura TypeScript)
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !userData?.user) {
+      alert("❌ No se pudo verificar el usuario autenticado.");
+      return;
+    }
+
+    const user = userData.user;
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "admin" && profile?.role !== "Admin" && profile?.role !== "Administrador") {
+    if (
+      profile?.role !== "admin" &&
+      profile?.role !== "Admin" &&
+      profile?.role !== "Administrador"
+    ) {
       alert("❌ No tienes permisos para crear o editar convenios.");
       return;
     }
@@ -114,7 +126,9 @@ export default function AgreementsForm({
       "Resolución Rectoral": resolucion,
       tipo_convenio: tipoSeleccionados,
       objetivos,
-      sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente : null,
+      sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial")
+        ? subTipoDocente
+        : null,
     };
 
     let error = null;
@@ -126,7 +140,9 @@ export default function AgreementsForm({
         .eq("id", existingAgreement.id);
       error = updateError;
     } else {
-      const { error: insertError } = await supabase.from("agreements").insert([dataToSave]);
+      const { error: insertError } = await supabase
+        .from("agreements")
+        .insert([dataToSave]);
       error = insertError;
     }
 
