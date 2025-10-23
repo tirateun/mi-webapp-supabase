@@ -28,11 +28,10 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
-  const [aniosDisponibles, setAniosDisponibles] = useState<number[]>([]);
-  const [anioSeleccionado, setAnioSeleccionado] = useState<number | null>(null);
+  const [aniosConvenio, setAniosConvenio] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Cargar catálogo y datos iniciales
+  // 🔹 Cargar catálogo y contraprestaciones iniciales
   useEffect(() => {
     fetchCatalogo();
     fetchContraprestaciones();
@@ -54,7 +53,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
-  // 🔹 Obtener duración (en años) desde agreements
+  // 🔹 Obtener duración (en años) del convenio
   const fetchDuracionConvenio = async () => {
     const { data, error } = await supabase
       .from("agreements")
@@ -66,11 +65,11 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       console.error("Error al obtener duración del convenio:", error);
     } else {
       const years = data?.duration_years || 1;
-      setAniosDisponibles(Array.from({ length: years }, (_, i) => i + 1));
+      setAniosConvenio(Array.from({ length: years }, (_, i) => i + 1));
     }
   };
 
-  // 🔹 Cargar contraprestaciones registradas
+  // 🔹 Cargar contraprestaciones ya registradas
   const fetchContraprestaciones = async () => {
     const { data, error } = await supabase
       .from("contraprestaciones")
@@ -78,17 +77,20 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       .eq("agreement_id", agreementId)
       .order("created_at", { ascending: true });
 
-    if (error) console.error("Error al cargar contraprestaciones:", error);
-    else setContraprestaciones(data || []);
+    if (error) {
+      console.error("Error al cargar contraprestaciones:", error);
+    } else {
+      setContraprestaciones(data || []);
+    }
   };
 
-  // 🔹 Registrar nueva contraprestación
+  // 🔹 Registrar nueva contraprestación (sin seleccionar año manualmente)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (!tipo || !anioSeleccionado) {
-      alert("Por favor, seleccione el tipo y el año del convenio.");
+    if (!tipo) {
+      alert("Por favor, seleccione el tipo de contraprestación.");
       setLoading(false);
       return;
     }
@@ -98,7 +100,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
       : tipo;
 
-    // 🔹 Insertar la contraprestación principal
+    // ✅ Inserta contraprestación
     const { data: inserted, error } = await supabase
       .from("contraprestaciones")
       .insert([
@@ -119,9 +121,9 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       return;
     }
 
-    // 🔹 Crear registros de seguimiento automático para todos los años del convenio
-    if (inserted && aniosDisponibles.length > 0) {
-      const seguimientoData = aniosDisponibles.map((a, i) => ({
+    // ✅ Crear seguimiento automático por cada año del convenio
+    if (inserted && aniosConvenio.length > 0) {
+      const seguimientoData = aniosConvenio.map((a, i) => ({
         contraprestacion_id: inserted.id,
         año: i + 1,
         estado: "pendiente",
@@ -142,7 +144,6 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     setTipo("");
     setDescripcion("");
     setUnidades(1);
-    setAnioSeleccionado(null);
     setLoading(false);
     fetchContraprestaciones();
   };
@@ -155,7 +156,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     if (error) {
       alert("❌ Error al eliminar: " + error.message);
     } else {
-      setContraprestaciones(contraprestaciones.filter((c) => c.id !== id));
+      setContraprestaciones((prev) => prev.filter((c) => c.id !== id));
     }
   };
 
@@ -189,24 +190,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
               </select>
             </div>
 
-            <div className="col-md-3 mb-3">
-              <label className="fw-semibold">Año</label>
-              <select
-                className="form-select"
-                value={anioSeleccionado || ""}
-                onChange={(e) => setAnioSeleccionado(Number(e.target.value))}
-                required
-              >
-                <option value="">Seleccione año...</option>
-                {aniosDisponibles.map((a) => (
-                  <option key={a} value={a}>
-                    {a}° año
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="col-md-3 mb-3">
+            <div className="col-md-6 mb-3">
               <label className="fw-semibold">Unidades comprometidas</label>
               <input
                 type="number"
@@ -230,11 +214,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
           </div>
 
           <div className="d-flex justify-content-end">
-            <button
-              type="submit"
-              className="btn btn-primary px-4"
-              disabled={loading}
-            >
+            <button type="submit" className="btn btn-primary px-4" disabled={loading}>
               {loading ? "Guardando..." : "Guardar Contraprestación"}
             </button>
           </div>
