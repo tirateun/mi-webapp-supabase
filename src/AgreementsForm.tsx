@@ -90,11 +90,11 @@ export default function AgreementsForm({
         ? "específico"
         : tipoConvenio;
 
-    const data = {
+    const payload = {
       name,
-      internal_responsible: internalResponsible || null,
-      external_responsible: externalResponsible || null,
-      signature_date: signatureDate || null,
+      internal_responsible: internalResponsible,
+      external_responsible: externalResponsible,
+      signature_date: signatureDate,
       duration_years: durationYears,
       convenio: convenioNormalizado,
       pais,
@@ -106,18 +106,25 @@ export default function AgreementsForm({
 
     let error = null;
 
-    // ✅ Si hay convenio existente → actualizar (no duplicar)
+    // ✅ Detectar si se está editando o creando
     if (existingAgreement && existingAgreement.id) {
-      const { error: updateError } = await supabase.from("agreements").update(data).eq("id", existingAgreement.id);
+      console.log("📝 Editando convenio existente:", existingAgreement.id);
+      const { error: updateError } = await supabase
+        .from("agreements")
+        .update(payload)
+        .eq("id", existingAgreement.id);
       error = updateError;
     } else {
-      const { error: insertError } = await supabase.from("agreements").insert([data]);
+      console.log("➕ Creando nuevo convenio");
+      const { error: insertError } = await supabase
+        .from("agreements")
+        .insert([payload]);
       error = insertError;
     }
 
     if (error) {
       console.error("❌ Error al guardar convenio:", error);
-      alert("❌ Error al guardar convenio: " + error.message);
+      alert("❌ Error al guardar el convenio: " + error.message);
     } else {
       alert("✅ Convenio guardado correctamente");
       onSave();
@@ -251,7 +258,7 @@ export default function AgreementsForm({
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary">
-              {existingAgreement ? "Guardar Cambios" : "Guardar Convenio"}
+              Guardar Convenio
             </button>
           </div>
         </form>
@@ -259,6 +266,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
