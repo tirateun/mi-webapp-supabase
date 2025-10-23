@@ -10,6 +10,7 @@ import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
 import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
+import Reportes from "./Reportes"; // ✅ nuevo módulo de reportes
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -23,10 +24,11 @@ export default function App() {
     | "institucionesForm"
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
+    | "reportes"
   >("agreementsList");
 
   const [mustChangePassword, setMustChangePassword] = useState(false);
-  const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null); // ✅ renombrado y controlado correctamente
+  const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -127,11 +129,11 @@ export default function App() {
             user={session.user}
             role={role}
             onEdit={(agreement: any) => {
-              setSelectedAgreement(agreement); // ✅ guarda el convenio actual
+              setSelectedAgreement(agreement);
               setActivePage("agreementsForm");
             }}
             onCreate={() => {
-              setSelectedAgreement(null); // ✅ limpia al crear
+              setSelectedAgreement(null);
               setActivePage("agreementsForm");
             }}
             onOpenContraprestaciones={(id: string) => {
@@ -148,7 +150,7 @@ export default function App() {
         {/* 📝 FORMULARIO DE CONVENIOS */}
         {activePage === "agreementsForm" && (
           <AgreementsForm
-            existingAgreement={selectedAgreement} // ✅ pasa correctamente el acuerdo actual
+            existingAgreement={selectedAgreement}
             onSave={() => {
               setActivePage("agreementsList");
               setSelectedAgreement(null);
@@ -189,10 +191,14 @@ export default function App() {
 
         {/* 👥 USUARIOS */}
         {activePage === "users" && <Users />}
+
+        {/* 📊 REPORTES */}
+        {activePage === "reportes" && <Reportes />}
       </div>
     </div>
   );
 }
+
 
 
 

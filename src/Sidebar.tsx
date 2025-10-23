@@ -1,11 +1,23 @@
 interface SidebarProps {
-  setActivePage: (page: "agreementsList" | "agreementsForm" | "instituciones" | "users") => void;
+  setActivePage: (
+    page:
+      | "agreementsList"
+      | "agreementsForm"
+      | "instituciones"
+      | "users"
+      | "reportes"
+  ) => void;
   onLogout: () => void;
   role: string;
   userName: string;
 }
 
-export default function Sidebar({ setActivePage, onLogout, role, userName }: SidebarProps) {
+export default function Sidebar({
+  setActivePage,
+  onLogout,
+  role,
+  userName,
+}: SidebarProps) {
   return (
     <aside
       style={{
@@ -20,29 +32,35 @@ export default function Sidebar({ setActivePage, onLogout, role, userName }: Sid
       }}
     >
       <div>
-        <h2 style={{ fontSize: "1.2rem", fontWeight: "bold", marginBottom: "20px" }}>
+        <h2
+          style={{
+            fontSize: "1.2rem",
+            fontWeight: "bold",
+            marginBottom: "20px",
+          }}
+        >
           🏛️ Convenios UNMSM
         </h2>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <button
-            onClick={() => setActivePage("agreementsList")}
-            style={buttonStyle}
-          >
+          <button onClick={() => setActivePage("agreementsList")} style={buttonStyle}>
             📜 Convenios
           </button>
 
-          <button
-            onClick={() => setActivePage("instituciones")}
-            style={buttonStyle}
-          >
+          <button onClick={() => setActivePage("instituciones")} style={buttonStyle}>
             🏢 Instituciones
           </button>
 
           {role === "admin" && (
-            <button onClick={() => setActivePage("users")} style={buttonStyle}>
-              👥 Usuarios
-            </button>
+            <>
+              <button onClick={() => setActivePage("users")} style={buttonStyle}>
+                👥 Usuarios
+              </button>
+
+              <button onClick={() => setActivePage("reportes")} style={buttonStyle}>
+                📊 Reportes
+              </button>
+            </>
           )}
         </nav>
       </div>

@@ -36,8 +36,9 @@ export default function AgreementsList({
 
   // 🔹 Cargar convenios
   useEffect(() => {
+    if (!user?.id || !role) return; // Espera a que se cargue todo
     fetchAgreements();
-  }, []);
+  }, [user?.id, role]); 
 
   const fetchAgreements = async () => {
     setLoading(true);
