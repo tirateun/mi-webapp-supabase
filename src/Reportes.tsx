@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-
-/**
- * Componente de Reportes del sistema
- * Muestra tres reportes con datos resumidos:
- * 1️⃣ Convenios por tipo
- * 2️⃣ Contraprestaciones cumplidas por año
- * 3️⃣ Instituciones con más convenios
- */
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+} from "recharts";
 
 interface ConvenioPorTipo {
   tipo_convenio: string;
@@ -24,14 +29,14 @@ interface InstitucionesActivas {
   total_convenios: number;
 }
 
+const COLORS = ["#1d4ed8", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#0ea5e9", "#a855f7"];
+
 export default function Reportes() {
   const [conveniosPorTipo, setConveniosPorTipo] = useState<ConvenioPorTipo[]>([]);
   const [contraprestacionesPorAnio, setContraprestacionesPorAnio] = useState<
     ContraprestacionesPorAnio[]
   >([]);
-  const [institucionesActivas, setInstitucionesActivas] = useState<
-    InstitucionesActivas[]
-  >([]);
+  const [institucionesActivas, setInstitucionesActivas] = useState<InstitucionesActivas[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,7 +81,7 @@ export default function Reportes() {
 
       const porAnio: Record<number, number> = {};
       contraprestaciones?.forEach((c: any) => {
-        if (c.estado === "cumplido" || c.estado === "completado") {
+        if (["Cumplido", "cumplido", "Completado", "completado"].includes(c.estado)) {
           porAnio[c.año] = (porAnio[c.año] || 0) + 1;
         }
       });
@@ -121,7 +126,6 @@ export default function Reportes() {
         listaFinal.sort((a, b) => b.total_convenios - a.total_convenios);
         setInstitucionesActivas(listaFinal.slice(0, 10)); // top 10
       }
-
     } catch (error: any) {
       console.error("Error cargando reportes:", error);
       alert("❌ Error al cargar reportes: " + error.message);
@@ -130,92 +134,106 @@ export default function Reportes() {
     setLoading(false);
   };
 
-  if (loading) return <p>Cargando reportes...</p>;
+  if (loading) return <p className="text-center mt-4">Cargando reportes...</p>;
 
   return (
-    <div className="container mt-4" style={{ maxWidth: "1000px" }}>
+    <div className="container mt-4" style={{ maxWidth: "1100px" }}>
       <div className="card shadow border-0 p-4" style={{ borderRadius: "16px" }}>
         <h3 className="fw-bold text-primary mb-4">📊 Reportes del Sistema</h3>
 
-        {/* 🔹 Reporte 1: Convenios por tipo */}
+        {/* 1️⃣ Convenios por tipo */}
         <section className="mb-5">
-          <h5 className="fw-semibold text-secondary">1️⃣ Convenios por tipo</h5>
+          <h5 className="fw-semibold text-secondary mb-3">Convenios por tipo</h5>
           {conveniosPorTipo.length === 0 ? (
             <p className="text-muted">No hay datos disponibles.</p>
           ) : (
-            <table className="table table-hover mt-2">
-              <thead className="table-light">
-                <tr>
-                  <th>Tipo de convenio</th>
-                  <th>Cantidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conveniosPorTipo.map((c) => (
-                  <tr key={c.tipo_convenio}>
-                    <td>{c.tipo_convenio}</td>
-                    <td>{c.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="row">
+              <div className="col-md-6">
+                <table className="table table-hover">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Tipo de convenio</th>
+                      <th>Cantidad</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {conveniosPorTipo.map((c) => (
+                      <tr key={c.tipo_convenio}>
+                        <td>{c.tipo_convenio}</td>
+                        <td>{c.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="col-md-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={conveniosPorTipo}
+                      dataKey="total"
+                      nameKey="tipo_convenio"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={90}
+                      label
+                    >
+                      {conveniosPorTipo.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           )}
         </section>
 
-        {/* 🔹 Reporte 2: Contraprestaciones cumplidas */}
+        {/* 2️⃣ Contraprestaciones cumplidas */}
         <section className="mb-5">
-          <h5 className="fw-semibold text-secondary">
-            2️⃣ Contraprestaciones cumplidas por año
+          <h5 className="fw-semibold text-secondary mb-3">
+            Contraprestaciones cumplidas por año
           </h5>
           {contraprestacionesPorAnio.length === 0 ? (
             <p className="text-muted">No hay datos disponibles.</p>
           ) : (
-            <table className="table table-hover mt-2">
-              <thead className="table-light">
-                <tr>
-                  <th>Año</th>
-                  <th>Cumplidas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contraprestacionesPorAnio.map((a) => (
-                  <tr key={a.año}>
-                    <td>{a.año}° año</td>
-                    <td>{a.cumplidas}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={contraprestacionesPorAnio}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="año" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="cumplidas" fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </section>
 
-        {/* 🔹 Reporte 3: Instituciones activas */}
+        {/* 3️⃣ Instituciones con más convenios */}
         <section>
-          <h5 className="fw-semibold text-secondary">
-            3️⃣ Instituciones con más convenios
+          <h5 className="fw-semibold text-secondary mb-3">
+            Instituciones con más convenios
           </h5>
           {institucionesActivas.length === 0 ? (
             <p className="text-muted">No hay datos disponibles.</p>
           ) : (
-            <table className="table table-hover mt-2">
-              <thead className="table-light">
-                <tr>
-                  <th>Institución</th>
-                  <th>Total de convenios</th>
-                </tr>
-              </thead>
-              <tbody>
-                {institucionesActivas.map((i) => (
-                  <tr key={i.nombre}>
-                    <td>{i.nombre}</td>
-                    <td>{i.total_convenios}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={institucionesActivas} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="nombre" type="category" width={150} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="total_convenios" fill="#1d4ed8" />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </section>
       </div>
     </div>
   );
 }
+
