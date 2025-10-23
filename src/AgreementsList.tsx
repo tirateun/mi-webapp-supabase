@@ -61,8 +61,14 @@ export default function AgreementsList({
         console.error("Error al cargar convenios:", error);
         alert("Error al cargar convenios. Revisa consola.");
       } else {
-        setAgreements(data || []);
-        setFiltered(data || []);
+        const filteredData = (data || []).filter(
+          (a) =>
+            (["admin", "Admin", "Administrador"].includes(role)) ||
+            a.internal_responsible === user.id ||
+            a.external_responsible === user.id
+        );
+        setAgreements(filteredData);
+        setFiltered(filteredData);
       }
     } catch (err) {
       console.error("Error inesperado:", err);
