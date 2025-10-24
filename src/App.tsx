@@ -11,6 +11,7 @@ import InstitucionesForm from "./InstitucionesForm";
 import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes"; // ✅ nuevo módulo de reportes
+import InstitucionesList from "./InstitucionesList";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -181,13 +182,7 @@ export default function App() {
         )}
 
         {/* 🏢 INSTITUCIONES */}
-        {activePage === "instituciones" && <Instituciones />}
-        {activePage === "institucionesForm" && (
-          <InstitucionesForm
-            onSave={() => setActivePage("instituciones")}
-            onCancel={() => setActivePage("instituciones")}
-          />
-        )}
+{activePage === "instituciones" && <InstitucionesList role={role} />}
 
         {/* 👥 USUARIOS */}
         {activePage === "users" && <Users />}
