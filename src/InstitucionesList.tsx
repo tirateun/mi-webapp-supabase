@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient";
 import InstitucionesForm from "./InstitucionesForm";
 
 interface InstitucionesListProps {
-  role: string; // 👈 añadimos el rol para controlar permisos
+  role: string; // 👈 controlamos permisos
 }
 
 export default function InstitucionesList({ role }: InstitucionesListProps) {
@@ -11,6 +11,7 @@ export default function InstitucionesList({ role }: InstitucionesListProps) {
   const [loading, setLoading] = useState(true);
   const [editingInstitucion, setEditingInstitucion] = useState<any | null>(null);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchInstituciones();
@@ -60,9 +61,43 @@ export default function InstitucionesList({ role }: InstitucionesListProps) {
     );
   }
 
+  // 🔍 Filtrado por texto (nombre, tipo, país, ciudad, contacto, email, etc.)
+  const filteredInstituciones = instituciones.filter((inst) =>
+    [
+      inst.nombre,
+      inst.tipo,
+      inst.pais,
+      inst.ciudad,
+      inst.contacto,
+      inst.email,
+      inst.telefono,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+
   return (
     <div style={{ padding: "20px" }}>
-      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>🏛️ Lista de Instituciones</h2>
+      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>
+        🏛️ Lista de Instituciones
+      </h2>
+
+      {/* 🔎 Buscador visible para todos */}
+      <div style={{ textAlign: "right", marginBottom: "15px" }}>
+        <input
+          type="text"
+          placeholder="Buscar institución..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            padding: "8px",
+            width: "250px",
+            borderRadius: "6px",
+            border: "1px solid #ccc",
+          }}
+        />
+      </div>
 
       {/* 👇 Solo los admin ven el botón "Nueva Institución" */}
       {role === "admin" && (
@@ -103,19 +138,21 @@ export default function InstitucionesList({ role }: InstitucionesListProps) {
               <th style={{ padding: "10px" }}>Contacto</th>
               <th style={{ padding: "10px" }}>Email</th>
               <th style={{ padding: "10px" }}>Teléfono</th>
-              {/* 👇 Solo admin ve la columna de Acciones */}
               {role === "admin" && <th style={{ padding: "10px" }}>Acciones</th>}
             </tr>
           </thead>
           <tbody>
-            {instituciones.length === 0 ? (
+            {filteredInstituciones.length === 0 ? (
               <tr>
-                <td colSpan={role === "admin" ? 9 : 8} style={{ textAlign: "center", padding: "15px" }}>
+                <td
+                  colSpan={role === "admin" ? 9 : 8}
+                  style={{ textAlign: "center", padding: "15px" }}
+                >
                   No hay instituciones registradas.
                 </td>
               </tr>
             ) : (
-              instituciones.map((inst) => (
+              filteredInstituciones.map((inst) => (
                 <tr key={inst.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
                   <td style={{ padding: "10px" }}>{inst.nombre}</td>
                   <td style={{ padding: "10px" }}>{inst.tipo}</td>
@@ -167,6 +204,7 @@ export default function InstitucionesList({ role }: InstitucionesListProps) {
     </div>
   );
 }
+
 
 
 
