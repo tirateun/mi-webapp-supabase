@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import {
-  PieChart,
-  Pie,
-  Tooltip,
-  Legend,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 interface Convenio {
@@ -21,6 +19,7 @@ interface Convenio {
   internal_responsible: string;
   duration_years: number;
   signature_date: string;
+  tipo_convenio: string[]; // array en base a tu base de datos
 }
 
 interface ConvenioPorTipo {
@@ -72,18 +71,37 @@ export default function Reportes() {
       if (responsableSeleccionado) query = query.eq("internal_responsible", responsableSeleccionado);
 
       const { data: conveniosData, error } = await query;
-
       if (error) throw error;
 
       setConvenios(conveniosData || []);
 
-      // 📊 1️⃣ Agrupar por tipo
-      const conteoTipo: Record<string, number> = {};
-      conveniosData?.forEach((c) => {
-        const tipo = c.convenio || "Sin tipo";
-        conteoTipo[tipo] = (conteoTipo[tipo] || 0) + 1;
+      // 📊 1️⃣ Agrupar por tipo_convenio (categorías oficiales)
+      const tiposOficiales = [
+        "Docente Asistencial",
+        "Cooperación Técnica",
+        "Movilidad Académica",
+        "Investigación",
+        "Colaboración Académica",
+        "Consultoría",
+        "Cotutela",
+      ];
+
+      const conteoTipos: Record<string, number> = {};
+      tiposOficiales.forEach((t) => (conteoTipos[t] = 0));
+
+      conveniosData?.forEach((c: any) => {
+        if (Array.isArray(c.tipo_convenio)) {
+          c.tipo_convenio.forEach((t: string) => {
+            if (conteoTipos[t] !== undefined) conteoTipos[t]++;
+          });
+        }
       });
-      setConveniosPorTipo(Object.entries(conteoTipo).map(([tipo, cantidad]) => ({ tipo, cantidad })));
+
+      const tiposProcesados = tiposOficiales.map((tipo) => ({
+        tipo,
+        cantidad: conteoTipos[tipo] || 0,
+      }));
+      setConveniosPorTipo(tiposProcesados);
 
       // 🌎 2️⃣ Agrupar por país
       const conteoPais: Record<string, number> = {};
@@ -175,45 +193,37 @@ export default function Reportes() {
         </div>
       </div>
 
-      {/* 📈 GRÁFICOS */}
-      <div className="row">
-        <div className="col-md-6 mb-4">
-          <div className="card shadow-sm p-3 border-0">
-            <h5 className="text-secondary fw-bold mb-3">Tipos de Convenio</h5>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={conveniosPorTipo as any}
-                  dataKey="cantidad"
-                  nameKey="tipo"
-                  outerRadius={100}
-                  fill="#3b82f6"
-                  label
-                />
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="col-md-6 mb-4">
-          <div className="card shadow-sm p-3 border-0">
-            <h5 className="text-secondary fw-bold mb-3">Convenios por País</h5>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={conveniosPorPais.slice(0, 10)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="pais" angle={-20} textAnchor="end" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="cantidad" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* 📈 GRÁFICO PRINCIPAL: tipos oficiales */}
+      <div className="card shadow-sm p-3 mb-4 border-0">
+        <h5 className="text-secondary fw-bold mb-3">Distribución por Tipo de Convenio</h5>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={conveniosPorTipo}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="tipo" angle={-20} textAnchor="end" />
+            <YAxis />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="cantidad" fill="#3b82f6" name="Convenios" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
-      <div className="card shadow-sm mb-4 p-3 border-0">
+      {/* 🌍 Convenios por país */}
+      <div className="card shadow-sm p-3 mb-4 border-0">
+        <h5 className="text-secondary fw-bold mb-3">Convenios por País</h5>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={conveniosPorPais.slice(0, 10)}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="pais" angle={-20} textAnchor="end" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="cantidad" fill="#10b981" name="Convenios" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ⚙️ Estado de contraprestaciones */}
+      <div className="card shadow-sm p-3 border-0">
         <h5 className="text-secondary fw-bold mb-3">Estado de Contraprestaciones</h5>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={ejecucionContraprestaciones}>
@@ -221,12 +231,12 @@ export default function Reportes() {
             <XAxis dataKey="estado" />
             <YAxis />
             <Tooltip />
-            <Bar dataKey="cantidad" fill="#f59e0b" />
+            <Bar dataKey="cantidad" fill="#f59e0b" name="Contraprestaciones" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* 📋 TABLA DE RESULTADOS */}
+      {/* 📋 Tabla de convenios */}
       <div className="card shadow-sm p-3 border-0 mt-4">
         <h5 className="fw-bold text-secondary mb-3">📄 Detalle de Convenios</h5>
         {convenios.length === 0 ? (
@@ -237,7 +247,7 @@ export default function Reportes() {
               <thead className="table-light">
                 <tr>
                   <th>Nombre</th>
-                  <th>Tipo</th>
+                  <th>Tipo(s)</th>
                   <th>País</th>
                   <th>Responsable Interno</th>
                   <th>Duración (años)</th>
@@ -248,7 +258,7 @@ export default function Reportes() {
                 {convenios.map((c) => (
                   <tr key={c.id}>
                     <td>{c.name}</td>
-                    <td>{c.convenio || "-"}</td>
+                    <td>{Array.isArray(c.tipo_convenio) ? c.tipo_convenio.join(", ") : "-"}</td>
                     <td>{c.pais || "-"}</td>
                     <td>{responsables.find((r) => r.id === c.internal_responsible)?.full_name || "-"}</td>
                     <td>{c.duration_years}</td>
@@ -267,5 +277,6 @@ export default function Reportes() {
     </div>
   );
 }
+
 
 
