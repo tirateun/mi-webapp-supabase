@@ -83,7 +83,7 @@ export default function AgreementsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🧰 Verificación doble de permisos (versión segura TypeScript)
+    // 🧰 Verificación doble de permisos
     const { data: userData, error: userError } = await supabase.auth.getUser();
 
     if (userError || !userData?.user) {
@@ -92,7 +92,6 @@ export default function AgreementsForm({
     }
 
     const user = userData.user;
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -108,6 +107,7 @@ export default function AgreementsForm({
       return;
     }
 
+    // ⚙️ Normalización de tipo de convenio
     const convenioNormalizado =
       tipoConvenio.toLowerCase().includes("marco")
         ? "marco"
@@ -115,6 +115,7 @@ export default function AgreementsForm({
         ? "específico"
         : tipoConvenio;
 
+    // ✅ Construcción del objeto sin expiration_date
     const dataToSave = {
       name,
       internal_responsible: internalResponsible,
@@ -134,6 +135,7 @@ export default function AgreementsForm({
     let error = null;
 
     if (existingAgreement) {
+      // 🛠️ Evitamos enviar expiration_date para no violar la política del campo generado
       const { error: updateError } = await supabase
         .from("agreements")
         .update(dataToSave)
@@ -290,6 +292,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
