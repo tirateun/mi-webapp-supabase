@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import InformeSemestralModal from "./InformeSemestralModal";
 
 interface AgreementsListProps {
   user: any;
@@ -23,6 +24,8 @@ export default function AgreementsList({
   const [search, setSearch] = useState("");
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInformeModal, setShowInformeModal] = useState(false);
+  const [selectedConvenio, setSelectedConvenio] = useState<any | null>(null);
 
   const tipos = [
     "Docente Asistencial",
@@ -38,7 +41,7 @@ export default function AgreementsList({
   useEffect(() => {
     if (!user?.id || !role) return; // Espera a que se cargue todo
     fetchAgreements();
-  }, [user?.id, role]); 
+  }, [user?.id, role]);
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -191,6 +194,17 @@ export default function AgreementsList({
                       : "-"}
                   </td>
                   <td className="d-flex flex-wrap gap-2">
+                    {/* 📝 Nuevo botón de informe */}
+                    <button
+                      className="btn btn-warning btn-sm text-white"
+                      onClick={() => {
+                        setSelectedConvenio(a);
+                        setShowInformeModal(true);
+                      }}
+                    >
+                      📝 Informe
+                    </button>
+
                     {role === "admin" && (
                       <>
                         <button
@@ -201,12 +215,14 @@ export default function AgreementsList({
                         </button>
                       </>
                     )}
+
                     <button
                       className="btn btn-outline-success btn-sm"
                       onClick={() => onOpenContraprestaciones(a.id)}
                     >
                       📋 Programar
                     </button>
+
                     <button
                       className="btn btn-outline-info btn-sm"
                       onClick={() => onOpenEvidencias(a.id)}
@@ -220,10 +236,20 @@ export default function AgreementsList({
           </table>
         </div>
       )}
+
+      {/* 🧩 Modal para el informe semestral */}
+      {showInformeModal && selectedConvenio && (
+        <InformeSemestralModal
+          convenioId={selectedConvenio.id}
+          onClose={() => {
+            setShowInformeModal(false);
+            setSelectedConvenio(null);
+          }}
+        />
+      )}
     </div>
   );
 }
-
 
 
 
