@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom"; // 🧠 Añadido para manejar rutas
 import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Login from "./Login";
@@ -10,8 +11,9 @@ import Instituciones from "./Instituciones";
 import InstitucionesForm from "./InstitucionesForm";
 import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
-import Reportes from "./Reportes"; // ✅ nuevo módulo de reportes
+import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
+import InformeSemestralPage from "./InformeSemestralPage"; // ✅ Nueva página agregada
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -33,6 +35,7 @@ export default function App() {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Carga inicial de sesión y perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -102,97 +105,112 @@ export default function App() {
     );
   }
 
+  // 🧭 Aquí comienza el Router
   return (
-    <div style={{ display: "flex" }}>
-      <Sidebar
-        setActivePage={setActivePage}
-        onLogout={handleLogout}
-        role={role}
-        userName={fullName || session.user.email}
-      />
-      <div style={{ flex: 1, padding: "20px" }}>
-        <h2 style={{ marginBottom: "20px" }}>
-          👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
-          <span style={{ color: "#555" }}>
-            (
-            {role === "admin"
-              ? "Administrador interno"
-              : role === "internal"
-              ? "Usuario interno"
-              : "Usuario externo"}
-            )
-          </span>
-        </h2>
+    <Router>
+      <Routes>
+        {/* Nueva ruta completa para informes semestrales */}
+        <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
-        {/* 📋 LISTA DE CONVENIOS */}
-        {activePage === "agreementsList" && (
-          <AgreementsList
-            user={session.user}
-            role={role}
-            onEdit={(agreement: any) => {
-              setSelectedAgreement(agreement);
-              setActivePage("agreementsForm");
-            }}
-            onCreate={() => {
-              setSelectedAgreement(null);
-              setActivePage("agreementsForm");
-            }}
-            onOpenContraprestaciones={(id: string) => {
-              setSelectedAgreementId(id);
-              setActivePage("contraprestaciones");
-            }}
-            onOpenEvidencias={(id: string) => {
-              setSelectedAgreementId(id);
-              setActivePage("contraprestacionesEvidencias");
-            }}
-          />
-        )}
+        {/* Resto de la app bajo el layout principal */}
+        <Route
+          path="*"
+          element={
+            <div style={{ display: "flex" }}>
+              <Sidebar
+                setActivePage={setActivePage}
+                onLogout={handleLogout}
+                role={role}
+                userName={fullName || session.user.email}
+              />
+              <div style={{ flex: 1, padding: "20px" }}>
+                <h2 style={{ marginBottom: "20px" }}>
+                  👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
+                  <span style={{ color: "#555" }}>
+                    (
+                    {role === "admin"
+                      ? "Administrador interno"
+                      : role === "internal"
+                      ? "Usuario interno"
+                      : "Usuario externo"}
+                    )
+                  </span>
+                </h2>
 
-        {/* 📝 FORMULARIO DE CONVENIOS */}
-        {activePage === "agreementsForm" && (
-          <AgreementsForm
-            existingAgreement={selectedAgreement}
-            onSave={() => {
-              setActivePage("agreementsList");
-              setSelectedAgreement(null);
-            }}
-            onCancel={() => {
-              setActivePage("agreementsList");
-              setSelectedAgreement(null);
-            }}
-          />
-        )}
+                {/* 📋 LISTA DE CONVENIOS */}
+                {activePage === "agreementsList" && (
+                  <AgreementsList
+                    user={session.user}
+                    role={role}
+                    onEdit={(agreement: any) => {
+                      setSelectedAgreement(agreement);
+                      setActivePage("agreementsForm");
+                    }}
+                    onCreate={() => {
+                      setSelectedAgreement(null);
+                      setActivePage("agreementsForm");
+                    }}
+                    onOpenContraprestaciones={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestaciones");
+                    }}
+                    onOpenEvidencias={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestacionesEvidencias");
+                    }}
+                  />
+                )}
 
-        {/* 🔹 CONTRAPRESTACIONES */}
-        {activePage === "contraprestaciones" && selectedAgreementId && (
-          <Contraprestaciones
-            agreementId={selectedAgreementId}
-            onBack={() => setActivePage("agreementsList")}
-          />
-        )}
+                {/* 📝 FORMULARIO DE CONVENIOS */}
+                {activePage === "agreementsForm" && (
+                  <AgreementsForm
+                    existingAgreement={selectedAgreement}
+                    onSave={() => {
+                      setActivePage("agreementsList");
+                      setSelectedAgreement(null);
+                    }}
+                    onCancel={() => {
+                      setActivePage("agreementsList");
+                      setSelectedAgreement(null);
+                    }}
+                  />
+                )}
 
-        {/* 📂 EVIDENCIAS */}
-        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
-          <ContraprestacionesEvidencias
-            agreementId={selectedAgreementId}
-            userId={session.user.id}
-            role={role}
-            onBack={() => setActivePage("agreementsList")}
-          />
-        )}
+                {/* 🔹 CONTRAPRESTACIONES */}
+                {activePage === "contraprestaciones" && selectedAgreementId && (
+                  <Contraprestaciones
+                    agreementId={selectedAgreementId}
+                    onBack={() => setActivePage("agreementsList")}
+                  />
+                )}
 
-        {/* 🏢 INSTITUCIONES */}
-{activePage === "instituciones" && <InstitucionesList role={role} />}
+                {/* 📂 EVIDENCIAS */}
+                {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
+                  <ContraprestacionesEvidencias
+                    agreementId={selectedAgreementId}
+                    userId={session.user.id}
+                    role={role}
+                    onBack={() => setActivePage("agreementsList")}
+                  />
+                )}
 
-        {/* 👥 USUARIOS */}
-        {activePage === "users" && <Users />}
+                {/* 🏢 INSTITUCIONES */}
+                {activePage === "instituciones" && <InstitucionesList role={role} />}
 
-        {/* 📊 REPORTES */}
-        {activePage === "reportes" && <Reportes />}
-      </div>
-    </div>
+                {/* 👥 USUARIOS */}
+                {activePage === "users" && <Users />}
+
+                {/* 📊 REPORTES */}
+                {activePage === "reportes" && <Reportes />}
+              </div>
+            </div>
+          }
+        />
+      </Routes>
+    </Router>
   );
 }
+
 
 
 

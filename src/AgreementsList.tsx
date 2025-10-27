@@ -228,6 +228,13 @@ export default function AgreementsList({
                       onClick={() => onOpenEvidencias(a.id)}
                     >
                       📂 Cumplimiento
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => window.location.href = `/informe/${a.id}`}
+                    >
+                      📝 Informe
+                    </button>
+                    
                     </button>
                   </td>
                 </tr>
