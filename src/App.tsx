@@ -27,6 +27,7 @@ export default function App() {
     | "institucionesForm"
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
+    | "informeSemestral"
     | "reportes"
   >("agreementsList");
 
@@ -154,6 +155,10 @@ export default function App() {
                       setSelectedAgreementId(id);
                       setActivePage("contraprestaciones");
                     }}
+                    onOpenInforme={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("informeSemestral");
+                    }}
                     onOpenEvidencias={(id: string) => {
                       setSelectedAgreementId(id);
                       setActivePage("contraprestacionesEvidencias");
@@ -190,6 +195,14 @@ export default function App() {
                     agreementId={selectedAgreementId}
                     userId={session.user.id}
                     role={role}
+                    onBack={() => setActivePage("agreementsList")}
+                  />
+                )}
+                
+                {/* 🧾 INFORME SEMESTRAL */}
+                {activePage === "informeSemestral" && selectedAgreementId && (
+                  <InformeSemestralPage
+                    convenioId={selectedAgreementId}
                     onBack={() => setActivePage("agreementsList")}
                   />
                 )}
