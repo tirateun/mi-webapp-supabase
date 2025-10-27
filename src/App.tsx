@@ -141,29 +141,29 @@ export default function App() {
                 {/* 📋 LISTA DE CONVENIOS */}
                 {activePage === "agreementsList" && (
                   <AgreementsList
-                    user={session.user}
-                    role={role}
-                    onEdit={(agreement: any) => {
-                      setSelectedAgreement(agreement);
-                      setActivePage("agreementsForm");
-                    }}
-                    onCreate={() => {
-                      setSelectedAgreement(null);
-                      setActivePage("agreementsForm");
-                    }}
-                    onOpenContraprestaciones={(id: string) => {
-                      setSelectedAgreementId(id);
-                      setActivePage("contraprestaciones");
-                    }}
-                    onOpenInforme={(id: string) => {
-                      setSelectedAgreementId(id);
-                      setActivePage("informeSemestral");
-                    }}
-                    onOpenEvidencias={(id: string) => {
-                      setSelectedAgreementId(id);
-                      setActivePage("contraprestacionesEvidencias");
-                    }}
-                  />
+                  user={session.user}
+                  role={role}
+                  onEdit={(agreement: any) => {
+                    setSelectedAgreement(agreement);
+                    setActivePage("agreementsForm");
+                  }}
+                  onCreate={() => {
+                    setSelectedAgreement(null);
+                    setActivePage("agreementsForm");
+                  }}
+                  onOpenContraprestaciones={(id: string) => {
+                    setSelectedAgreementId(id);
+                    setActivePage("contraprestaciones");
+                  }}
+                  onOpenEvidencias={(id: string) => {
+                    setSelectedAgreementId(id);
+                    setActivePage("contraprestacionesEvidencias");
+                  }}
+                  onOpenInforme={(id: string) => {                // ✅ nuevo callback
+                    setSelectedAgreementId(id);
+                    setActivePage("informeSemestral");
+                  }}
+                />               
                 )}
 
                 {/* 📝 FORMULARIO DE CONVENIOS */}
@@ -200,13 +200,13 @@ export default function App() {
                 )}
                 
                 {/* 🧾 INFORME SEMESTRAL */}
-                {activePage === "informeSemestral" && selectedAgreementId && (
+                {activePage === "informeSemestral" && selectedAgreementId ? (
                   <InformeSemestralPage
                     convenioId={selectedAgreementId}
                     onBack={() => setActivePage("agreementsList")}
                   />
-                )}
-
+                ) : null}
+                
                 {/* 🏢 INSTITUCIONES */}
                 {activePage === "instituciones" && <InstitucionesList role={role} />}
 

@@ -9,6 +9,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
+  onOpenInforme: (agreementId: string) => void; // ✅ nuevo
 }
 
 export default function AgreementsList({
@@ -196,11 +197,8 @@ export default function AgreementsList({
                   <td className="d-flex flex-wrap gap-2">
                     {/* 📝 Nuevo botón de informe */}
                     <button
-                      className="btn btn-warning btn-sm text-white"
-                      onClick={() => {
-                        setSelectedConvenio(a);
-                        setShowInformeModal(true);
-                      }}
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => onOpenInforme(a.id)}
                     >
                       📝 Informe
                     </button>
