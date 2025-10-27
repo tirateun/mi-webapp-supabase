@@ -122,8 +122,15 @@ export default function InstitucionesForm({
             style={{ width: "100%", padding: "8px" }}
           >
             <option value="Hospital">Hospital</option>
-            <option value="Universidad">Universidad</option>
+            <option value="Universidad">Universidad Privada</option>
+            <option value="Universidad">Universidad Publica</option>
             <option value="Instituto">Instituto</option>
+            <option value="Instituto">Asociacion</option>
+            <option value="Instituto">Colegio profesional</option>
+            <option value="Instituto">Sociedad</option>
+            <option value="Instituto">Laboratorio</option>
+            <option value="Instituto">Clinica</option>
+            <option value="Instituto">Red de salud</option>
             <option value="Otro">Otro</option>
           </select>
         </div>
