@@ -90,23 +90,25 @@ export default function Users() {
   };
 
   // 🗑️ Eliminar usuario completamente (auth + profiles)
-  const handleDeleteUser = async (email: string) => {
-    if (!window.confirm(`¿Seguro que deseas eliminar al usuario ${email}?`))
-      return;
-
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
+  
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
         }
       );
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Error al eliminar usuario");
-
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error desconocido");
+  
       alert("✅ Usuario eliminado correctamente");
       fetchUsers();
     } catch (err: any) {
