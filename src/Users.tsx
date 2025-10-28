@@ -18,15 +18,25 @@ export default function Users() {
     if (!error) setUsers(data || []);
   };
 
-  // 📌 Obtener rol del usuario actual
+  // 📌 Obtener rol del usuario actual - Versión corregida
   const fetchCurrentUserRole = async () => {
-    const { data: userData } = await supabase.auth.getUser();
+    const {  userData } = await supabase.auth.getUser();
     if (userData?.user) {
+      // ✅ CORREGIDO: Desestructurar `data` y `error` del resultado de `.single()`
       const {  profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", userData.user.id)
         .single();
+
+      // Opcional: manejar el error si no se encuentra el perfil o hay otro problema
+      if (profileError) {
+        console.error("Error obteniendo el perfil del usuario:", profileError);
+        setCurrentRole("");
+        return; // Salir de la función si hay error
+      }
+
+      // `profile` ahora contiene el objeto `{ role: "..." }` o es `null` si no se encontró
       setCurrentRole(profile?.role || "");
     }
   };
@@ -36,7 +46,7 @@ export default function Users() {
     fetchCurrentUserRole();
   }, []);
 
-  // 📌 Crear nuevo usuario con contraseña temporal
+  // 📌 Crear nuevo usuario con contraseña temporal - Versión corregida
   const handleAddUser = async () => {
     setLoading(true);
     setError("");
