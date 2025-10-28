@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom"; // 🧠 Añadido para manejar rutas
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Login from "./Login";
@@ -13,7 +13,7 @@ import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
-import InformeSemestralPage from "./InformeSemestralPage"; // ✅ Nueva página agregada
+import InformeSemestralPage from "./InformeSemestralPage"; // ✅ Página de informe semestral
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -27,7 +27,6 @@ export default function App() {
     | "institucionesForm"
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
-    | "informeSemestral"
     | "reportes"
   >("agreementsList");
 
@@ -36,7 +35,7 @@ export default function App() {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Carga inicial de sesión y perfil
+  // 🔹 Cargar sesión y perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -106,14 +105,13 @@ export default function App() {
     );
   }
 
-  // 🧭 Aquí comienza el Router
   return (
     <Router>
       <Routes>
-        {/* Nueva ruta completa para informes semestrales */}
+        {/* ✅ Página de informe semestral independiente */}
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
-        {/* Resto de la app bajo el layout principal */}
+        {/* 🌐 Layout principal */}
         <Route
           path="*"
           element={
@@ -141,29 +139,26 @@ export default function App() {
                 {/* 📋 LISTA DE CONVENIOS */}
                 {activePage === "agreementsList" && (
                   <AgreementsList
-                  user={session.user}
-                  role={role}
-                  onEdit={(agreement: any) => {
-                    setSelectedAgreement(agreement);
-                    setActivePage("agreementsForm");
-                  }}
-                  onCreate={() => {
-                    setSelectedAgreement(null);
-                    setActivePage("agreementsForm");
-                  }}
-                  onOpenContraprestaciones={(id: string) => {
-                    setSelectedAgreementId(id);
-                    setActivePage("contraprestaciones");
-                  }}
-                  onOpenEvidencias={(id: string) => {
-                    setSelectedAgreementId(id);
-                    setActivePage("contraprestacionesEvidencias");
-                  }}
-                  onOpenInforme={(id: string) => {                // ✅ nuevo callback
-                    setSelectedAgreementId(id);
-                    setActivePage("informeSemestral");
-                  }}
-                />               
+                    user={session.user}
+                    role={role}
+                    onEdit={(agreement: any) => {
+                      setSelectedAgreement(agreement);
+                      setActivePage("agreementsForm");
+                    } }
+                    onCreate={() => {
+                      setSelectedAgreement(null);
+                      setActivePage("agreementsForm");
+                    } }
+                    onOpenContraprestaciones={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestaciones");
+                    } }
+                    onOpenEvidencias={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestacionesEvidencias");
+                    } } onOpenInforme={function (agreementId: string): void {
+                      throw new Error("Function not implemented.");
+                    } }                  />
                 )}
 
                 {/* 📝 FORMULARIO DE CONVENIOS */}
@@ -198,15 +193,7 @@ export default function App() {
                     onBack={() => setActivePage("agreementsList")}
                   />
                 )}
-                
-                {/* 🧾 INFORME SEMESTRAL */}
-                {activePage === "informeSemestral" && selectedAgreementId ? (
-                  <InformeSemestralPage
-                    convenioId={selectedAgreementId}
-                    onBack={() => setActivePage("agreementsList")}
-                  />
-                ) : null}
-                
+
                 {/* 🏢 INSTITUCIONES */}
                 {activePage === "instituciones" && <InstitucionesList role={role} />}
 
