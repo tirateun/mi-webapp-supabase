@@ -1,13 +1,11 @@
 import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-export default function InformeSemestralPage({
-  convenioId,
-  onBack,
-}: {
-  convenioId: string;
-  onBack: () => void;
-}) {
+export default function InformeSemestralPage() {
+  const { convenioId } = useParams<{ convenioId: string }>();
+  const navigate = useNavigate();
+
   const [periodo, setPeriodo] = useState("");
   const [resumen, setResumen] = useState("");
   const [actividades, setActividades] = useState("");
@@ -15,6 +13,11 @@ export default function InformeSemestralPage({
   const [dificultades, setDificultades] = useState("");
 
   const handleGuardar = async () => {
+    if (!convenioId) {
+      alert("❌ No se encontró el ID del convenio.");
+      return;
+    }
+
     const { error } = await supabase.from("informes_semestrales").insert([
       {
         convenio_id: convenioId,
@@ -27,10 +30,11 @@ export default function InformeSemestralPage({
       },
     ]);
 
-    if (error) alert("❌ Error al guardar el informe: " + error.message);
-    else {
+    if (error) {
+      alert("❌ Error al guardar el informe: " + error.message);
+    } else {
       alert("✅ Informe guardado correctamente");
-      onBack();
+      navigate("/"); // 🔙 Regresa a la página principal
     }
   };
 
@@ -93,7 +97,7 @@ export default function InformeSemestralPage({
         </div>
 
         <div className="d-flex justify-content-end mt-4">
-          <button className="btn btn-secondary me-3" onClick={onBack}>
+          <button className="btn btn-secondary me-3" onClick={() => navigate("/")}>
             🔙 Volver
           </button>
           <button className="btn btn-primary" onClick={handleGuardar}>
@@ -104,4 +108,5 @@ export default function InformeSemestralPage({
     </div>
   );
 }
+
 

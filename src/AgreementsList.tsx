@@ -19,6 +19,7 @@ export default function AgreementsList({
   onCreate,
   onOpenContraprestaciones,
   onOpenEvidencias,
+  onOpenInforme,
 }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
