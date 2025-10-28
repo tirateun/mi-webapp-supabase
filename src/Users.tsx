@@ -10,33 +10,41 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [currentRole, setCurrentRole] = useState(""); // 🔹 Para saber si el usuario actual es admin
+  const [currentRole, setCurrentRole] = useState(""); // Para saber si el usuario actual es admin
 
-  // 📌 Cargar usuarios existentes desde la tabla profiles
+  // Cargar usuarios existentes desde la tabla profiles
   const fetchUsers = async () => {
     const { data, error } = await supabase.from("profiles").select("*");
     if (!error) setUsers(data || []);
   };
 
-  // 📌 Obtener rol del usuario actual - Versión corregida
+  // Obtener rol del usuario actual - Versión corregida y compatible
   const fetchCurrentUserRole = async () => {
-    const {  userData } = await supabase.auth.getUser();
-    if (userData?.user) {
-      // ✅ CORREGIDO: Desestructurar `data` y `error` del resultado de `.single()`
-      const {  profile, error: profileError } = await supabase
+    // Acceder a .data del resultado de getUser()
+    const userResponse = await supabase.auth.getUser();
+    if (userResponse.error) {
+      console.error("Error obteniendo el usuario actual:", userResponse.error);
+      setCurrentRole("");
+      return;
+    }
+
+    const userData = userResponse.data.user;
+    if (userData) {
+      // Acceder a .data del resultado de .single()
+      const profileResponse = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", userData.user.id)
+        .eq("id", userData.id)
         .single();
 
-      // Opcional: manejar el error si no se encuentra el perfil o hay otro problema
-      if (profileError) {
-        console.error("Error obteniendo el perfil del usuario:", profileError);
+      if (profileResponse.error) {
+        console.error("Error obteniendo el perfil del usuario:", profileResponse.error);
         setCurrentRole("");
-        return; // Salir de la función si hay error
+        return;
       }
 
-      // `profile` ahora contiene el objeto `{ role: "..." }` o es `null` si no se encontró
+      // Acceder a profileResponse.data
+      const profile = profileResponse.data;
       setCurrentRole(profile?.role || "");
     }
   };
@@ -46,24 +54,23 @@ export default function Users() {
     fetchCurrentUserRole();
   }, []);
 
-  // 📌 Crear nuevo usuario con contraseña temporal - Versión corregida
+  // Crear nuevo usuario con contraseña temporal - Versión corregida y compatible
   const handleAddUser = async () => {
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      // ✅ Obtener el token de sesión actual - Desestructuración explícita
-      const { data, error: sessionError } = await supabase.auth.getSession();
+      // Acceder a .data.session del resultado de getSession()
+      const sessionResponse = await supabase.auth.getSession();
 
-      // ✅ Verificar que haya una sesión activa y un token válido
-      if (sessionError || !data.session || !data.session.access_token) {
-        console.error("❌ No hay sesión activa o el token es inválido:", data, sessionError);
+      if (sessionResponse.error || !sessionResponse.data.session || !sessionResponse.data.session.access_token) {
+        console.error("❌ No hay sesión activa o el token es inválido:", sessionResponse.data, sessionResponse.error);
         alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
         return;
       }
 
-      const token = data.session.access_token;
+      const token = sessionResponse.data.session.access_token;
       if (!token) throw new Error("No hay sesión activa.");
 
       const tempPassword = "Temporal123!";
@@ -88,12 +95,12 @@ export default function Users() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Error en create-user");
 
-      const { error: updateError } = await supabase
+      const updateResponse = await supabase
         .from("profiles")
         .update({ must_change_password: true })
         .eq("email", email);
 
-      if (updateError) throw updateError;
+      if (updateResponse.error) throw updateResponse.error;
 
       setSuccess(
         `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
@@ -109,32 +116,30 @@ export default function Users() {
     setLoading(false);
   };
 
-  // 🗑️ Eliminar usuario completamente (auth + profiles) - Versión corregida y segura
+  // Eliminar usuario completamente (auth + profiles) - Versión corregida y compatible
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
     try {
-      // ✅ Obtener el token de sesión actual - Desestructuración explícita
-      const { data, error: sessionError } = await supabase.auth.getSession();
+      // Acceder a .data.session del resultado de getSession()
+      const sessionResponse = await supabase.auth.getSession();
 
-      // ✅ Verificar que haya una sesión activa y un token válido
-      if (sessionError || !data.session || !data.session.access_token) {
-        console.error("❌ No hay sesión activa o el token es inválido:", data, sessionError);
+      if (sessionResponse.error || !sessionResponse.data.session || !sessionResponse.data.session.access_token) {
+        console.error("❌ No hay sesión activa o el token es inválido:", sessionResponse.data, sessionResponse.error);
         alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
         return;
       }
 
-      // Opcional: Puedes verificar si el token no está expirado mirando `data.session.expires_at`
-      const now = new Date().getTime() / 1000; // Timestamp actual en segundos
-      if (data.session.expires_at && data.session.expires_at < now) {
+      // Opcional: Verificar si el token no está expirado
+      const now = new Date().getTime() / 1000;
+      if (sessionResponse.data.session.expires_at && sessionResponse.data.session.expires_at < now) {
         console.error("❌ La sesión ha expirado.");
         alert("❌ La sesión ha expirado. Por favor, vuelve a iniciar sesión.");
-        // Aquí puedes redirigir al login si lo deseas
         return;
       }
 
-      console.log("Enviando token:", data.session.access_token); // Para depurar
-      console.log("Enviando user_id:", userId); // Para depurar
+      console.log("Enviando token:", sessionResponse.data.session.access_token);
+      console.log("Enviando user_id:", userId);
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
@@ -142,8 +147,8 @@ export default function Users() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // ✅ CORREGIDO: Usar el token de sesión
-            Authorization: `Bearer ${data.session.access_token}`,
+            // Usar el token de sesión
+            Authorization: `Bearer ${sessionResponse.data.session.access_token}`,
           },
           body: JSON.stringify({ user_id: userId }),
         }
@@ -151,14 +156,14 @@ export default function Users() {
 
       const dataRes = await res.json();
       if (!res.ok) {
-        console.error("Respuesta de la función:", dataRes); // Para depurar
+        console.error("Respuesta de la función:", dataRes);
         throw new Error(dataRes.error || "Error desconocido");
       }
 
       alert("✅ Usuario eliminado correctamente");
-      fetchUsers(); // Refresca la lista de usuarios
+      fetchUsers();
     } catch (err: any) {
-      console.error("Error al eliminar usuario:", err); // Muestra el error en consola
+      console.error("Error al eliminar usuario:", err);
       alert("❌ Error al eliminar usuario: " + err.message);
     }
   };
@@ -285,7 +290,7 @@ export default function Users() {
                     }}
                   >
                     <button
-                      // ✅ CORREGIDO: Usa u.id
+                      // Usar u.id
                       onClick={() => handleDeleteUser(u.id)}
                       style={{
                         background: "#ef4444",
