@@ -11,6 +11,7 @@ export default function InformeSemestralPage() {
   const [actividades, setActividades] = useState("");
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
+  const [descripcion, setDescripcion] = useState("");
 
   const handleGuardar = async () => {
     if (!convenioId) {
@@ -26,6 +27,7 @@ export default function InformeSemestralPage() {
         actividades,
         logros,
         dificultades,
+        descripcion,
         created_at: new Date(),
       },
     ]);
@@ -93,6 +95,16 @@ export default function InformeSemestralPage() {
             rows={3}
             value={dificultades}
             onChange={(e) => setDificultades(e.target.value)}
+          />
+        </div>
+
+        <div className="mb-3">
+          <label>Descripción general</label>
+          <textarea
+            className="form-control"
+            rows={3}
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
           />
         </div>
 
