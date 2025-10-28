@@ -1,3 +1,4 @@
+// src/Users.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -21,7 +22,7 @@ export default function Users() {
   const fetchCurrentUserRole = async () => {
     const { data: userData } = await supabase.auth.getUser();
     if (userData?.user) {
-      const { data: profile } = await supabase
+      const {  profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", userData.user.id)
@@ -42,8 +43,17 @@ export default function Users() {
     setSuccess("");
 
     try {
-      const session = await supabase.auth.getSession();
-      const token = session.data.session?.access_token;
+      // ✅ Obtener el token de sesión actual - Desestructuración explícita
+      const { data, error: sessionError } = await supabase.auth.getSession();
+
+      // ✅ Verificar que haya una sesión activa y un token válido
+      if (sessionError || !data.session || !data.session.access_token) {
+        console.error("❌ No hay sesión activa o el token es inválido:", data, sessionError);
+        alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
+        return;
+      }
+
+      const token = data.session.access_token;
       if (!token) throw new Error("No hay sesión activa.");
 
       const tempPassword = "Temporal123!";
@@ -89,62 +99,59 @@ export default function Users() {
     setLoading(false);
   };
 
-  // 🗑️ Eliminar usuario completamente (auth + profiles)
-  // 🗑️ Eliminar usuario completamente (auth + profiles) - Versión corregida
-const handleDeleteUser = async (userId: string) => {
-  if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
+  // 🗑️ Eliminar usuario completamente (auth + profiles) - Versión corregida y segura
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
-  try {
-    // ✅ Obtener el token de sesión actual
-    const {
-       { session },
-    } = await supabase.auth.getSession();
+    try {
+      // ✅ Obtener el token de sesión actual - Desestructuración explícita
+      const { data, error: sessionError } = await supabase.auth.getSession();
 
-    // ✅ Verificar que haya una sesión activa y un token válido
-    if (!session || !session.access_token) {
-      console.error("❌ No hay sesión activa o el token es inválido:", session);
-      alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
-      return;
-    }
-
-    // Opcional: Puedes verificar si el token no está expirado mirando `session.expires_at`
-    const now = new Date().getTime() / 1000; // Timestamp actual en segundos
-    if (session.expires_at && session.expires_at < now) {
-      console.error("❌ La sesión ha expirado.");
-      alert("❌ La sesión ha expirado. Por favor, vuelve a iniciar sesión.");
-      // Aquí puedes redirigir al login si lo deseas
-      return;
-    }
-
-    console.log("Enviando token:", session.access_token); // Para depurar
-    console.log("Enviando user_id:", userId); // Para depurar
-
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // ✅ CORREGIDO: Usar el token de sesión
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ user_id: userId }),
+      // ✅ Verificar que haya una sesión activa y un token válido
+      if (sessionError || !data.session || !data.session.access_token) {
+        console.error("❌ No hay sesión activa o el token es inválido:", data, sessionError);
+        alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
+        return;
       }
-    );
 
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("Respuesta de la función:", data); // Para depurar
-      throw new Error(data.error || "Error desconocido");
+      // Opcional: Puedes verificar si el token no está expirado mirando `data.session.expires_at`
+      const now = new Date().getTime() / 1000; // Timestamp actual en segundos
+      if (data.session.expires_at && data.session.expires_at < now) {
+        console.error("❌ La sesión ha expirado.");
+        alert("❌ La sesión ha expirado. Por favor, vuelve a iniciar sesión.");
+        // Aquí puedes redirigir al login si lo deseas
+        return;
+      }
+
+      console.log("Enviando token:", data.session.access_token); // Para depurar
+      console.log("Enviando user_id:", userId); // Para depurar
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // ✅ CORREGIDO: Usar el token de sesión
+            Authorization: `Bearer ${data.session.access_token}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }
+      );
+
+      const dataRes = await res.json();
+      if (!res.ok) {
+        console.error("Respuesta de la función:", dataRes); // Para depurar
+        throw new Error(dataRes.error || "Error desconocido");
+      }
+
+      alert("✅ Usuario eliminado correctamente");
+      fetchUsers(); // Refresca la lista de usuarios
+    } catch (err: any) {
+      console.error("Error al eliminar usuario:", err); // Muestra el error en consola
+      alert("❌ Error al eliminar usuario: " + err.message);
     }
-
-    alert("✅ Usuario eliminado correctamente");
-    fetchUsers(); // Refresca la lista de usuarios
-  } catch (err: any) {
-    console.error("Error al eliminar usuario:", err); // Muestra el error en consola
-    alert("❌ Error al eliminar usuario: " + err.message);
-  }
-};
+  };
 
   return (
     <div id="usuarios">
@@ -268,6 +275,7 @@ const handleDeleteUser = async (userId: string) => {
                     }}
                   >
                     <button
+                      // ✅ CORREGIDO: Usa u.id
                       onClick={() => handleDeleteUser(u.id)}
                       style={{
                         background: "#ef4444",
