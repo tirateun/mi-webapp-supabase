@@ -90,31 +90,61 @@ export default function Users() {
   };
 
   // 🗑️ Eliminar usuario completamente (auth + profiles)
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
-  
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({ user_id: userId }),
-        }
-      );
-  
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error desconocido");
-  
-      alert("✅ Usuario eliminado correctamente");
-      fetchUsers();
-    } catch (err: any) {
-      alert("❌ Error al eliminar usuario: " + err.message);
+  // 🗑️ Eliminar usuario completamente (auth + profiles) - Versión corregida
+const handleDeleteUser = async (userId: string) => {
+  if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
+
+  try {
+    // ✅ Obtener el token de sesión actual
+    const {
+       { session },
+    } = await supabase.auth.getSession();
+
+    // ✅ Verificar que haya una sesión activa y un token válido
+    if (!session || !session.access_token) {
+      console.error("❌ No hay sesión activa o el token es inválido:", session);
+      alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
+      return;
     }
-  };
+
+    // Opcional: Puedes verificar si el token no está expirado mirando `session.expires_at`
+    const now = new Date().getTime() / 1000; // Timestamp actual en segundos
+    if (session.expires_at && session.expires_at < now) {
+      console.error("❌ La sesión ha expirado.");
+      alert("❌ La sesión ha expirado. Por favor, vuelve a iniciar sesión.");
+      // Aquí puedes redirigir al login si lo deseas
+      return;
+    }
+
+    console.log("Enviando token:", session.access_token); // Para depurar
+    console.log("Enviando user_id:", userId); // Para depurar
+
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // ✅ CORREGIDO: Usar el token de sesión
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ user_id: userId }),
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("Respuesta de la función:", data); // Para depurar
+      throw new Error(data.error || "Error desconocido");
+    }
+
+    alert("✅ Usuario eliminado correctamente");
+    fetchUsers(); // Refresca la lista de usuarios
+  } catch (err: any) {
+    console.error("Error al eliminar usuario:", err); // Muestra el error en consola
+    alert("❌ Error al eliminar usuario: " + err.message);
+  }
+};
 
   return (
     <div id="usuarios">
@@ -238,7 +268,7 @@ export default function Users() {
                     }}
                   >
                     <button
-                      onClick={() => handleDeleteUser(u.email)}
+                      onClick={() => handleDeleteUser(u.id)}
                       style={{
                         background: "#ef4444",
                         color: "white",
