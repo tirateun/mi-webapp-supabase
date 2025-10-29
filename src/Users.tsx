@@ -20,7 +20,7 @@ export default function Users() {
     fetchUsers();
   }, []);
 
-  // 📌 Crear nuevo usuario con contraseña temporal
+  // 📌 Crear nuevo usuario con contraseña temporal y flag de cambio
   const handleAddUser = async () => {
     setLoading(true);
     setError("");
@@ -31,14 +31,17 @@ export default function Users() {
       const token = session.data.session?.access_token;
       if (!token) throw new Error("No hay sesión activa.");
 
+      // Contraseña temporal generada automáticamente
       const tempPassword = "Temporal123!";
 
+      // ✅ 1. Llamar a la Edge Function `create-user`
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
@@ -53,6 +56,7 @@ export default function Users() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Error en create-user");
 
+      // ✅ 2. Actualizar el perfil en la tabla "profiles" con `must_change_password = true`
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ must_change_password: true })
@@ -60,7 +64,10 @@ export default function Users() {
 
       if (updateError) throw updateError;
 
-      setSuccess(`✅ Usuario creado correctamente.`);
+      setSuccess(
+        `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
+      );
+
       setFullName("");
       setEmail("");
       setRole("internal");
@@ -72,20 +79,30 @@ export default function Users() {
     setLoading(false);
   };
 
-  // 🧨 Eliminar usuario (auth + profiles)
+  // 🧹 Eliminar usuario completamente (Auth + profiles)
   const handleDeleteUser = async (user_id: string) => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
     try {
       console.log("🧩 Enviando user_id:", user_id);
 
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      if (!token) {
+        alert("❌ No se encontró un token de sesión válido.");
+        return;
+      }
+
+      // ✅ Llamada a la Edge Function delete-user
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY, // ✅ Enviamos la key aquí
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, // ✅ requerido por Supabase
+            Authorization: `Bearer ${token}`, // ✅ token del usuario autenticado
           },
           body: JSON.stringify({ user_id }),
         }
@@ -100,7 +117,7 @@ export default function Users() {
         );
       }
 
-      alert("✅ Usuario eliminado correctamente.");
+      alert("✅ Usuario eliminado correctamente");
       fetchUsers();
     } catch (err: any) {
       console.error("Error al eliminar usuario:", err);
@@ -181,14 +198,19 @@ export default function Users() {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Correo</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Rol</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Contraseña</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              ¿Debe cambiar contraseña?
+            </th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
+              Actualizado
+            </th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
           </tr>
         </thead>
         <tbody>
           {users.length === 0 ? (
             <tr>
-              <td colSpan={5} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={6} style={{ textAlign: "center", padding: "10px" }}>
                 No hay usuarios registrados.
               </td>
             </tr>
@@ -208,6 +230,11 @@ export default function Users() {
                   {u.must_change_password ? "✅ Sí" : "❌ No"}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.updated_at
+                    ? new Date(u.updated_at).toLocaleString()
+                    : "-"}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                   <button
                     onClick={() => handleDeleteUser(u.id)}
                     style={{
@@ -215,7 +242,7 @@ export default function Users() {
                       color: "white",
                       border: "none",
                       borderRadius: "6px",
-                      padding: "5px 10px",
+                      padding: "6px 10px",
                       cursor: "pointer",
                     }}
                   >
@@ -230,6 +257,7 @@ export default function Users() {
     </div>
   );
 }
+
 
 
 
