@@ -1,4 +1,3 @@
-// src/Users.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -10,67 +9,26 @@ export default function Users() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [currentRole, setCurrentRole] = useState(""); // Para saber si el usuario actual es admin
 
-  // Cargar usuarios existentes desde la tabla profiles
+  // 📌 Cargar usuarios existentes desde la tabla profiles
   const fetchUsers = async () => {
     const { data, error } = await supabase.from("profiles").select("*");
     if (!error) setUsers(data || []);
   };
 
-  // Obtener rol del usuario actual - Versión corregida y compatible
-  const fetchCurrentUserRole = async () => {
-    // Acceder a .data del resultado de getUser()
-    const userResponse = await supabase.auth.getUser();
-    if (userResponse.error) {
-      console.error("Error obteniendo el usuario actual:", userResponse.error);
-      setCurrentRole("");
-      return;
-    }
-
-    const userData = userResponse.data.user;
-    if (userData) {
-      // Acceder a .data del resultado de .single()
-      const profileResponse = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userData.id)
-        .single();
-
-      if (profileResponse.error) {
-        console.error("Error obteniendo el perfil del usuario:", profileResponse.error);
-        setCurrentRole("");
-        return;
-      }
-
-      // Acceder a profileResponse.data
-      const profile = profileResponse.data;
-      setCurrentRole(profile?.role || "");
-    }
-  };
-
   useEffect(() => {
     fetchUsers();
-    fetchCurrentUserRole();
   }, []);
 
-  // Crear nuevo usuario con contraseña temporal - Versión corregida y compatible
+  // 📌 Crear nuevo usuario con contraseña temporal
   const handleAddUser = async () => {
     setLoading(true);
     setError("");
     setSuccess("");
 
     try {
-      // Acceder a .data.session del resultado de getSession()
-      const sessionResponse = await supabase.auth.getSession();
-
-      if (sessionResponse.error || !sessionResponse.data.session || !sessionResponse.data.session.access_token) {
-        console.error("❌ No hay sesión activa o el token es inválido:", sessionResponse.data, sessionResponse.error);
-        alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
-        return;
-      }
-
-      const token = sessionResponse.data.session.access_token;
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
       if (!token) throw new Error("No hay sesión activa.");
 
       const tempPassword = "Temporal123!";
@@ -95,16 +53,14 @@ export default function Users() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Error en create-user");
 
-      const updateResponse = await supabase
+      const { error: updateError } = await supabase
         .from("profiles")
         .update({ must_change_password: true })
         .eq("email", email);
 
-      if (updateResponse.error) throw updateResponse.error;
+      if (updateError) throw updateError;
 
-      setSuccess(
-        `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
-      );
+      setSuccess(`✅ Usuario creado correctamente.`);
       setFullName("");
       setEmail("");
       setRole("internal");
@@ -116,51 +72,35 @@ export default function Users() {
     setLoading(false);
   };
 
-  // Eliminar usuario completamente (auth + profiles) - Versión corregida y compatible
-  const handleDeleteUser = async (userId: string) => {
+  // 🧨 Eliminar usuario (auth + profiles)
+  const handleDeleteUser = async (user_id: string) => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
 
     try {
-      // Acceder a .data.session del resultado de getSession()
-      const sessionResponse = await supabase.auth.getSession();
+      console.log("🧩 Enviando user_id:", user_id);
 
-      if (sessionResponse.error || !sessionResponse.data.session || !sessionResponse.data.session.access_token) {
-        console.error("❌ No hay sesión activa o el token es inválido:", sessionResponse.data, sessionResponse.error);
-        alert("❌ No hay sesión activa. Por favor, inicia sesión como administrador.");
-        return;
-      }
-
-      // Opcional: Verificar si el token no está expirado
-      const now = new Date().getTime() / 1000;
-      if (sessionResponse.data.session.expires_at && sessionResponse.data.session.expires_at < now) {
-        console.error("❌ La sesión ha expirado.");
-        alert("❌ La sesión ha expirado. Por favor, vuelve a iniciar sesión.");
-        return;
-      }
-
-      console.log("Enviando token:", sessionResponse.data.session.access_token);
-      console.log("Enviando user_id:", userId);
-
-      const res = await fetch(
+      const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // Usar el token de sesión
-            Authorization: `Bearer ${sessionResponse.data.session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY, // ✅ Enviamos la key aquí
           },
-          body: JSON.stringify({ user_id: userId }),
+          body: JSON.stringify({ user_id }),
         }
       );
 
-      const dataRes = await res.json();
-      if (!res.ok) {
-        console.error("Respuesta de la función:", dataRes);
-        throw new Error(dataRes.error || "Error desconocido");
+      const result = await response.json();
+      console.log("Respuesta de la función:", result);
+
+      if (!response.ok) {
+        throw new Error(
+          `Error al eliminar de auth.users: ${JSON.stringify(result)}`
+        );
       }
 
-      alert("✅ Usuario eliminado correctamente");
+      alert("✅ Usuario eliminado correctamente.");
       fetchUsers();
     } catch (err: any) {
       console.error("Error al eliminar usuario:", err);
@@ -241,23 +181,14 @@ export default function Users() {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Correo</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Rol</th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
-              ¿Debe cambiar contraseña?
-            </th>
-            <th style={{ border: "1px solid #ccc", padding: "8px" }}>
-              Actualizado
-            </th>
-            {currentRole === "admin" && (
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>
-                Acciones
-              </th>
-            )}
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Contraseña</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Acciones</th>
           </tr>
         </thead>
         <tbody>
           {users.length === 0 ? (
             <tr>
-              <td colSpan={6} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={5} style={{ textAlign: "center", padding: "10px" }}>
                 No hay usuarios registrados.
               </td>
             </tr>
@@ -277,34 +208,20 @@ export default function Users() {
                   {u.must_change_password ? "✅ Sí" : "❌ No"}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {u.updated_at
-                    ? new Date(u.updated_at).toLocaleString()
-                    : "-"}
-                </td>
-                {currentRole === "admin" && (
-                  <td
+                  <button
+                    onClick={() => handleDeleteUser(u.id)}
                     style={{
-                      border: "1px solid #ccc",
-                      padding: "8px",
-                      textAlign: "center",
+                      background: "#ef4444",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      padding: "5px 10px",
+                      cursor: "pointer",
                     }}
                   >
-                    <button
-                      // Usar u.id
-                      onClick={() => handleDeleteUser(u.id)}
-                      style={{
-                        background: "#ef4444",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        padding: "6px 10px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      🗑️ Eliminar
-                    </button>
-                  </td>
-                )}
+                    🗑️ Eliminar
+                  </button>
+                </td>
               </tr>
             ))
           )}
@@ -313,5 +230,6 @@ export default function Users() {
     </div>
   );
 }
+
 
 
