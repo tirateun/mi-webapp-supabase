@@ -80,43 +80,36 @@ export default function Users() {
   };
 
   // 🧹 Eliminar usuario completamente (Auth + profiles)
-  const handleDeleteUser = async (user_id: string) => {
+  const handleDeleteUser = async (userId: string) => {
     if (!confirm("¿Seguro que deseas eliminar este usuario?")) return;
-
+  
     try {
-      console.log("🧩 Enviando user_id:", user_id);
-
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
-
-      if (!token) {
-        alert("❌ No se encontró un token de sesión válido.");
-        return;
-      }
-
-      // ✅ Llamada a la Edge Function delete-user
+  
+      if (!token) throw new Error("No hay sesión activa o token disponible");
+  
+      console.log("🧩 Enviando user_id:", userId);
+  
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, // ✅ requerido por Supabase
-            Authorization: `Bearer ${token}`, // ✅ token del usuario autenticado
+            // 🔥 este header es CLAVE
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, // ✅ también importante
           },
-          body: JSON.stringify({ user_id }),
+          body: JSON.stringify({ user_id: userId }),
         }
       );
-
+  
       const result = await response.json();
       console.log("Respuesta de la función:", result);
-
-      if (!response.ok) {
-        throw new Error(
-          `Error al eliminar de auth.users: ${JSON.stringify(result)}`
-        );
-      }
-
+  
+      if (!response.ok) throw new Error(result.error || "Error desconocido");
+  
       alert("✅ Usuario eliminado correctamente");
       fetchUsers();
     } catch (err: any) {
