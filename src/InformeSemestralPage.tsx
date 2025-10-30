@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
@@ -12,7 +12,40 @@ export default function InformeSemestralPage() {
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
   const [descripcion, setDescripcion] = useState("");
+  const [duracion, setDuracion] = useState<number>(1); // 🔹 duración del convenio en años
+  const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
 
+  // 🔹 Cargar duración del convenio
+  useEffect(() => {
+    const fetchConvenio = async () => {
+      if (!convenioId) return;
+
+      const { data, error } = await supabase
+        .from("agreements")
+        .select("duration_years")
+        .eq("id", convenioId)
+        .single();
+
+      if (error) {
+        console.error("Error al obtener la duración del convenio:", error);
+      } else {
+        const años = data?.duration_years || 1;
+        setDuracion(años);
+
+        // Generar lista de periodos dinámicamente según los años
+        const periodos: string[] = [];
+        for (let i = 1; i <= años; i++) {
+          periodos.push(`Enero-Junio ${i}° año`);
+          periodos.push(`Julio-Diciembre ${i}° año`);
+        }
+        setPeriodosDisponibles(periodos);
+      }
+    };
+
+    fetchConvenio();
+  }, [convenioId]);
+
+  // 🔹 Guardar el informe
   const handleGuardar = async () => {
     if (!convenioId) {
       alert("❌ No se encontró el ID del convenio.");
@@ -45,6 +78,7 @@ export default function InformeSemestralPage() {
       <div className="card shadow p-4 border-0" style={{ borderRadius: "12px" }}>
         <h3 className="text-primary fw-bold mb-4">📝 Informe Semestral</h3>
 
+        {/* 🔹 Selector de periodo */}
         <div className="mb-3">
           <label>Periodo del informe</label>
           <select
@@ -53,8 +87,11 @@ export default function InformeSemestralPage() {
             onChange={(e) => setPeriodo(e.target.value)}
           >
             <option value="">Seleccione un periodo</option>
-            <option value="Enero-Junio">Enero - Junio</option>
-            <option value="Julio-Diciembre">Julio - Diciembre</option>
+            {periodosDisponibles.map((p, i) => (
+              <option key={i} value={p}>
+                {p}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -120,6 +157,7 @@ export default function InformeSemestralPage() {
     </div>
   );
 }
+
 
 
 
