@@ -9,7 +9,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme: (agreementId: string) => void; // ✅ nuevo
+  onOpenInforme: (agreementId: string) => void;
 }
 
 export default function AgreementsList({
@@ -39,9 +39,8 @@ export default function AgreementsList({
     "Cotutela",
   ];
 
-  // 🔹 Cargar convenios
   useEffect(() => {
-    if (!user?.id || !role) return; // Espera a que se cargue todo
+    if (!user?.id || !role) return;
     fetchAgreements();
   }, [user?.id, role]);
 
@@ -54,7 +53,6 @@ export default function AgreementsList({
         .select("*")
         .order("created_at", { ascending: false });
 
-      // 🔹 Filtra según rol del usuario
       if (["internal", "interno"].includes(role)) {
         query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
@@ -69,7 +67,7 @@ export default function AgreementsList({
       } else {
         const filteredData = (data || []).filter(
           (a) =>
-            (["admin", "Admin", "Administrador"].includes(role)) ||
+            ["admin", "Admin", "Administrador"].includes(role) ||
             a.internal_responsible === user.id ||
             a.external_responsible === user.id
         );
@@ -83,7 +81,6 @@ export default function AgreementsList({
     }
   };
 
-  // 🔹 Filtrar por búsqueda y tipo de convenio
   useEffect(() => {
     let filteredData = agreements;
 
@@ -196,25 +193,18 @@ export default function AgreementsList({
                       : "-"}
                   </td>
                   <td className="d-flex flex-wrap gap-2">
-                    {/* 📝 Nuevo botón de informe */}
-                    <button
-                      className="btn btn-outline-warning btn-sm"
-                      onClick={() => onOpenInforme(a.id)}
-                    >
-                      📝 Informe
-                    </button>
 
+                    {/* ✏️ Editar */}
                     {role === "admin" && (
-                      <>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => onEdit(a)}
-                        >
-                          ✏️ Editar
-                        </button>
-                      </>
+                      <button
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={() => onEdit(a)}
+                      >
+                        ✏️ Editar
+                      </button>
                     )}
 
+                    {/* 📋 Programar */}
                     <button
                       className="btn btn-outline-success btn-sm"
                       onClick={() => onOpenContraprestaciones(a.id)}
@@ -222,18 +212,20 @@ export default function AgreementsList({
                       📋 Programar
                     </button>
 
+                    {/* 📂 Cumplimiento + 📝 Informe funcional */}
                     <button
                       className="btn btn-outline-info btn-sm"
                       onClick={() => onOpenEvidencias(a.id)}
                     >
                       📂 Cumplimiento
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => window.location.href = `/informe/${a.id}`}
-                    >
-                      📝 Informe
-                    </button>
-                    
+                      <button
+                        className="btn btn-outline-primary btn-sm ms-2"
+                        onClick={() =>
+                          (window.location.href = `/informe/${a.id}`)
+                        }
+                      >
+                        📝 Informe
+                      </button>
                     </button>
                   </td>
                 </tr>
@@ -243,7 +235,6 @@ export default function AgreementsList({
         </div>
       )}
 
-      {/* 🧩 Modal para el informe semestral */}
       {showInformeModal && selectedConvenio && (
         <InformeSemestralModal
           convenioId={selectedConvenio.id}
