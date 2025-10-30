@@ -9,7 +9,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme: (agreementId: string) => void;
+  onOpenInforme?: (agreementId: string) => void; // opcional: si el padre lo proporciona lo usará
 }
 
 export default function AgreementsList({
@@ -43,6 +43,7 @@ export default function AgreementsList({
   useEffect(() => {
     if (!user?.id || !role) return;
     fetchAgreements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, role]);
 
   const fetchAgreements = async () => {
@@ -53,6 +54,7 @@ export default function AgreementsList({
         .select("*")
         .order("created_at", { ascending: false });
 
+      // 🔹 Filtra según rol del usuario (consulta en backend + frontend por seguridad)
       if (["internal", "interno"].includes(role)) {
         query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
@@ -65,6 +67,7 @@ export default function AgreementsList({
         console.error("Error al cargar convenios:", error);
         alert("Error al cargar convenios. Revisa consola.");
       } else {
+        // filtro adicional por seguridad (caso roles devueltos incorrectamente)
         const filteredData = (data || []).filter(
           (a) =>
             ["admin", "Admin", "Administrador"].includes(role) ||
@@ -81,13 +84,13 @@ export default function AgreementsList({
     }
   };
 
-  // 🔹 Filtros
+  // 🔹 Filtrar por búsqueda y tipo de convenio
   useEffect(() => {
     let filteredData = agreements;
 
     if (search.trim() !== "") {
       filteredData = filteredData.filter((a) =>
-        a.name.toLowerCase().includes(search.toLowerCase())
+        (a.name || "").toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -106,6 +109,16 @@ export default function AgreementsList({
     );
   };
 
+  // Maneja acción de abrir informe: prefiere callback padre si existe, si no navega
+  const handleOpenInforme = (id: string) => {
+    if (typeof onOpenInforme === "function") {
+      onOpenInforme(id);
+    } else {
+      // navegación clásica a la ruta /informe/:id (funciona si tienes Router y ruta creada)
+      window.location.href = `/informe/${id}`;
+    }
+  };
+
   return (
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -117,7 +130,7 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* 🔍 Filtros */}
+      {/* 🔍 Filtros y búsqueda */}
       <div className="card p-3 shadow-sm border-0 mb-4">
         <div className="row">
           <div className="col-md-6 mb-2">
@@ -135,9 +148,7 @@ export default function AgreementsList({
                 <button
                   key={tipo}
                   className={`btn btn-sm me-2 mb-2 ${
-                    selectedTipos.includes(tipo)
-                      ? "btn-primary"
-                      : "btn-outline-primary"
+                    selectedTipos.includes(tipo) ? "btn-primary" : "btn-outline-primary"
                   }`}
                   onClick={() => toggleTipo(tipo)}
                 >
@@ -149,7 +160,7 @@ export default function AgreementsList({
         </div>
       </div>
 
-      {/* 🔹 Tabla */}
+      {/* 🔹 Tabla de convenios */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
@@ -175,36 +186,27 @@ export default function AgreementsList({
                 <tr key={a.id}>
                   <td className="fw-semibold">{a.name}</td>
                   <td>
-                    {a.convenio
-                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
-                      : "-"}
+                    {a.convenio ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1) : "-"}
                   </td>
                   <td>{a.sub_tipo_docente || "-"}</td>
                   <td>{a.pais || "-"}</td>
                   <td>{a["Resolución Rectoral"] || "-"}</td>
                   <td>{a.duration_years}</td>
-                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
-                    {a.objetivos || "-"}
-                  </td>
-                  <td>
-                    {a.signature_date
-                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
-                      : "-"}
-                  </td>
+                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{a.objetivos || "-"}</td>
+                  <td>{a.signature_date ? new Date(a.signature_date).toLocaleDateString("es-PE") : "-"}</td>
                   <td className="d-flex flex-wrap gap-2">
-                    {/* ✅ Botón de Informe válido */}
+                    {/* Botón único Informe — funcional */}
                     <button
-                      className="btn btn-outline-warning btn-sm"
-                      onClick={() => onOpenInforme(a.id)}
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => handleOpenInforme(a.id)}
+                      title="Abrir informe semestral"
                     >
                       📝 Informe
                     </button>
 
+                    {/* Editar solo para admin */}
                     {role === "admin" && (
-                      <button
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => onEdit(a)}
-                      >
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => onEdit(a)}>
                         ✏️ Editar
                       </button>
                     )}
@@ -230,6 +232,7 @@ export default function AgreementsList({
         </div>
       )}
 
+      {/* Modal opcional (no usado por defecto) */}
       {showInformeModal && selectedConvenio && (
         <InformeSemestralModal
           convenioId={selectedConvenio.id}
@@ -242,6 +245,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
