@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import InformeSemestralModal from "./InformeSemestralModal";
 
 interface AgreementsListProps {
   user: any;
@@ -8,7 +9,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme?: (agreementId: string) => void; // opcional, si el padre lo provee
+  onOpenInforme: (agreementId: string) => void; // ✅ nuevo
 }
 
 export default function AgreementsList({
@@ -25,6 +26,8 @@ export default function AgreementsList({
   const [search, setSearch] = useState("");
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showInformeModal, setShowInformeModal] = useState(false);
+  const [selectedConvenio, setSelectedConvenio] = useState<any | null>(null);
 
   const tipos = [
     "Docente Asistencial",
@@ -38,7 +41,7 @@ export default function AgreementsList({
 
   // 🔹 Cargar convenios
   useEffect(() => {
-    if (!user?.id || !role) return;
+    if (!user?.id || !role) return; // Espera a que se cargue todo
     fetchAgreements();
   }, [user?.id, role]);
 
@@ -51,7 +54,7 @@ export default function AgreementsList({
         .select("*")
         .order("created_at", { ascending: false });
 
-      // 🔹 Filtra según rol del usuario (backend también debe aplicar RLS)
+      // 🔹 Filtra según rol del usuario
       if (["internal", "interno"].includes(role)) {
         query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
@@ -86,7 +89,7 @@ export default function AgreementsList({
 
     if (search.trim() !== "") {
       filteredData = filteredData.filter((a) =>
-        a.name?.toLowerCase().includes(search.toLowerCase())
+        a.name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -101,17 +104,10 @@ export default function AgreementsList({
 
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+      prev.includes(tipo)
+        ? prev.filter((t) => t !== tipo)
+        : [...prev, tipo]
     );
-  };
-
-  const handleOpenInforme = (id: string) => {
-    // Si el padre pasa la función la usamos (SPA), si no, navegamos por URL (comportamiento anterior)
-    if (typeof onOpenInforme === "function") {
-      onOpenInforme(id);
-    } else {
-      window.location.href = `/informe/${id}`;
-    }
   };
 
   return (
@@ -143,7 +139,9 @@ export default function AgreementsList({
                 <button
                   key={tipo}
                   className={`btn btn-sm me-2 mb-2 ${
-                    selectedTipos.includes(tipo) ? "btn-primary" : "btn-outline-primary"
+                    selectedTipos.includes(tipo)
+                      ? "btn-primary"
+                      : "btn-outline-primary"
                   }`}
                   onClick={() => toggleTipo(tipo)}
                 >
@@ -180,31 +178,62 @@ export default function AgreementsList({
               {filtered.map((a) => (
                 <tr key={a.id}>
                   <td className="fw-semibold">{a.name}</td>
-                  <td>{a.convenio ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1) : "-"}</td>
+                  <td>
+                    {a.convenio
+                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
+                      : "-"}
+                  </td>
                   <td>{a.sub_tipo_docente || "-"}</td>
                   <td>{a.pais || "-"}</td>
                   <td>{a["Resolución Rectoral"] || "-"}</td>
                   <td>{a.duration_years}</td>
-                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{a.objetivos || "-"}</td>
-                  <td>{a.signature_date ? new Date(a.signature_date).toLocaleDateString("es-PE") : "-"}</td>
+                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
+                    {a.objetivos || "-"}
+                  </td>
+                  <td>
+                    {a.signature_date
+                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
+                      : "-"}
+                  </td>
                   <td className="d-flex flex-wrap gap-2">
-                    {/* Único botón "Informe" funcional */}
-                    <button className="btn btn-outline-primary btn-sm" onClick={() => handleOpenInforme(a.id)}>
+                    {/* 📝 Nuevo botón de informe */}
+                    <button
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => onOpenInforme(a.id)}
+                    >
                       📝 Informe
                     </button>
 
                     {role === "admin" && (
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => onEdit(a)}>
-                        ✏️ Editar
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => onEdit(a)}
+                        >
+                          ✏️ Editar
+                        </button>
+                      </>
                     )}
 
-                    <button className="btn btn-outline-success btn-sm" onClick={() => onOpenContraprestaciones(a.id)}>
+                    <button
+                      className="btn btn-outline-success btn-sm"
+                      onClick={() => onOpenContraprestaciones(a.id)}
+                    >
                       📋 Programar
                     </button>
 
-                    <button className="btn btn-outline-info btn-sm" onClick={() => onOpenEvidencias(a.id)}>
+                    <button
+                      className="btn btn-outline-info btn-sm"
+                      onClick={() => onOpenEvidencias(a.id)}
+                    >
                       📂 Cumplimiento
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => window.location.href = `/informe/${a.id}`}
+                    >
+                      📝 Informe
+                    </button>
+                    
                     </button>
                   </td>
                 </tr>
@@ -212,6 +241,17 @@ export default function AgreementsList({
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* 🧩 Modal para el informe semestral */}
+      {showInformeModal && selectedConvenio && (
+        <InformeSemestralModal
+          convenioId={selectedConvenio.id}
+          onClose={() => {
+            setShowInformeModal(false);
+            setSelectedConvenio(null);
+          }}
+        />
       )}
     </div>
   );
