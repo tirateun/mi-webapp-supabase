@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import jsPDF from "jspdf";
@@ -16,8 +16,40 @@ export default function InformeSemestralPage() {
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [verInforme, setVerInforme] = useState(false);
+  const [duracion, setDuracion] = useState<number>(1);
+  const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
+  const [mostrarVista, setMostrarVista] = useState(false);
 
+  // 🔹 Cargar duración del convenio y generar periodos
+  useEffect(() => {
+    const fetchConvenio = async () => {
+      if (!convenioId) return;
+
+      const { data, error } = await supabase
+        .from("agreements")
+        .select("duration_years, name")
+        .eq("id", convenioId)
+        .single();
+
+      if (error) {
+        console.error("Error al obtener convenio:", error);
+      } else {
+        const años = data?.duration_years || 1;
+        setDuracion(años);
+
+        const periodos: string[] = [];
+        for (let i = 1; i <= años; i++) {
+          periodos.push(`Enero-Junio ${i}° año`);
+          periodos.push(`Julio-Diciembre ${i}° año`);
+        }
+        setPeriodosDisponibles(periodos);
+      }
+    };
+
+    fetchConvenio();
+  }, [convenioId]);
+
+  // 🔹 Guardar informe
   const handleGuardar = async () => {
     if (!convenioId) {
       alert("❌ No se encontró el ID del convenio.");
@@ -41,213 +73,273 @@ export default function InformeSemestralPage() {
       alert("❌ Error al guardar el informe: " + error.message);
     } else {
       alert("✅ Informe guardado correctamente");
+      navigate("/");
     }
   };
 
-  const handleExportPDF = () => {
+  // 🔹 Exportar a PDF
+  const handleExportarPDF = () => {
     const doc = new jsPDF();
 
     doc.setFontSize(16);
     doc.text("Informe Semestral del Convenio", 14, 20);
     doc.setFontSize(12);
     doc.text(`Periodo: ${periodo}`, 14, 30);
-    doc.text(`Fecha de creación: ${new Date().toLocaleDateString()}`, 14, 38);
+
+    const contenido = [
+      ["Resumen de actividades", resumen || "-"],
+      ["Actividades principales", actividades || "-"],
+      ["Logros obtenidos", logros || "-"],
+      ["Dificultades encontradas", dificultades || "-"],
+      ["Descripción general", descripcion || "-"],
+    ];
 
     (doc as any).autoTable({
-      startY: 50,
-      head: [["Sección", "Descripción"]],
-      body: [
-        ["Resumen de Actividades", resumen || "-"],
-        ["Actividades Principales", actividades || "-"],
-        ["Logros Obtenidos", logros || "-"],
-        ["Dificultades", dificultades || "-"],
-        ["Descripción General", descripcion || "-"],
-      ],
-      styles: { fontSize: 11, cellPadding: 3, lineColor: 200, lineWidth: 0.2 },
-      headStyles: { fillColor: [41, 128, 185] },
+      startY: 40,
+      head: [["Campo", "Contenido"]],
+      body: contenido,
+      styles: { cellPadding: 4, fontSize: 10, valign: "middle" },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 120 } },
     });
-
-    doc.save(`Informe_${periodo || "sin_periodo"}.pdf`);
-  };
-
-  const handleExportWord = async () => {
+  // 🔹 Exportar a Word
+  const handleExportarWord = async () => {
     const doc = new Document({
       sections: [
         {
           children: [
             new Paragraph({
-              text: "Informe Semestral del Convenio",
-              heading: "Heading1",
+              children: [
+                new TextRun({
+                  text: "Informe Semestral del Convenio",
+                  bold: true,
+                  size: 32,
+                }),
+              ],
             }),
-            new Paragraph({ text: `Periodo: ${periodo}` }),
-            new Paragraph({ text: " " }),
-            new Paragraph({
-              text: `Resumen: ${resumen || "-"}`,
-            }),
-            new Paragraph({
-              text: `Actividades Principales: ${actividades || "-"}`,
-            }),
-            new Paragraph({
-              text: `Logros Obtenidos: ${logros || "-"}`,
-            }),
-            new Paragraph({
-              text: `Dificultades: ${dificultades || "-"}`,
-            }),
-            new Paragraph({
-              text: `Descripción General: ${descripcion || "-"}`,
-            }),
-          ],
-        },
-      ],
-    });
+          new Paragraph({ text: `Periodo: ${periodo}` }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "Resumen de actividades:" }),
+          new Paragraph({ text: resumen || "-" }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "Actividades principales:" }),
+          new Paragraph({ text: actividades || "-" }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "Logros obtenidos:" }),
+          new Paragraph({ text: logros || "-" }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "Dificultades encontradas:" }),
+          new Paragraph({ text: dificultades || "-" }),
+          new Paragraph({ text: "" }),
+          new Paragraph({ text: "Descripción general:" }),
+          new Paragraph({ text: descripcion || "-" }),
+        ],
+      },
+    ],
+  });
 
-    const blob = await Packer.toBlob(doc);
-    saveAs(blob, `Informe_${periodo || "sin_periodo"}.docx`);
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `Informe_${periodo.replace(/\s+/g, "_")}.docx`);
+};
+
+    doc.save(`Informe_${periodo.replace(/\s+/g, "_")}.pdf`);
   };
 
   return (
-    <div className="container mt-4">
-      <div className="card shadow p-4 border-0" style={{ borderRadius: "12px" }}>
-        <h3 className="text-primary fw-bold mb-4">📝 Informe Semestral</h3>
+    <div
+      className="container mt-5"
+      style={{
+        maxWidth: "900px",
+        backgroundColor: "#fff",
+        borderRadius: "12px",
+        padding: "40px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+      }}
+    >
+      <h2 className="text-center mb-4 text-primary fw-bold">
+        📝 Informe Semestral de Convenio
+      </h2>
 
-        {/* 📋 FORMULARIO */}
-        {!verInforme ? (
-          <>
-            <div className="mb-3">
-              <label>Periodo del informe</label>
-              <select
-                className="form-select"
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-              >
-                <option value="">Seleccione un periodo</option>
-                <option value="Enero-Junio 1° año">Enero - Junio (1° año)</option>
-                <option value="Julio-Diciembre 1° año">Julio - Diciembre (1° año)</option>
-                <option value="Enero-Junio 2° año">Enero - Junio (2° año)</option>
-                <option value="Julio-Diciembre 2° año">Julio - Diciembre (2° año)</option>
-                <option value="Enero-Junio 3° año">Enero - Junio (3° año)</option>
-                <option value="Julio-Diciembre 3° año">Julio - Diciembre (3° año)</option>
-              </select>
-            </div>
+      {/* Si no está en vista previa, mostrar el formulario */}
+      {!mostrarVista ? (
+        <>
+          <table
+            className="table table-bordered align-middle"
+            style={{
+              border: "1px solid #ccc",
+              backgroundColor: "#fafafa",
+              borderRadius: "8px",
+            }}
+          >
+            <tbody>
+              <tr>
+                <th style={{ width: "25%", backgroundColor: "#f5f7fa" }}>
+                  Periodo del informe
+                </th>
+                <td>
+                  <select
+                    className="form-select"
+                    value={periodo}
+                    onChange={(e) => setPeriodo(e.target.value)}
+                  >
+                    <option value="">Seleccione un periodo</option>
+                    {periodosDisponibles.map((p, i) => (
+                      <option key={i} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
 
-            <div className="mb-3">
-              <label>Resumen de actividades realizadas</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={resumen}
-                onChange={(e) => setResumen(e.target.value)}
-              />
-            </div>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Resumen de actividades realizadas
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Describa brevemente las actividades realizadas durante el periodo."
+                    value={resumen}
+                    onChange={(e) => setResumen(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-            <div className="mb-3">
-              <label>Actividades principales</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={actividades}
-                onChange={(e) => setActividades(e.target.value)}
-              />
-            </div>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Actividades principales
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Detalle las principales actividades ejecutadas."
+                    value={actividades}
+                    onChange={(e) => setActividades(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-            <div className="mb-3">
-              <label>Logros obtenidos</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={logros}
-                onChange={(e) => setLogros(e.target.value)}
-              />
-            </div>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>Logros obtenidos</th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Indique los principales resultados o avances logrados."
+                    value={logros}
+                    onChange={(e) => setLogros(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-            <div className="mb-3">
-              <label>Dificultades encontradas</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={dificultades}
-                onChange={(e) => setDificultades(e.target.value)}
-              />
-            </div>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Dificultades encontradas
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Describa los principales retos o limitaciones."
+                    value={dificultades}
+                    onChange={(e) => setDificultades(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-            <div className="mb-3">
-              <label>Descripción general</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-              />
-            </div>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Descripción general
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Agregue cualquier información adicional relevante."
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-            <div className="d-flex justify-content-end mt-4 gap-2">
-              <button className="btn btn-secondary" onClick={() => navigate("/")}>
-                🔙 Volver
-              </button>
-              <button className="btn btn-success" onClick={() => setVerInforme(true)}>
-                👁️ Ver Informe
-              </button>
-              <button className="btn btn-primary" onClick={handleGuardar}>
-                💾 Guardar
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* 📄 VISTA PREVIA DEL INFORME */}
-            <div className="border p-3 bg-light rounded">
-              <h5 className="fw-bold mb-3">📘 Vista previa del Informe</h5>
-              <table className="table table-bordered">
-                <tbody>
-                  <tr>
-                    <th style={{ width: "30%" }}>Periodo</th>
-                    <td>{periodo}</td>
-                  </tr>
-                  <tr>
-                    <th>Resumen de Actividades</th>
-                    <td>{resumen}</td>
-                  </tr>
-                  <tr>
-                    <th>Actividades Principales</th>
-                    <td>{actividades}</td>
-                  </tr>
-                  <tr>
-                    <th>Logros Obtenidos</th>
-                    <td>{logros}</td>
-                  </tr>
-                  <tr>
-                    <th>Dificultades</th>
-                    <td>{dificultades}</td>
-                  </tr>
-                  <tr>
-                    <th>Descripción General</th>
-                    <td>{descripcion}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="d-flex justify-content-end mt-4">
+            <button
+              className="btn btn-secondary me-3"
+              onClick={() => navigate("/")}
+            >
+              🔙 Volver
+            </button>
+            <button
+              className="btn btn-outline-primary me-3"
+              onClick={() => setMostrarVista(true)}
+            >
+              👁️ Ver Informe
+            </button>
+            <button className="btn btn-primary" onClick={handleGuardar}>
+              💾 Guardar Informe
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Vista previa del informe */}
+          <div className="border p-4 bg-light rounded">
+            <h4 className="text-center mb-4 text-primary">
+              Vista Previa del Informe Semestral
+            </h4>
 
-            <div className="d-flex justify-content-end mt-4 gap-2">
-              <button className="btn btn-secondary" onClick={() => setVerInforme(false)}>
-                ✏️ Editar
-              </button>
-              <button className="btn btn-danger" onClick={handleExportPDF}>
-                📄 Exportar PDF
-              </button>
-              <button className="btn btn-info" onClick={handleExportWord}>
-                📝 Exportar Word
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+            <table className="table table-bordered">
+              <tbody>
+                <tr>
+                  <th style={{ width: "30%" }}>Periodo</th>
+                  <td>{periodo}</td>
+                </tr>
+                <tr>
+                  <th>Resumen de actividades</th>
+                  <td>{resumen}</td>
+                </tr>
+                <tr>
+                  <th>Actividades principales</th>
+                  <td>{actividades}</td>
+                </tr>
+                <tr>
+                  <th>Logros obtenidos</th>
+                  <td>{logros}</td>
+                </tr>
+                <tr>
+                  <th>Dificultades encontradas</th>
+                  <td>{dificultades}</td>
+                </tr>
+                <tr>
+                  <th>Descripción general</th>
+                  <td>{descripcion}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="d-flex justify-content-end mt-4">
+            <button
+              className="btn btn-secondary me-3"
+              onClick={() => setMostrarVista(false)}
+            >
+              ✏️ Editar
+            </button>
+            <button className="btn btn-success" onClick={handleExportarPDF}>
+              🖨️ Exportar a PDF
+            </button>
+            <button className="btn btn-primary ms-2" onClick={handleExportarWord}>
+              📝 Exportar a Word
+            </button>
+          
+          </div>
+        </>
+      )}
     </div>
   );
 }
-
-
-
-
-
-
-
