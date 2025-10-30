@@ -9,7 +9,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme: (agreementId: string) => void; // ✅ nuevo
+  onOpenInforme: (agreementId: string) => void;
 }
 
 export default function AgreementsList({
@@ -41,20 +41,18 @@ export default function AgreementsList({
 
   // 🔹 Cargar convenios
   useEffect(() => {
-    if (!user?.id || !role) return; // Espera a que se cargue todo
+    if (!user?.id || !role) return;
     fetchAgreements();
   }, [user?.id, role]);
 
   const fetchAgreements = async () => {
     setLoading(true);
-
     try {
       let query = supabase
         .from("agreements")
         .select("*")
         .order("created_at", { ascending: false });
 
-      // 🔹 Filtra según rol del usuario
       if (["internal", "interno"].includes(role)) {
         query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
@@ -69,7 +67,7 @@ export default function AgreementsList({
       } else {
         const filteredData = (data || []).filter(
           (a) =>
-            (["admin", "Admin", "Administrador"].includes(role)) ||
+            ["admin", "Admin", "Administrador"].includes(role) ||
             a.internal_responsible === user.id ||
             a.external_responsible === user.id
         );
@@ -83,7 +81,7 @@ export default function AgreementsList({
     }
   };
 
-  // 🔹 Filtrar por búsqueda y tipo de convenio
+  // 🔹 Filtros
   useEffect(() => {
     let filteredData = agreements;
 
@@ -104,9 +102,7 @@ export default function AgreementsList({
 
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) =>
-      prev.includes(tipo)
-        ? prev.filter((t) => t !== tipo)
-        : [...prev, tipo]
+      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
     );
   };
 
@@ -121,7 +117,7 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* 🔍 Filtros y búsqueda */}
+      {/* 🔍 Filtros */}
       <div className="card p-3 shadow-sm border-0 mb-4">
         <div className="row">
           <div className="col-md-6 mb-2">
@@ -153,7 +149,7 @@ export default function AgreementsList({
         </div>
       </div>
 
-      {/* 🔹 Tabla de convenios */}
+      {/* 🔹 Tabla */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
@@ -196,7 +192,7 @@ export default function AgreementsList({
                       : "-"}
                   </td>
                   <td className="d-flex flex-wrap gap-2">
-                    {/* 📝 Nuevo botón de informe */}
+                    {/* ✅ Botón de Informe válido */}
                     <button
                       className="btn btn-outline-warning btn-sm"
                       onClick={() => onOpenInforme(a.id)}
@@ -205,14 +201,12 @@ export default function AgreementsList({
                     </button>
 
                     {role === "admin" && (
-                      <>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => onEdit(a)}
-                        >
-                          ✏️ Editar
-                        </button>
-                      </>
+                      <button
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={() => onEdit(a)}
+                      >
+                        ✏️ Editar
+                      </button>
                     )}
 
                     <button
@@ -227,13 +221,6 @@ export default function AgreementsList({
                       onClick={() => onOpenEvidencias(a.id)}
                     >
                       📂 Cumplimiento
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => window.location.href = `/informe/${a.id}`}
-                    >
-                      📝 Informe
-                    </button>
-                    
                     </button>
                   </td>
                 </tr>
@@ -243,7 +230,6 @@ export default function AgreementsList({
         </div>
       )}
 
-      {/* 🧩 Modal para el informe semestral */}
       {showInformeModal && selectedConvenio && (
         <InformeSemestralModal
           convenioId={selectedConvenio.id}
