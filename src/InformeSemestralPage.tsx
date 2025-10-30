@@ -2,20 +2,9 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
-/**
- * Esta versión conserva tu lógica exacta (incluye `descripcion`)
- * y mejora la compatibilidad con el flujo de navegación SPA.
- */
-export default function InformeSemestralPage(props?: {
-  convenioId?: string;
-  onBack?: () => void;
-}) {
-  const params = useParams<{ convenioId: string }>();
+export default function InformeSemestralPage() {
+  const { convenioId } = useParams<{ convenioId: string }>();
   const navigate = useNavigate();
-
-  // 🔹 Usa el convenioId de props o de la URL
-  const convenioId = props?.convenioId || params.convenioId || "";
-  const onBack = props?.onBack;
 
   const [periodo, setPeriodo] = useState("");
   const [resumen, setResumen] = useState("");
@@ -23,15 +12,12 @@ export default function InformeSemestralPage(props?: {
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [guardando, setGuardando] = useState(false);
 
   const handleGuardar = async () => {
     if (!convenioId) {
       alert("❌ No se encontró el ID del convenio.");
       return;
     }
-
-    setGuardando(true);
 
     const { error } = await supabase.from("informes_semestrales").insert([
       {
@@ -46,26 +32,12 @@ export default function InformeSemestralPage(props?: {
       },
     ]);
 
-    setGuardando(false);
-
     if (error) {
-      console.error(error);
       alert("❌ Error al guardar el informe: " + error.message);
     } else {
       alert("✅ Informe guardado correctamente");
-
-      // 🔙 Si hay callback de regreso lo usamos, si no, volvemos a la lista
-      if (typeof onBack === "function") {
-        onBack();
-      } else {
-        navigate("/"); // página principal
-      }
+      navigate("/"); // 🔙 Regresa a la página principal
     }
-  };
-
-  const handleVolver = () => {
-    if (typeof onBack === "function") onBack();
-    else navigate(-1);
   };
 
   return (
@@ -137,19 +109,11 @@ export default function InformeSemestralPage(props?: {
         </div>
 
         <div className="d-flex justify-content-end mt-4">
-          <button
-            className="btn btn-secondary me-3"
-            onClick={handleVolver}
-            disabled={guardando}
-          >
+          <button className="btn btn-secondary me-3" onClick={() => navigate("/")}>
             🔙 Volver
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleGuardar}
-            disabled={guardando}
-          >
-            {guardando ? "Guardando..." : "💾 Guardar Informe"}
+          <button className="btn btn-primary" onClick={handleGuardar}>
+            💾 Guardar Informe
           </button>
         </div>
       </div>
