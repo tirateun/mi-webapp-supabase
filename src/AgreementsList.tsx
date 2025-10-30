@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { useNavigate } from "react-router-dom";
-import InformeSemestralModal from "./InformeSemestralModal";
 
 interface AgreementsListProps {
   user: any;
@@ -10,7 +8,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme?: (agreementId: string) => void; // opcional
+  onOpenInforme?: (agreementId: string) => void; // opcional, si el padre lo provee
 }
 
 export default function AgreementsList({
@@ -22,14 +20,11 @@ export default function AgreementsList({
   onOpenEvidencias,
   onOpenInforme,
 }: AgreementsListProps) {
-  const navigate = useNavigate();
   const [agreements, setAgreements] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showInformeModal, setShowInformeModal] = useState(false);
-  const [selectedConvenio, setSelectedConvenio] = useState<any | null>(null);
 
   const tipos = [
     "Docente Asistencial",
@@ -41,20 +36,22 @@ export default function AgreementsList({
     "Cotutela",
   ];
 
+  // 🔹 Cargar convenios
   useEffect(() => {
     if (!user?.id || !role) return;
     fetchAgreements();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, role]);
 
   const fetchAgreements = async () => {
     setLoading(true);
+
     try {
       let query = supabase
         .from("agreements")
         .select("*")
         .order("created_at", { ascending: false });
 
+      // 🔹 Filtra según rol del usuario (backend también debe aplicar RLS)
       if (["internal", "interno"].includes(role)) {
         query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
@@ -69,7 +66,7 @@ export default function AgreementsList({
       } else {
         const filteredData = (data || []).filter(
           (a) =>
-            ["admin", "Admin", "Administrador"].includes(role) ||
+            (["admin", "Admin", "Administrador"].includes(role)) ||
             a.internal_responsible === user.id ||
             a.external_responsible === user.id
         );
@@ -83,12 +80,13 @@ export default function AgreementsList({
     }
   };
 
+  // 🔹 Filtrar por búsqueda y tipo de convenio
   useEffect(() => {
     let filteredData = agreements;
 
     if (search.trim() !== "") {
       filteredData = filteredData.filter((a) =>
-        (a.name || "").toLowerCase().includes(search.toLowerCase())
+        a.name?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -107,12 +105,12 @@ export default function AgreementsList({
     );
   };
 
-  // Si el padre suministra onOpenInforme lo llamamos; si no, navegamos a la ruta /informe/:id
   const handleOpenInforme = (id: string) => {
+    // Si el padre pasa la función la usamos (SPA), si no, navegamos por URL (comportamiento anterior)
     if (typeof onOpenInforme === "function") {
       onOpenInforme(id);
     } else {
-      navigate(`/informe/${id}`);
+      window.location.href = `/informe/${id}`;
     }
   };
 
@@ -127,6 +125,7 @@ export default function AgreementsList({
         )}
       </div>
 
+      {/* 🔍 Filtros y búsqueda */}
       <div className="card p-3 shadow-sm border-0 mb-4">
         <div className="row">
           <div className="col-md-6 mb-2">
@@ -156,6 +155,7 @@ export default function AgreementsList({
         </div>
       </div>
 
+      {/* 🔹 Tabla de convenios */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
@@ -188,11 +188,8 @@ export default function AgreementsList({
                   <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>{a.objetivos || "-"}</td>
                   <td>{a.signature_date ? new Date(a.signature_date).toLocaleDateString("es-PE") : "-"}</td>
                   <td className="d-flex flex-wrap gap-2">
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => handleOpenInforme(a.id)}
-                      title="Abrir informe semestral"
-                    >
+                    {/* Único botón "Informe" funcional */}
+                    <button className="btn btn-outline-primary btn-sm" onClick={() => handleOpenInforme(a.id)}>
                       📝 Informe
                     </button>
 
@@ -202,17 +199,11 @@ export default function AgreementsList({
                       </button>
                     )}
 
-                    <button
-                      className="btn btn-outline-success btn-sm"
-                      onClick={() => onOpenContraprestaciones(a.id)}
-                    >
+                    <button className="btn btn-outline-success btn-sm" onClick={() => onOpenContraprestaciones(a.id)}>
                       📋 Programar
                     </button>
 
-                    <button
-                      className="btn btn-outline-info btn-sm"
-                      onClick={() => onOpenEvidencias(a.id)}
-                    >
+                    <button className="btn btn-outline-info btn-sm" onClick={() => onOpenEvidencias(a.id)}>
                       📂 Cumplimiento
                     </button>
                   </td>
@@ -222,19 +213,10 @@ export default function AgreementsList({
           </table>
         </div>
       )}
-
-      {showInformeModal && selectedConvenio && (
-        <InformeSemestralModal
-          convenioId={selectedConvenio.id}
-          onClose={() => {
-            setShowInformeModal(false);
-            setSelectedConvenio(null);
-          }}
-        />
-      )}
     </div>
   );
 }
+
 
 
 
