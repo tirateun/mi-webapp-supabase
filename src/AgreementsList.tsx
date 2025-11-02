@@ -101,9 +101,7 @@ export default function AgreementsList({
 
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) =>
-      prev.includes(tipo)
-        ? prev.filter((t) => t !== tipo)
-        : [...prev, tipo]
+      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
     );
   };
 
@@ -178,7 +176,7 @@ export default function AgreementsList({
                     {a.signature_date ? new Date(a.signature_date).toLocaleDateString("es-PE") : "-"}
                   </td>
                   <td style={{ padding: 12, display: "flex", gap: 8, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
-                    {/* Informe funcional */}
+                    {/* Informe funcional (usa el callback que App.tsx implementa) */}
                     <button
                       className="btn btn-outline-warning btn-sm"
                       onClick={() => onOpenInforme(a.id)}
@@ -231,6 +229,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
