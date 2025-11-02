@@ -14,6 +14,8 @@ export default function InformeSemestralPage() {
   const [descripcion, setDescripcion] = useState("");
   const [duracion, setDuracion] = useState<number>(1);
   const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
+  const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
+  const [mostrarInforme, setMostrarInforme] = useState(false);
 
   // 🔹 Cargar duración del convenio y generar periodos
   useEffect(() => {
@@ -72,6 +74,29 @@ export default function InformeSemestralPage() {
     }
   };
 
+  // 🔹 Ver último informe guardado
+  const handleVerInforme = async () => {
+    if (!convenioId) return;
+
+    const { data, error } = await supabase
+      .from("informes_semestrales")
+      .select("*")
+      .eq("convenio_id", convenioId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      alert("❌ No se pudo obtener el informe guardado.");
+      console.error(error);
+    } else if (!data) {
+      alert("⚠️ No existe ningún informe guardado para este convenio.");
+    } else {
+      setUltimoInforme(data);
+      setMostrarInforme(true);
+    }
+  };
+
   return (
     <div
       className="container mt-5"
@@ -87,121 +112,185 @@ export default function InformeSemestralPage() {
         📝 Informe Semestral de Convenio
       </h2>
 
-      <table
-        className="table table-bordered align-middle"
-        style={{
-          border: "1px solid #ccc",
-          backgroundColor: "#fafafa",
-          borderRadius: "8px",
-        }}
-      >
-        <tbody>
-          <tr>
-            <th style={{ width: "25%", backgroundColor: "#f5f7fa" }}>
-              Periodo del informe
-            </th>
-            <td>
-              <select
-                className="form-select"
-                value={periodo}
-                onChange={(e) => setPeriodo(e.target.value)}
-              >
-                <option value="">Seleccione un periodo</option>
-                {periodosDisponibles.map((p, i) => (
-                  <option key={i} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </td>
-          </tr>
+      {!mostrarInforme ? (
+        <>
+          <table
+            className="table table-bordered align-middle"
+            style={{
+              border: "1px solid #ccc",
+              backgroundColor: "#fafafa",
+              borderRadius: "8px",
+            }}
+          >
+            <tbody>
+              <tr>
+                <th style={{ width: "25%", backgroundColor: "#f5f7fa" }}>
+                  Periodo del informe
+                </th>
+                <td>
+                  <select
+                    className="form-select"
+                    value={periodo}
+                    onChange={(e) => setPeriodo(e.target.value)}
+                  >
+                    <option value="">Seleccione un periodo</option>
+                    {periodosDisponibles.map((p, i) => (
+                      <option key={i} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
 
-          <tr>
-            <th style={{ backgroundColor: "#f5f7fa" }}>
-              Resumen de actividades realizadas
-            </th>
-            <td>
-              <textarea
-                className="form-control"
-                rows={4}
-                placeholder="Describa brevemente las principales actividades realizadas durante el periodo."
-                value={resumen}
-                onChange={(e) => setResumen(e.target.value)}
-              />
-            </td>
-          </tr>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Resumen de actividades realizadas
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Describa brevemente las principales actividades realizadas durante el periodo."
+                    value={resumen}
+                    onChange={(e) => setResumen(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-          <tr>
-            <th style={{ backgroundColor: "#f5f7fa" }}>Actividades principales</th>
-            <td>
-              <textarea
-                className="form-control"
-                rows={4}
-                placeholder="Detalle las principales actividades ejecutadas."
-                value={actividades}
-                onChange={(e) => setActividades(e.target.value)}
-              />
-            </td>
-          </tr>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Actividades principales
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Detalle las principales actividades ejecutadas."
+                    value={actividades}
+                    onChange={(e) => setActividades(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-          <tr>
-            <th style={{ backgroundColor: "#f5f7fa" }}>Logros obtenidos</th>
-            <td>
-              <textarea
-                className="form-control"
-                rows={4}
-                placeholder="Indique los principales resultados o avances logrados."
-                value={logros}
-                onChange={(e) => setLogros(e.target.value)}
-              />
-            </td>
-          </tr>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>Logros obtenidos</th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Indique los principales resultados o avances logrados."
+                    value={logros}
+                    onChange={(e) => setLogros(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-          <tr>
-            <th style={{ backgroundColor: "#f5f7fa" }}>Dificultades encontradas</th>
-            <td>
-              <textarea
-                className="form-control"
-                rows={4}
-                placeholder="Describa los principales retos o limitaciones identificadas."
-                value={dificultades}
-                onChange={(e) => setDificultades(e.target.value)}
-              />
-            </td>
-          </tr>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Dificultades encontradas
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Describa los principales retos o limitaciones identificadas."
+                    value={dificultades}
+                    onChange={(e) => setDificultades(e.target.value)}
+                  />
+                </td>
+              </tr>
 
-          <tr>
-            <th style={{ backgroundColor: "#f5f7fa" }}>Descripción general</th>
-            <td>
-              <textarea
-                className="form-control"
-                rows={4}
-                placeholder="Agregue cualquier información adicional relevante."
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              <tr>
+                <th style={{ backgroundColor: "#f5f7fa" }}>
+                  Descripción general
+                </th>
+                <td>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Agregue cualquier información adicional relevante."
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-      <div className="d-flex justify-content-end mt-4">
-        <button
-          className="btn btn-secondary me-3"
-          onClick={() => navigate("/")}
-          style={{ minWidth: "120px" }}
-        >
-          🔙 Volver
-        </button>
-        <button
-          className="btn btn-primary"
-          onClick={handleGuardar}
-          style={{ minWidth: "160px" }}
-        >
-          💾 Guardar Informe
-        </button>
-      </div>
+          <div className="d-flex justify-content-end mt-4">
+            <button
+              className="btn btn-secondary me-3"
+              onClick={() => navigate("/")}
+              style={{ minWidth: "120px" }}
+            >
+              🔙 Volver
+            </button>
+            <button
+              className="btn btn-outline-info me-3"
+              onClick={handleVerInforme}
+              style={{ minWidth: "180px" }}
+            >
+              👁️ Ver Informe Guardado
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleGuardar}
+              style={{ minWidth: "160px" }}
+            >
+              💾 Guardar Informe
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Vista del informe guardado */}
+          <div className="border p-4 bg-light rounded">
+            <h4 className="text-center mb-4 text-primary">
+              📘 Informe Guardado
+            </h4>
+            <table className="table table-bordered">
+              <tbody>
+                <tr>
+                  <th>Periodo</th>
+                  <td>{ultimoInforme?.periodo}</td>
+                </tr>
+                <tr>
+                  <th>Resumen de actividades</th>
+                  <td>{ultimoInforme?.resumen}</td>
+                </tr>
+                <tr>
+                  <th>Actividades principales</th>
+                  <td>{ultimoInforme?.actividades}</td>
+                </tr>
+                <tr>
+                  <th>Logros obtenidos</th>
+                  <td>{ultimoInforme?.logros}</td>
+                </tr>
+                <tr>
+                  <th>Dificultades encontradas</th>
+                  <td>{ultimoInforme?.dificultades}</td>
+                </tr>
+                <tr>
+                  <th>Descripción general</th>
+                  <td>{ultimoInforme?.descripcion}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="d-flex justify-content-end mt-4">
+            <button
+              className="btn btn-secondary"
+              onClick={() => setMostrarInforme(false)}
+            >
+              ✏️ Volver al Formulario
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
 
