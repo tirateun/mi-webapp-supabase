@@ -17,6 +17,9 @@ export default function InformeSemestralPage() {
   const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
   const [mostrarInforme, setMostrarInforme] = useState(false);
 
+  // 🔹 Nuevo: lista de informes guardados
+  const [informes, setInformes] = useState<any[]>([]);
+
   // 🔹 Cargar duración del convenio y generar periodos
   useEffect(() => {
     const fetchConvenio = async () => {
@@ -46,6 +49,27 @@ export default function InformeSemestralPage() {
     fetchConvenio();
   }, [convenioId]);
 
+  // 🔹 Cargar informes existentes
+  useEffect(() => {
+    const fetchInformes = async () => {
+      if (!convenioId) return;
+
+      const { data, error } = await supabase
+        .from("informes_semestrales")
+        .select("*")
+        .eq("convenio_id", convenioId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error al cargar informes:", error);
+      } else {
+        setInformes(data || []);
+      }
+    };
+
+    fetchInformes();
+  }, [convenioId]);
+
   // 🔹 Guardar informe
   const handleGuardar = async () => {
     if (!convenioId) {
@@ -70,7 +94,7 @@ export default function InformeSemestralPage() {
       alert("❌ Error al guardar el informe: " + error.message);
     } else {
       alert("✅ Informe guardado correctamente");
-      navigate("/");
+      window.location.reload(); // recargar para mostrar el nuevo informe
     }
   };
 
@@ -95,6 +119,12 @@ export default function InformeSemestralPage() {
       setUltimoInforme(data);
       setMostrarInforme(true);
     }
+  };
+
+  // 🔹 Ver un informe anterior
+  const verInforme = (informe: any) => {
+    setUltimoInforme(informe);
+    setMostrarInforme(true);
   };
 
   return (
@@ -231,7 +261,7 @@ export default function InformeSemestralPage() {
               onClick={handleVerInforme}
               style={{ minWidth: "180px" }}
             >
-              👁️ Ver Informe Guardado
+              👁️ Ver Último Informe
             </button>
             <button
               className="btn btn-primary"
@@ -240,6 +270,50 @@ export default function InformeSemestralPage() {
             >
               💾 Guardar Informe
             </button>
+          </div>
+
+          {/* 🔹 Nueva sección: lista de informes anteriores */}
+          <hr className="my-5" />
+          <h4 className="text-primary fw-bold mb-3">📚 Informes Registrados</h4>
+
+          <div className="table-responsive">
+            <table className="table table-striped table-bordered align-middle">
+              <thead className="table-light">
+                <tr>
+                  <th>Fecha de Registro</th>
+                  <th>Periodo</th>
+                  <th>Resumen</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {informes.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted">
+                      No hay informes registrados aún.
+                    </td>
+                  </tr>
+                ) : (
+                  informes.map((inf: any) => (
+                    <tr key={inf.id}>
+                      <td>{new Date(inf.created_at).toLocaleDateString("es-PE")}</td>
+                      <td>{inf.periodo}</td>
+                      <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>
+                        {inf.resumen || "-"}
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-outline-info btn-sm"
+                          onClick={() => verInforme(inf)}
+                        >
+                          👁️ Ver
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </>
       ) : (
@@ -292,5 +366,6 @@ export default function InformeSemestralPage() {
     </div>
   );
 }
+
 
 
