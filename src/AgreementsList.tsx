@@ -86,7 +86,7 @@ export default function AgreementsList({
 
     if (search.trim() !== "") {
       filteredData = filteredData.filter((a) =>
-        a.name?.toLowerCase().includes(search.toLowerCase())
+        a.name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -101,14 +101,16 @@ export default function AgreementsList({
 
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+      prev.includes(tipo)
+        ? prev.filter((t) => t !== tipo)
+        : [...prev, tipo]
     );
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h3 className="fw-bold text-primary" style={{ margin: 0 }}>📄 Lista de Convenios</h3>
+    <div className="container mt-4">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
         {role === "admin" && (
           <button className="btn btn-success" onClick={onCreate}>
             ➕ Nuevo Convenio
@@ -116,75 +118,83 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* filtros */}
-      <div className="card p-3 shadow-sm border-0 mb-4" style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Buscar convenio..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: 360 }}
-          />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {tipos.map((tipo) => (
-              <button
-                key={tipo}
-                className={`btn btn-sm ${selectedTipos.includes(tipo) ? "btn-primary" : "btn-outline-primary"}`}
-                onClick={() => toggleTipo(tipo)}
-              >
-                {tipo}
-              </button>
-            ))}
+      {/* 🔍 Filtros y búsqueda */}
+      <div className="card p-3 shadow-sm border-0 mb-4">
+        <div className="row">
+          <div className="col-md-6 mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Buscar convenio..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="col-md-6 mb-2">
+            <div className="d-flex flex-wrap">
+              {tipos.map((tipo) => (
+                <button
+                  key={tipo}
+                  className={`btn btn-sm me-2 mb-2 ${
+                    selectedTipos.includes(tipo)
+                      ? "btn-primary"
+                      : "btn-outline-primary"
+                  }`}
+                  onClick={() => toggleTipo(tipo)}
+                >
+                  {tipo}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* tabla */}
+      {/* 🔹 Tabla de convenios */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
         <p className="text-center text-muted">No se encontraron convenios.</p>
       ) : (
-        <div style={{ overflowX: "auto", background: "white", borderRadius: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
-            <thead style={{ background: "#f8fafc", borderBottom: "1px solid #e6edf3" }}>
+        <div className="table-responsive">
+          <table className="table table-hover align-middle">
+            <thead className="table-primary">
               <tr>
-                <th style={{ padding: 12, textAlign: "left" }}>Nombre</th>
-                <th style={{ padding: 12 }}>Tipo</th>
-                <th style={{ padding: 12 }}>Subtipo Docente</th>
-                <th style={{ padding: 12 }}>País</th>
-                <th style={{ padding: 12 }}>Resolución Rectoral</th>
-                <th style={{ padding: 12 }}>Duración (años)</th>
-                <th style={{ padding: 12 }}>Objetivos</th>
-                <th style={{ padding: 12 }}>Fecha Firma</th>
-                <th style={{ padding: 12, textAlign: "center" }}>Acciones</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Subtipo Docente</th>
+                <th>País</th>
+                <th>Resolución Rectoral</th>
+                <th>Duración (años)</th>
+                <th>Objetivos</th>
+                <th>Fecha Firma</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr key={a.id} style={{ borderBottom: "1px solid #eef2f6" }}>
-                  <td style={{ padding: 12, verticalAlign: "top", maxWidth: 300, whiteSpace: "normal" }} className="fw-semibold">{a.name}</td>
-                  <td style={{ padding: 12 }}>{a.convenio ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1) : "-"}</td>
-                  <td style={{ padding: 12 }}>{a.sub_tipo_docente || "-"}</td>
-                  <td style={{ padding: 12 }}>{a.pais || "-"}</td>
-                  <td style={{ padding: 12 }}>{a["Resolución Rectoral"] || "-"}</td>
-                  <td style={{ padding: 12 }}>{a.duration_years}</td>
-                  <td style={{ padding: 12, maxWidth: 250, whiteSpace: "pre-wrap" }}>{a.objetivos || "-"}</td>
-                  <td style={{ padding: 12 }}>
-                    {a.signature_date ? new Date(a.signature_date).toLocaleDateString("es-PE") : "-"}
+                <tr key={a.id}>
+                  <td className="fw-semibold">{a.name}</td>
+                  <td>
+                    {a.convenio
+                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
+                      : "-"}
                   </td>
-                  <td style={{ padding: 12, display: "flex", gap: 8, justifyContent: "center", alignItems: "center", flexWrap: "wrap" }}>
-                    {/* Informe funcional (usa el callback que App.tsx implementa) */}
-                    <button
-                      className="btn btn-outline-warning btn-sm"
-                      onClick={() => onOpenInforme(a.id)}
-                    >
-                      📝 Informe
-                    </button>
+                  <td>{a.sub_tipo_docente || "-"}</td>
+                  <td>{a.pais || "-"}</td>
+                  <td>{a["Resolución Rectoral"] || "-"}</td>
+                  <td>{a.duration_years}</td>
+                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
+                    {a.objetivos || "-"}
+                  </td>
+                  <td>
+                    {a.signature_date
+                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
+                      : "-"}
+                  </td>
+                  <td className="d-flex flex-wrap gap-2">
 
-                    {/* Editar (solo admin) */}
+                    {/* ✏️ Editar */}
                     {role === "admin" && (
                       <button
                         className="btn btn-outline-secondary btn-sm"
@@ -194,7 +204,7 @@ export default function AgreementsList({
                       </button>
                     )}
 
-                    {/* Programar */}
+                    {/* 📋 Programar */}
                     <button
                       className="btn btn-outline-success btn-sm"
                       onClick={() => onOpenContraprestaciones(a.id)}
@@ -202,12 +212,20 @@ export default function AgreementsList({
                       📋 Programar
                     </button>
 
-                    {/* Cumplimiento */}
+                    {/* 📂 Cumplimiento + 📝 Informe funcional */}
                     <button
                       className="btn btn-outline-info btn-sm"
                       onClick={() => onOpenEvidencias(a.id)}
                     >
                       📂 Cumplimiento
+                      <button
+                        className="btn btn-outline-primary btn-sm ms-2"
+                        onClick={() =>
+                          (window.location.href = `/informe/${a.id}`)
+                        }
+                      >
+                        📝 Informe
+                      </button>
                     </button>
                   </td>
                 </tr>
