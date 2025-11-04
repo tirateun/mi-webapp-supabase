@@ -6,7 +6,11 @@ export default function InformeSemestralPage() {
   const { convenioId } = useParams<{ convenioId: string }>();
   const navigate = useNavigate();
 
+  // 🔒 Estado de usuario y rol
   const [userRole, setUserRole] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
+
+  // 🔹 Estados del formulario
   const [periodo, setPeriodo] = useState("");
   const [resumen, setResumen] = useState("");
   const [actividades, setActividades] = useState("");
@@ -16,6 +20,7 @@ export default function InformeSemestralPage() {
   const [duracion, setDuracion] = useState<number>(1);
   const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
 
+  // 🔹 Estados de informes
   const [informes, setInformes] = useState<any[]>([]);
   const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
   const [mostrarInforme, setMostrarInforme] = useState(false);
@@ -33,8 +38,10 @@ export default function InformeSemestralPage() {
         return;
       }
 
+      setUserId(user.id);
+
       const { data: profile, error: profileError } = await supabase
-        .from("profiles") // o "usuarios", según tu tabla
+        .from("profiles")
         .select("role")
         .eq("user_id", user.id)
         .single();
@@ -103,6 +110,11 @@ export default function InformeSemestralPage() {
       return;
     }
 
+    if (!periodo) {
+      alert("⚠️ Debes seleccionar un periodo antes de guardar.");
+      return;
+    }
+
     if (editandoInforme) {
       const { error } = await supabase
         .from("informes_semestrales")
@@ -120,6 +132,7 @@ export default function InformeSemestralPage() {
       else {
         alert("✅ Informe actualizado correctamente");
         setEditandoInforme(null);
+        limpiarFormulario();
         fetchInformes();
       }
     } else {
@@ -133,12 +146,14 @@ export default function InformeSemestralPage() {
           dificultades,
           descripcion,
           created_at: new Date(),
+          creado_por: userId, // opcional: quién lo creó
         },
       ]);
 
       if (error) alert("❌ Error al guardar el informe: " + error.message);
       else {
         alert("✅ Informe guardado correctamente");
+        limpiarFormulario();
         fetchInformes();
       }
     }
@@ -176,6 +191,16 @@ export default function InformeSemestralPage() {
     setDescripcion(informe.descripcion);
     setEditandoInforme(informe);
     setMostrarInforme(false);
+  };
+
+  // 🔹 Limpiar formulario
+  const limpiarFormulario = () => {
+    setPeriodo("");
+    setResumen("");
+    setActividades("");
+    setLogros("");
+    setDificultades("");
+    setDescripcion("");
   };
 
   return (
@@ -381,6 +406,7 @@ export default function InformeSemestralPage() {
     </div>
   );
 }
+
 
 
 
