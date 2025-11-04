@@ -125,55 +125,59 @@ export default function InformeSemestralPage() {
           logros,
           dificultades,
           descripcion,
+          updated_at: new Date(),
         })
         .eq("id", editandoInforme.id);
 
-      if (error) alert("❌ Error al actualizar: " + error.message);
-      else {
-        alert("✅ Informe actualizado correctamente");
-        setEditandoInforme(null);
-        limpiarFormulario();
+        if (error) {
+          console.error(error);
+          alert("❌ Error al actualizar: " + error.message);
+        } else {
+          alert("✅ Informe actualizado correctamente");
+          setEditandoInforme(null);
+          fetchInformes();
+        }
+      } else {
+        const { error } = await supabase.from("informes_semestrales").insert([
+          {
+            convenio_id: convenioId,
+            periodo,
+            resumen,
+            actividades,
+            logros,
+            dificultades,
+            descripcion,
+            created_at: new Date(),
+          },
+        ]);
+    
+        if (error) {
+          console.error(error);
+          alert("❌ Error al guardar el informe: " + error.message);
+        } else {
+          alert("✅ Informe guardado correctamente");
+          fetchInformes();
+        }
+      }
+    };
+    
+    // 🔹 Eliminar informe
+    const handleEliminar = async (id: string) => {
+      if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
+    
+      const { error } = await supabase
+        .from("informes_semestrales")
+        .delete()
+        .eq("id", id);
+    
+      if (error) {
+        console.error(error);
+        alert("❌ Error al eliminar informe: " + error.message);
+      } else {
+        alert("✅ Informe eliminado correctamente");
         fetchInformes();
       }
-    } else {
-      const { error } = await supabase.from("informes_semestrales").insert([
-        {
-          convenio_id: convenioId,
-          periodo,
-          resumen,
-          actividades,
-          logros,
-          dificultades,
-          descripcion,
-          created_at: new Date(),
-          creado_por: userId, // opcional: quién lo creó
-        },
-      ]);
-
-      if (error) alert("❌ Error al guardar el informe: " + error.message);
-      else {
-        alert("✅ Informe guardado correctamente");
-        limpiarFormulario();
-        fetchInformes();
-      }
-    }
-  };
-
-  // 🔹 Eliminar informe
-  const handleEliminar = async (id: string) => {
-    if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
-
-    const { error } = await supabase
-      .from("informes_semestrales")
-      .delete()
-      .eq("id", id);
-
-    if (error) alert("❌ Error al eliminar informe: " + error.message);
-    else {
-      alert("✅ Informe eliminado correctamente");
-      fetchInformes();
-    }
-  };
+    };
 
   // 🔹 Ver informe
   const verInforme = (informe: any) => {
