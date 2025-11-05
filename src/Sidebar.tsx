@@ -1,3 +1,5 @@
+import { FaNetworkWired } from "react-icons/fa"; // 🧩 Ícono para Áreas Vinculadas
+
 interface SidebarProps {
   setActivePage: (
     page:
@@ -6,6 +8,7 @@ interface SidebarProps {
       | "instituciones"
       | "users"
       | "reportes"
+      | "areasVinculadas" // 👈 Nuevo
   ) => void;
   onLogout: () => void;
   role: string;
@@ -43,14 +46,31 @@ export default function Sidebar({
         </h2>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {/* 📜 Convenios */}
           <button onClick={() => setActivePage("agreementsList")} style={buttonStyle}>
             📜 Convenios
           </button>
 
+          {/* 🏢 Instituciones */}
           <button onClick={() => setActivePage("instituciones")} style={buttonStyle}>
             🏢 Instituciones
           </button>
 
+          {/* 🧩 Áreas Vinculadas */}
+          <button
+            onClick={() => setActivePage("areasVinculadas")}
+            style={{
+              ...buttonStyle,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <FaNetworkWired style={{ fontSize: "16px", color: "#93c5fd" }} />
+            Áreas Vinculadas
+          </button>
+
+          {/* 👥 Usuarios y 📊 Reportes solo para admin */}
           {role === "admin" && (
             <>
               <button onClick={() => setActivePage("users")} style={buttonStyle}>
@@ -85,7 +105,11 @@ export default function Sidebar({
             borderRadius: "6px",
             width: "100%",
             cursor: "pointer",
+            fontWeight: "500",
+            transition: "background 0.2s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#dc2626")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "#ef4444")}
         >
           Cerrar sesión
         </button>
@@ -102,5 +126,8 @@ const buttonStyle: React.CSSProperties = {
   padding: "8px 10px",
   borderRadius: "6px",
   cursor: "pointer",
-  transition: "background 0.2s",
+  transition: "all 0.2s ease-in-out",
+  fontWeight: "500",
+  fontSize: "0.95rem",
 };
+
