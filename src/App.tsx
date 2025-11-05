@@ -13,28 +13,31 @@ import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
-import InformeSemestralPage from "./InformeSemestralPage"; // ✅ Página de informe semestral
-import AreasVinculadasList from "./AreasVinculadasList";
+import InformeSemestralPage from "./InformeSemestralPage";
+import AreasVinculadasList from "./AreasVinculadasList"; // ✅ Nuevo módulo
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
+
   const [activePage, setActivePage] = useState<
-  | "agreementsList"
-  | "agreementsForm"
-  | "instituciones"
-  | "users"
-  | "reportes"
-  | "contraprestaciones"
-  | "institucionesForm"
-  | "contraprestacionesEvidencias"
-  | "areasVinculadas" // ✅ NUEVO
->("agreementsList");
+    | "agreementsList"
+    | "agreementsForm"
+    | "instituciones"
+    | "users"
+    | "reportes"
+    | "contraprestaciones"
+    | "institucionesForm"
+    | "contraprestacionesEvidencias"
+    | "areasVinculadas" // ✅ NUEVO
+  >("agreementsList");
 
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
-  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
 
   // 🔹 Cargar sesión y perfil
@@ -57,9 +60,11 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
 
     return () => {
       listener.subscription.unsubscribe();
@@ -113,12 +118,10 @@ export default function App() {
         {/* ✅ Página de informe semestral independiente */}
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
-        {/* 🌐 Layout principal */}
-        <Route 
-        path="/areas-vinculadas" 
-        element={
-              <AreasVinculadasList />} />
+        {/* ✅ Nueva página Áreas Vinculadas */}
+        <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
 
+        {/* 🌐 Layout principal */}
         <Route
           path="*"
           element={
@@ -129,6 +132,7 @@ export default function App() {
                 role={role}
                 userName={fullName || session.user.email}
               />
+
               <div style={{ flex: 1, padding: "20px" }}>
                 <h2 style={{ marginBottom: "20px" }}>
                   👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
@@ -151,21 +155,23 @@ export default function App() {
                     onEdit={(agreement: any) => {
                       setSelectedAgreement(agreement);
                       setActivePage("agreementsForm");
-                    } }
+                    }}
                     onCreate={() => {
                       setSelectedAgreement(null);
                       setActivePage("agreementsForm");
-                    } }
+                    }}
                     onOpenContraprestaciones={(id: string) => {
                       setSelectedAgreementId(id);
                       setActivePage("contraprestaciones");
-                    } }
+                    }}
                     onOpenEvidencias={(id: string) => {
                       setSelectedAgreementId(id);
                       setActivePage("contraprestacionesEvidencias");
-                    } } onOpenInforme={function (agreementId: string): void {
-                      throw new Error("Function not implemented.");
-                    } }                  />
+                    }}
+                    onOpenInforme={(id: string) => {
+                      window.location.href = `/informe/${id}`;
+                    }}
+                  />
                 )}
 
                 {/* 📝 FORMULARIO DE CONVENIOS */}
@@ -192,23 +198,29 @@ export default function App() {
                 )}
 
                 {/* 📂 EVIDENCIAS */}
-                {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
-                  <ContraprestacionesEvidencias
-                    agreementId={selectedAgreementId}
-                    userId={session.user.id}
-                    role={role}
-                    onBack={() => setActivePage("agreementsList")}
-                  />
-                )}
+                {activePage === "contraprestacionesEvidencias" &&
+                  selectedAgreementId && (
+                    <ContraprestacionesEvidencias
+                      agreementId={selectedAgreementId}
+                      userId={session.user.id}
+                      role={role}
+                      onBack={() => setActivePage("agreementsList")}
+                    />
+                  )}
 
                 {/* 🏢 INSTITUCIONES */}
-                {activePage === "instituciones" && <InstitucionesList role={role} />}
+                {activePage === "instituciones" && (
+                  <InstitucionesList role={role} />
+                )}
 
                 {/* 👥 USUARIOS */}
                 {activePage === "users" && <Users />}
 
                 {/* 📊 REPORTES */}
                 {activePage === "reportes" && <Reportes />}
+
+                {/* 🏫 ÁREAS VINCULADAS */}
+                {activePage === "areasVinculadas" && <AreasVinculadasList />}
               </div>
             </div>
           }
@@ -217,6 +229,7 @@ export default function App() {
     </Router>
   );
 }
+
 
 
 
