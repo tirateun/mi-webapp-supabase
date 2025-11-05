@@ -21,15 +21,16 @@ export default function App() {
   const [role, setRole] = useState<string>("");
   const [fullName, setFullName] = useState<string>("");
   const [activePage, setActivePage] = useState<
-    | "agreementsList"
-    | "agreementsForm"
-    | "users"
-    | "instituciones"
-    | "institucionesForm"
-    | "contraprestaciones"
-    | "contraprestacionesEvidencias"
-    | "reportes"
-  >("agreementsList");
+  | "agreementsList"
+  | "agreementsForm"
+  | "instituciones"
+  | "users"
+  | "reportes"
+  | "contraprestaciones"
+  | "institucionesForm"
+  | "contraprestacionesEvidencias"
+  | "areasVinculadas" // ✅ NUEVO
+>("agreementsList");
 
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
