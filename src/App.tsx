@@ -14,6 +14,7 @@ import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
 import InformeSemestralPage from "./InformeSemestralPage"; // ✅ Página de informe semestral
+import AreasVinculadasList from "./AreasVinculadasList";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -112,6 +113,11 @@ export default function App() {
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
         {/* 🌐 Layout principal */}
+        <Route 
+        path="/areas-vinculadas" 
+        element={
+              <AreasVinculadasList />} />
+
         <Route
           path="*"
           element={
