@@ -76,14 +76,30 @@ export default function AgreementsForm({
   const fetchPaises = async () => {
     try {
       const response = await fetch("https://restcountries.com/v3.1/all");
+  
+      if (!response.ok) throw new Error("Fallo al cargar países");
+  
       const data = await response.json();
       const nombres = data
         .map((p: any) => p?.name?.common)
         .filter(Boolean)
         .sort((a: string, b: string) => a.localeCompare(b, "es"));
+  
       setPaises(nombres);
-    } catch {
-      setPaises(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "Ecuador", "España", "Estados Unidos", "Canadá"]);
+    } catch (error) {
+      console.warn("⚠️ No se pudo cargar países desde la API, usando lista local.");
+      setPaises([
+        "Perú",
+        "Argentina",
+        "Chile",
+        "Colombia",
+        "México",
+        "Brasil",
+        "Ecuador",
+        "España",
+        "Estados Unidos",
+        "Canadá",
+      ]);
     }
   };
 
