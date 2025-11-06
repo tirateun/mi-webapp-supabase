@@ -19,6 +19,7 @@ export default function AgreementsList({
   onCreate,
   onOpenContraprestaciones,
   onOpenEvidencias,
+  onOpenInforme,
 }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
@@ -47,45 +48,34 @@ export default function AgreementsList({
     setLoading(true);
 
     try {
-      // 🔹 Traer convenios con sus responsables internos (join manual)
-      const { data, error } = await supabase
+      let query = supabase
         .from("agreements")
-        .select(`
-          *,
-          agreement_internal_responsibles (
-            internal_responsible_id,
-            profiles:internal_responsible_id (full_name)
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-
-      const processed = data.map((a: any) => ({
-        ...a,
-        internal_responsibles: a.agreement_internal_responsibles?.map(
-          (r: any) => r.profiles?.full_name
-        ) || [],
-      }));
-
-      let filteredData = processed;
-
-      // 🔹 Filtrado según rol
       if (["internal", "interno"].includes(role)) {
-        filteredData = filteredData.filter((a: any) =>
-          a.internal_responsibles.includes(user?.full_name)
-        );
+        query = query.eq("internal_responsible", user.id);
       } else if (["external", "externo"].includes(role)) {
-        filteredData = filteredData.filter(
-          (a: any) => a.external_responsible === user.id
-        );
+        query = query.eq("external_responsible", user.id);
       }
 
-      setAgreements(filteredData);
-      setFiltered(filteredData);
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error al cargar convenios:", error);
+        alert("Error al cargar convenios. Revisa consola.");
+      } else {
+        const filteredData = (data || []).filter(
+          (a) =>
+            ["admin", "Admin", "Administrador"].includes(role) ||
+            a.internal_responsible === user.id ||
+            a.external_responsible === user.id
+        );
+        setAgreements(filteredData);
+        setFiltered(filteredData);
+      }
     } catch (err) {
-      console.error("Error al cargar convenios:", err);
-      alert("Error al cargar convenios. Revisa consola.");
+      console.error("Error inesperado:", err);
     } finally {
       setLoading(false);
     }
@@ -171,7 +161,6 @@ export default function AgreementsList({
             <thead className="table-primary">
               <tr>
                 <th>Nombre</th>
-                <th>Responsables Internos</th>
                 <th>Tipo</th>
                 <th>Subtipo Docente</th>
                 <th>País</th>
@@ -186,11 +175,6 @@ export default function AgreementsList({
               {filtered.map((a) => (
                 <tr key={a.id}>
                   <td className="fw-semibold">{a.name}</td>
-                  <td>
-                    {a.internal_responsibles?.length
-                      ? a.internal_responsibles.join(", ")
-                      : "-"}
-                  </td>
                   <td>
                     {a.convenio
                       ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
@@ -209,7 +193,6 @@ export default function AgreementsList({
                       : "-"}
                   </td>
                   <td className="d-flex flex-wrap gap-2">
-                    {/* ✏️ Editar */}
                     {role === "admin" && (
                       <button
                         className="btn btn-outline-secondary btn-sm"
@@ -218,27 +201,23 @@ export default function AgreementsList({
                         ✏️ Editar
                       </button>
                     )}
-
-                    {/* 📋 Programar */}
                     <button
                       className="btn btn-outline-success btn-sm"
                       onClick={() => onOpenContraprestaciones(a.id)}
                     >
                       📋 Programar
                     </button>
-
-                    {/* 📂 Cumplimiento */}
                     <button
                       className="btn btn-outline-info btn-sm"
                       onClick={() => onOpenEvidencias(a.id)}
                     >
                       📂 Cumplimiento
                     </button>
-
-                    {/* 📝 Informe */}
                     <button
                       className="btn btn-outline-primary btn-sm"
-                      onClick={() => (window.location.href = `/informe/${a.id}`)}
+                      onClick={() =>
+                        (window.location.href = `/informe/${a.id}`)
+                      }
                     >
                       📝 Informe
                     </button>
@@ -262,6 +241,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 

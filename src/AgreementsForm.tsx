@@ -13,12 +13,8 @@ export default function AgreementsForm({
   onCancel,
 }: AgreementsFormProps) {
   const [name, setName] = useState(existingAgreement?.name || "");
-  const [internalResponsibles, setInternalResponsibles] = useState<string[]>(
-    existingAgreement?.internal_responsibles || []
-  );
-  const [externalResponsible, setExternalResponsible] = useState(
-    existingAgreement?.external_responsible || ""
-  );
+  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
+  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
   const [signatureDate, setSignatureDate] = useState(existingAgreement?.signature_date || "");
   const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
   const [tipoConvenio, setTipoConvenio] = useState(existingAgreement?.convenio || "marco");
@@ -27,14 +23,10 @@ export default function AgreementsForm({
   const [objetivos, setObjetivos] = useState(existingAgreement?.objetivos || "");
   const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || []);
   const [subTipoDocente, setSubTipoDocente] = useState(existingAgreement?.sub_tipo_docente || "");
-  const [areasVinculadas, setAreasVinculadas] = useState<string[]>(
-    existingAgreement?.areas_vinculadas_ids || []
-  );
 
   const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
-  const [areas, setAreas] = useState<any[]>([]);
 
   const tipos = [
     "Docente Asistencial",
@@ -57,18 +49,11 @@ export default function AgreementsForm({
   useEffect(() => {
     fetchResponsables();
     fetchPaises();
-    fetchAreas();
   }, []);
 
   const fetchResponsables = async () => {
-    const { data: internosData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "internal");
-    const { data: externosData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "external");
+    const { data: internosData } = await supabase.from("profiles").select("id, full_name").eq("role", "internal");
+    const { data: externosData } = await supabase.from("profiles").select("id, full_name").eq("role", "external");
     setInternos(internosData || []);
     setExternos(externosData || []);
   };
@@ -76,18 +61,13 @@ export default function AgreementsForm({
   const fetchPaises = async () => {
     try {
       const response = await fetch("https://restcountries.com/v3.1/all");
-  
-      if (!response.ok) throw new Error("Fallo al cargar países");
-  
       const data = await response.json();
       const nombres = data
         .map((p: any) => p?.name?.common)
         .filter(Boolean)
         .sort((a: string, b: string) => a.localeCompare(b, "es"));
-  
       setPaises(nombres);
-    } catch (error) {
-      console.warn("⚠️ No se pudo cargar países desde la API, usando lista local.");
+    } catch {
       setPaises([
         "Perú",
         "Argentina",
@@ -103,30 +83,18 @@ export default function AgreementsForm({
     }
   };
 
-  const fetchAreas = async () => {
-    const { data, error } = await supabase
-      .from("areas_vinculadas")
-      .select("id, nombre")
-      .order("nombre");
-    if (!error) setAreas(data || []);
-  };
-
   const handleTipoChange = (tipo: string) => {
-    setTipoSeleccionados((prev) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
-    );
-  };
-
-  const handleAddArea = () => setAreasVinculadas([...areasVinculadas, ""]);
-  const handleRemoveArea = (index: number) => {
-    const updated = [...areasVinculadas];
-    updated.splice(index, 1);
-    setAreasVinculadas(updated);
+    if (tipoSeleccionados.includes(tipo)) {
+      setTipoSeleccionados(tipoSeleccionados.filter((t) => t !== tipo));
+    } else {
+      setTipoSeleccionados([...tipoSeleccionados, tipo]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 🧰 Verificación de usuario
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
       alert("❌ No se pudo verificar el usuario autenticado.");
@@ -145,6 +113,7 @@ export default function AgreementsForm({
       return;
     }
 
+    // Normalización del tipo de convenio
     const convenioNormalizado =
       tipoConvenio.toLowerCase().includes("marco")
         ? "marco"
@@ -154,6 +123,7 @@ export default function AgreementsForm({
 
     const dataToSave = {
       name,
+      internal_responsible: internalResponsible,
       external_responsible: externalResponsible,
       signature_date: signatureDate,
       duration_years: durationYears,
@@ -168,8 +138,6 @@ export default function AgreementsForm({
     };
 
     let error = null;
-    let agreementId = existingAgreement?.id;
-
     if (existingAgreement) {
       const { error: updateError } = await supabase
         .from("agreements")
@@ -177,47 +145,30 @@ export default function AgreementsForm({
         .eq("id", existingAgreement.id);
       error = updateError;
     } else {
-      const { data: insertData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("agreements")
-        .insert([dataToSave])
-        .select("id")
-        .single();
+        .insert([dataToSave]);
       error = insertError;
-      agreementId = insertData?.id;
     }
 
     if (error) {
+      console.error(error);
       alert("❌ Error al guardar el convenio: " + error.message);
-      return;
+    } else {
+      alert("✅ Convenio guardado correctamente");
+      onSave();
     }
-
-    // 🔹 Guardar responsables internos
-    await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
-    for (const internalId of internalResponsibles) {
-      await supabase.from("agreement_internal_responsibles").insert([
-        { agreement_id: agreementId, internal_responsible_id: internalId },
-      ]);
-    }
-
-    // 🔹 Guardar áreas vinculadas
-    await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
-    for (const areaId of areasVinculadas.filter(Boolean)) {
-      await supabase.from("agreement_areas_vinculadas").insert([
-        { agreement_id: agreementId, area_vinculada_id: areaId },
-      ]);
-    }
-
-    alert("✅ Convenio guardado correctamente");
-    onSave();
   };
 
   return (
     <div className="container mt-5" style={{ maxWidth: "850px" }}>
-      <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
+      <div
+        className="card shadow-lg p-4 border-0"
+        style={{ borderRadius: "16px" }}
+      >
         <h3 className="mb-4 text-center text-primary fw-bold">
           {existingAgreement ? "✏️ Editar Convenio" : "Registrar Nuevo Convenio"}
         </h3>
-
         <form onSubmit={handleSubmit}>
           {/* NOMBRE */}
           <div className="mb-3">
@@ -230,79 +181,41 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* RESPONSABLES INTERNOS (MÚLTIPLES) */}
-          <div className="mb-3">
-            <label>Responsables Internos</label>
-            <select
-              multiple
-              className="form-select"
-              value={internalResponsibles}
-              onChange={(e) =>
-                setInternalResponsibles(Array.from(e.target.selectedOptions, (opt) => opt.value))
-              }
-            >
-              {internos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
-            </select>
-            <small className="text-muted">Mantén presionada CTRL (o CMD en Mac) para seleccionar varios.</small>
+          {/* RESPONSABLES */}
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label>Responsable Interno</label>
+              <select
+                className="form-select"
+                value={internalResponsible}
+                onChange={(e) => setInternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {internos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-6 mb-3">
+              <label>Responsable Externo</label>
+              <select
+                className="form-select"
+                value={externalResponsible}
+                onChange={(e) => setExternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {externos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* RESPONSABLE EXTERNO */}
-          <div className="mb-3">
-            <label>Responsable Externo</label>
-            <select
-              className="form-select"
-              value={externalResponsible}
-              onChange={(e) => setExternalResponsible(e.target.value)}
-            >
-              <option value="">Seleccione</option>
-              {externos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* ÁREAS VINCULADAS (MÚLTIPLES) */}
-          <div className="mb-3">
-            <label>Áreas Vinculadas</label>
-            {areasVinculadas.map((areaId, index) => (
-              <div key={index} className="d-flex align-items-center mb-2">
-                <select
-                  className="form-select me-2"
-                  value={areaId}
-                  onChange={(e) => {
-                    const updated = [...areasVinculadas];
-                    updated[index] = e.target.value;
-                    setAreasVinculadas(updated);
-                  }}
-                >
-                  <option value="">Seleccione un área</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.nombre}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-outline-danger btn-sm"
-                  onClick={() => handleRemoveArea(index)}
-                >
-                  ❌
-                </button>
-              </div>
-            ))}
-            <button type="button" className="btn btn-outline-primary btn-sm" onClick={handleAddArea}>
-              ➕ Agregar área vinculada
-            </button>
-          </div>
-
-          {/* RESTO DEL FORMULARIO (sin cambios visuales) */}
+          {/* FECHA, DURACIÓN, CONVENIO */}
           <div className="row">
             <div className="col-md-4 mb-3">
               <label>Fecha de firma</label>
@@ -340,15 +253,16 @@ export default function AgreementsForm({
             </div>
           </div>
 
+          {/* RESOLUCIÓN Y PAÍS */}
           <div className="mb-3">
             <label>Resolución Rectoral</label>
             <input
               className="form-control"
               value={resolucion}
               onChange={(e) => setResolucion(e.target.value)}
+              placeholder="Ingrese número de resolución"
             />
           </div>
-
           <div className="mb-3">
             <label>País</label>
             <select
@@ -365,6 +279,7 @@ export default function AgreementsForm({
             </select>
           </div>
 
+          {/* TIPOS DE CONVENIO */}
           <div className="mb-4">
             <label>Tipos de convenio</label>
             <div className="border rounded p-3 bg-light">
@@ -382,6 +297,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
+          {/* SUBTIPOS DOCENTE */}
           {tipoSeleccionados.includes("Docente Asistencial") && (
             <div className="mb-4">
               <label>Subtipo Docente Asistencial</label>
@@ -400,16 +316,19 @@ export default function AgreementsForm({
             </div>
           )}
 
+          {/* OBJETIVOS */}
           <div className="mb-4">
             <label>Objetivos del convenio</label>
             <textarea
               className="form-control"
               rows={3}
+              placeholder="Describa los principales objetivos del convenio..."
               value={objetivos}
               onChange={(e) => setObjetivos(e.target.value)}
             />
           </div>
 
+          {/* BOTONES */}
           <div className="d-flex justify-content-end">
             <button type="button" className="btn btn-secondary me-3" onClick={onCancel}>
               Cancelar
@@ -423,6 +342,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
