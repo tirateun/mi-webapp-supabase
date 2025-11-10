@@ -27,8 +27,6 @@ export default function AgreementsForm({
   const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
-
-  // 🔹 NUEVOS estados para áreas vinculadas
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<string[]>([]);
 
@@ -53,12 +51,12 @@ export default function AgreementsForm({
   useEffect(() => {
     fetchResponsables();
     fetchPaises();
-    fetchAreasVinculadas();
+    fetchAreas();
 
-    if (existingAgreement) {
-      fetchAreasAsociadas(existingAgreement.id);
+    if (existingAgreement?.id) {
+      fetchAreasVinculadas(existingAgreement.id);
     }
-  }, [existingAgreement]);
+  }, []);
 
   const fetchResponsables = async () => {
     const { data: internosData } = await supabase.from("profiles").select("id, full_name").eq("role", "internal");
@@ -92,22 +90,17 @@ export default function AgreementsForm({
     }
   };
 
-  // 🔹 Cargar las áreas disponibles
-  const fetchAreasVinculadas = async () => {
+  const fetchAreas = async () => {
     const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
-    if (error) console.error("Error cargando áreas:", error);
-    else setAreas(data || []);
+    if (!error && data) setAreas(data);
   };
 
-  // 🔹 Si estás editando, obtener las áreas ya asociadas
-  const fetchAreasAsociadas = async (agreementId: string) => {
-    const { data, error } = await supabase
+  const fetchAreasVinculadas = async (agreementId: string) => {
+    const { data } = await supabase
       .from("agreement_areas_vinculadas")
       .select("area_vinculada_id")
       .eq("agreement_id", agreementId);
-
-    if (error) console.error("Error obteniendo áreas asociadas:", error);
-    else setAreasSeleccionadas(data.map((a) => a.area_vinculada_id));
+    if (data) setAreasSeleccionadas(data.map((a) => a.area_vinculada_id));
   };
 
   const handleTipoChange = (tipo: string) => {
@@ -165,17 +158,27 @@ export default function AgreementsForm({
       "Resolución Rectoral": resolucion,
       tipo_convenio: tipoSeleccionados,
       objetivos,
-      sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente : null,
+      sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial")
+        ? subTipoDocente
+        : null,
     };
 
-    let agreementId = existingAgreement?.id;
+    let agreementId: string | undefined;
     let error = null;
 
     if (existingAgreement) {
-      const { error: updateError } = await supabase.from("agreements").update(dataToSave).eq("id", agreementId);
+      const { error: updateError } = await supabase
+        .from("agreements")
+        .update(dataToSave)
+        .eq("id", existingAgreement.id);
+      agreementId = existingAgreement.id;
       error = updateError;
     } else {
-      const { data, error: insertError } = await supabase.from("agreements").insert([dataToSave]).select("id").single();
+      const { data, error: insertError } = await supabase
+        .from("agreements")
+        .insert([dataToSave])
+        .select("id")
+        .single();
       agreementId = data?.id;
       error = insertError;
     }
@@ -186,15 +189,15 @@ export default function AgreementsForm({
       return;
     }
 
-    // 🔹 Guardar las áreas vinculadas
+    // Guardar áreas vinculadas
     if (agreementId) {
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
-      if (areasSeleccionadas.length > 0) {
-        const inserts = areasSeleccionadas.map((areaId) => ({
-          agreement_id: agreementId,
-          area_vinculada_id: areaId,
-        }));
-        await supabase.from("agreement_areas_vinculadas").insert(inserts);
+      const registros = areasSeleccionadas.map((areaId) => ({
+        agreement_id: agreementId,
+        area_vinculada_id: areaId,
+      }));
+      if (registros.length > 0) {
+        await supabase.from("agreement_areas_vinculadas").insert(registros);
       }
     }
 
@@ -208,11 +211,167 @@ export default function AgreementsForm({
         <h3 className="mb-4 text-center text-primary fw-bold">
           {existingAgreement ? "✏️ Editar Convenio" : "Registrar Nuevo Convenio"}
         </h3>
-        <form onSubmit={handleSubmit}>
-          {/* Campos originales (idénticos) */}
-          {/* ...todo tu formulario completo... */}
 
-          {/* 🔹 NUEVA SECCIÓN: ÁREAS VINCULADAS */}
+        <form onSubmit={handleSubmit}>
+          {/* NOMBRE */}
+          <div className="mb-3">
+            <label>Nombre del convenio</label>
+            <input
+              className="form-control"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+
+          {/* RESPONSABLES */}
+          <div className="row">
+            <div className="col-md-6 mb-3">
+              <label>Responsable Interno</label>
+              <select
+                className="form-select"
+                value={internalResponsible}
+                onChange={(e) => setInternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {internos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-6 mb-3">
+              <label>Responsable Externo</label>
+              <select
+                className="form-select"
+                value={externalResponsible}
+                onChange={(e) => setExternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {externos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* FECHA, DURACIÓN, CONVENIO */}
+          <div className="row">
+            <div className="col-md-4 mb-3">
+              <label>Fecha de firma</label>
+              <input
+                type="date"
+                className="form-control"
+                value={signatureDate}
+                onChange={(e) => setSignatureDate(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4 mb-3">
+              <label>Duración (años)</label>
+              <select
+                className="form-select"
+                value={durationYears}
+                onChange={(e) => setDurationYears(Number(e.target.value))}
+              >
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-4 mb-3">
+              <label>Tipo de convenio</label>
+              <select
+                className="form-select"
+                value={tipoConvenio}
+                onChange={(e) => setTipoConvenio(e.target.value)}
+              >
+                <option value="marco">Marco</option>
+                <option value="específico">Específico</option>
+              </select>
+            </div>
+          </div>
+
+          {/* RESOLUCIÓN Y PAÍS */}
+          <div className="mb-3">
+            <label>Resolución Rectoral</label>
+            <input
+              className="form-control"
+              value={resolucion}
+              onChange={(e) => setResolucion(e.target.value)}
+              placeholder="Ingrese número de resolución"
+            />
+          </div>
+          <div className="mb-3">
+            <label>País</label>
+            <select
+              className="form-select"
+              value={pais}
+              onChange={(e) => setPais(e.target.value)}
+            >
+              <option value="">Seleccione un país</option>
+              {paises.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* TIPOS DE CONVENIO */}
+          <div className="mb-4">
+            <label>Tipos de convenio</label>
+            <div className="border rounded p-3 bg-light">
+              {tipos.map((tipo) => (
+                <label key={tipo} className="me-3">
+                  <input
+                    type="checkbox"
+                    checked={tipoSeleccionados.includes(tipo)}
+                    onChange={() => handleTipoChange(tipo)}
+                    className="me-1"
+                  />
+                  {tipo}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* SUBTIPOS DOCENTE */}
+          {tipoSeleccionados.includes("Docente Asistencial") && (
+            <div className="mb-4">
+              <label>Subtipo Docente Asistencial</label>
+              <select
+                className="form-select"
+                value={subTipoDocente}
+                onChange={(e) => setSubTipoDocente(e.target.value)}
+              >
+                <option value="">Seleccione una opción</option>
+                {subTiposDocente.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* OBJETIVOS */}
+          <div className="mb-4">
+            <label>Objetivos del convenio</label>
+            <textarea
+              className="form-control"
+              rows={3}
+              placeholder="Describa los principales objetivos del convenio..."
+              value={objetivos}
+              onChange={(e) => setObjetivos(e.target.value)}
+            />
+          </div>
+
+          {/* 🔹 ÁREAS VINCULADAS */}
           <div className="mb-4">
             <label>Áreas vinculadas</label>
             <div className="border rounded p-3 bg-light">
