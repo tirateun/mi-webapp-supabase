@@ -28,7 +28,7 @@ export default function AgreementsForm({
   const [externos, setExternos] = useState<any[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
 
-  // ✅ NUEVO: Áreas vinculadas
+  // 🔹 NUEVOS estados para áreas vinculadas
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<string[]>([]);
 
@@ -54,8 +54,11 @@ export default function AgreementsForm({
     fetchResponsables();
     fetchPaises();
     fetchAreasVinculadas();
-    if (existingAgreement) fetchAreasAsociadas(existingAgreement.id);
-  }, []);
+
+    if (existingAgreement) {
+      fetchAreasAsociadas(existingAgreement.id);
+    }
+  }, [existingAgreement]);
 
   const fetchResponsables = async () => {
     const { data: internosData } = await supabase.from("profiles").select("id, full_name").eq("role", "internal");
@@ -68,26 +71,43 @@ export default function AgreementsForm({
     try {
       const response = await fetch("https://restcountries.com/v3.1/all");
       const data = await response.json();
-      const nombres = data.map((p: any) => p?.name?.common).filter(Boolean).sort((a: string, b: string) => a.localeCompare(b, "es"));
+      const nombres = data
+        .map((p: any) => p?.name?.common)
+        .filter(Boolean)
+        .sort((a: string, b: string) => a.localeCompare(b, "es"));
       setPaises(nombres);
     } catch {
-      setPaises(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "Ecuador", "España", "Estados Unidos", "Canadá"]);
+      setPaises([
+        "Perú",
+        "Argentina",
+        "Chile",
+        "Colombia",
+        "México",
+        "Brasil",
+        "Ecuador",
+        "España",
+        "Estados Unidos",
+        "Canadá",
+      ]);
     }
   };
 
-  // ✅ Cargar catálogo de áreas vinculadas
+  // 🔹 Cargar las áreas disponibles
   const fetchAreasVinculadas = async () => {
     const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
-    if (!error && data) setAreas(data);
+    if (error) console.error("Error cargando áreas:", error);
+    else setAreas(data || []);
   };
 
-  // ✅ Cargar áreas asociadas al editar un convenio
+  // 🔹 Si estás editando, obtener las áreas ya asociadas
   const fetchAreasAsociadas = async (agreementId: string) => {
     const { data, error } = await supabase
       .from("agreement_areas_vinculadas")
       .select("area_vinculada_id")
       .eq("agreement_id", agreementId);
-    if (!error && data) setAreasSeleccionadas(data.map((d) => d.area_vinculada_id));
+
+    if (error) console.error("Error obteniendo áreas asociadas:", error);
+    else setAreasSeleccionadas(data.map((a) => a.area_vinculada_id));
   };
 
   const handleTipoChange = (tipo: string) => {
@@ -109,7 +129,6 @@ export default function AgreementsForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🧰 Verificación de usuario
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData?.user) {
       alert("❌ No se pudo verificar el usuario autenticado.");
@@ -117,7 +136,11 @@ export default function AgreementsForm({
     }
 
     const user = userData.user;
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
     if (!["admin", "Admin", "Administrador"].includes(profile?.role)) {
       alert("❌ No tienes permisos para crear o editar convenios.");
@@ -145,17 +168,16 @@ export default function AgreementsForm({
       sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente : null,
     };
 
-    let agreementId: string | null = null;
+    let agreementId = existingAgreement?.id;
     let error = null;
 
     if (existingAgreement) {
-      const { error: updateError } = await supabase.from("agreements").update(dataToSave).eq("id", existingAgreement.id);
+      const { error: updateError } = await supabase.from("agreements").update(dataToSave).eq("id", agreementId);
       error = updateError;
-      agreementId = existingAgreement.id;
     } else {
-      const { data: inserted, error: insertError } = await supabase.from("agreements").insert([dataToSave]).select().single();
+      const { data, error: insertError } = await supabase.from("agreements").insert([dataToSave]).select("id").single();
+      agreementId = data?.id;
       error = insertError;
-      agreementId = inserted?.id || null;
     }
 
     if (error) {
@@ -164,19 +186,15 @@ export default function AgreementsForm({
       return;
     }
 
-    // ✅ Guardar las áreas vinculadas
+    // 🔹 Guardar las áreas vinculadas
     if (agreementId) {
-      // Eliminamos las áreas previas (en edición)
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
-      // Insertamos las nuevas
       if (areasSeleccionadas.length > 0) {
-        const { error: areasError } = await supabase.from("agreement_areas_vinculadas").insert(
-          areasSeleccionadas.map((areaId) => ({
-            agreement_id: agreementId,
-            area_vinculada_id: areaId,
-          }))
-        );
-        if (areasError) console.error("⚠️ Error guardando áreas vinculadas:", areasError);
+        const inserts = areasSeleccionadas.map((areaId) => ({
+          agreement_id: agreementId,
+          area_vinculada_id: areaId,
+        }));
+        await supabase.from("agreement_areas_vinculadas").insert(inserts);
       }
     }
 
@@ -191,23 +209,28 @@ export default function AgreementsForm({
           {existingAgreement ? "✏️ Editar Convenio" : "Registrar Nuevo Convenio"}
         </h3>
         <form onSubmit={handleSubmit}>
-          {/* ...todos los campos previos sin cambios... */}
+          {/* Campos originales (idénticos) */}
+          {/* ...todo tu formulario completo... */}
 
-          {/* ✅ NUEVA SECCIÓN: ÁREAS VINCULADAS */}
+          {/* 🔹 NUEVA SECCIÓN: ÁREAS VINCULADAS */}
           <div className="mb-4">
             <label>Áreas vinculadas</label>
             <div className="border rounded p-3 bg-light">
-              {areas.map((a) => (
-                <label key={a.id} className="me-3">
-                  <input
-                    type="checkbox"
-                    checked={areasSeleccionadas.includes(a.id)}
-                    onChange={() => handleAreaChange(a.id)}
-                    className="me-1"
-                  />
-                  {a.nombre}
-                </label>
-              ))}
+              {areas.length > 0 ? (
+                areas.map((area) => (
+                  <label key={area.id} className="me-3">
+                    <input
+                      type="checkbox"
+                      checked={areasSeleccionadas.includes(area.id)}
+                      onChange={() => handleAreaChange(area.id)}
+                      className="me-1"
+                    />
+                    {area.nombre}
+                  </label>
+                ))
+              ) : (
+                <p className="text-muted">No hay áreas registradas</p>
+              )}
             </div>
           </div>
 
