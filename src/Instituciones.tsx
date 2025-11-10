@@ -145,15 +145,15 @@ export default function Instituciones() {
             style={{ width: "100%", padding: "8px" }}
           >
             <option value="Hospital">Hospital</option>
-            <option value="Universidad">Universidad Privada</option>
-            <option value="Universidad">Universidad Publica</option>
+            <option value="Universidad Privada">Universidad Privada</option>
+            <option value="Universidad Publica">Universidad Publica</option>
             <option value="Instituto">Instituto</option>
-            <option value="Instituto">Asociacion</option>
-            <option value="Instituto">Colegio profesional</option>
-            <option value="Instituto">Sociedad</option>
-            <option value="Instituto">Laboratorio</option>
-            <option value="Instituto">Clinica</option>
-            <option value="Instituto">Red de salud</option>
+            <option value="Asociacion">Asociacion</option>
+            <option value="Colegio profesional">Colegio profesional</option>
+            <option value="Sociedad">Sociedad</option>
+            <option value="Laboratorio">Laboratorio</option>
+            <option value="Clinica">Clinica</option>
+            <option value="Red de salud">Red de salud</option>
             <option value="Otro">Otro</option>
           </select>
         </div>
