@@ -46,7 +46,6 @@ export default function AgreementsList({
 
   const fetchAgreements = async () => {
     setLoading(true);
-
     try {
       let query = supabase
         .from("agreements")
@@ -60,7 +59,6 @@ export default function AgreementsList({
       }
 
       const { data, error } = await query;
-
       if (error) {
         console.error("Error al cargar convenios:", error);
         alert("Error al cargar convenios. Revisa consola.");
@@ -105,6 +103,41 @@ export default function AgreementsList({
         ? prev.filter((t) => t !== tipo)
         : [...prev, tipo]
     );
+  };
+
+  // 🗑️ Eliminar convenio con confirmación
+  const handleDelete = async (id: string, name: string) => {
+    const confirmDelete = window.confirm(
+      `¿Seguro que deseas eliminar el convenio:\n\n"${name}"?\n\nEsta acción no se puede deshacer.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      // 🔍 Verificar dependencias
+      const { count: countAreas } = await supabase
+        .from("agreement_areas_vinculadas")
+        .select("id", { count: "exact", head: true })
+        .eq("agreement_id", id);
+
+      if (countAreas && countAreas > 0) {
+        alert("⚠️ No se puede eliminar este convenio porque tiene áreas vinculadas.");
+        return;
+      }
+
+      const { error } = await supabase.from("agreements").delete().eq("id", id);
+
+      if (error) {
+        console.error("Error al eliminar convenio:", error);
+        alert("❌ Error al eliminar convenio: " + error.message);
+      } else {
+        alert("✅ Convenio eliminado correctamente.");
+        setAgreements((prev) => prev.filter((a) => a.id !== id));
+        setFiltered((prev) => prev.filter((a) => a.id !== id));
+      }
+    } catch (err) {
+      console.error("Error inesperado al eliminar:", err);
+      alert("❌ Error inesperado al eliminar convenio.");
+    }
   };
 
   return (
@@ -194,12 +227,20 @@ export default function AgreementsList({
                   </td>
                   <td className="d-flex flex-wrap gap-2">
                     {role === "admin" && (
-                      <button
-                        className="btn btn-outline-secondary btn-sm"
-                        onClick={() => onEdit(a)}
-                      >
-                        ✏️ Editar
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => onEdit(a)}
+                        >
+                          ✏️ Editar
+                        </button>
+                        <button
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => handleDelete(a.id, a.name)}
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      </>
                     )}
                     <button
                       className="btn btn-outline-success btn-sm"
@@ -241,6 +282,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
