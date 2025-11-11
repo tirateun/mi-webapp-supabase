@@ -215,19 +215,24 @@ export default function AgreementsList({
                   </td>
                   <td>
                     <div
-                      className="d-flex justify-content-center flex-wrap gap-2"
-                      style={{ minWidth: "330px" }}
+                      className="d-flex justify-content-center align-items-center flex-wrap gap-2"
+                      style={{
+                        minWidth: "420px",
+                        gap: "8px",
+                      }}
                     >
                       {role === "admin" && (
                         <>
                           <button
-                            className="btn btn-sm btn-outline-secondary"
+                            className="btn btn-sm btn-outline-secondary d-flex align-items-center"
+                            style={{ minWidth: "110px" }}
                             onClick={() => onEdit(a)}
                           >
                             ✏️ Editar
                           </button>
                           <button
-                            className="btn btn-sm btn-outline-danger"
+                            className="btn btn-sm btn-outline-danger d-flex align-items-center"
+                            style={{ minWidth: "110px" }}
                             onClick={() => handleDelete(a.id, a.name)}
                           >
                             🗑️ Eliminar
@@ -235,22 +240,23 @@ export default function AgreementsList({
                         </>
                       )}
                       <button
-                        className="btn btn-sm btn-outline-success"
+                        className="btn btn-sm btn-outline-success d-flex align-items-center"
+                        style={{ minWidth: "140px" }}
                         onClick={() => onOpenContraprestaciones(a.id)}
                       >
                         📋 Programar
                       </button>
                       <button
-                        className="btn btn-sm btn-outline-info"
+                        className="btn btn-sm btn-outline-warning d-flex align-items-center"
+                        style={{ minWidth: "140px" }}
                         onClick={() => onOpenEvidencias(a.id)}
                       >
                         📂 Cumplimiento
                       </button>
                       <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() =>
-                          (window.location.href = `/informe/${a.id}`)
-                        }
+                        className="btn btn-sm btn-outline-primary d-flex align-items-center"
+                        style={{ minWidth: "120px" }}
+                        onClick={() => (window.location.href = `/informe/${a.id}`)}
                       >
                         📝 Informe
                       </button>
