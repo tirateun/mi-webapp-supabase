@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Select, { MultiValue } from "react-select";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsFormProps {
@@ -13,16 +14,32 @@ export default function AgreementsForm({
   onCancel,
 }: AgreementsFormProps) {
   const [name, setName] = useState(existingAgreement?.name || "");
-  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
-  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
-  const [signatureDate, setSignatureDate] = useState(existingAgreement?.signature_date || "");
-  const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
-  const [tipoConvenio, setTipoConvenio] = useState(existingAgreement?.convenio || "marco");
-  const [resolucion, setResolucion] = useState(existingAgreement?.["Resolución Rectoral"] || "");
+  const [selectedInternals, setSelectedInternals] = useState<any[]>([]);
+  const [externalResponsible, setExternalResponsible] = useState(
+    existingAgreement?.external_responsible || ""
+  );
+  const [signatureDate, setSignatureDate] = useState(
+    existingAgreement?.signature_date || ""
+  );
+  const [durationYears, setDurationYears] = useState(
+    existingAgreement?.duration_years || 1
+  );
+  const [tipoConvenio, setTipoConvenio] = useState(
+    existingAgreement?.convenio || "marco"
+  );
+  const [resolucion, setResolucion] = useState(
+    existingAgreement?.["Resolución Rectoral"] || ""
+  );
   const [pais, setPais] = useState(existingAgreement?.pais || "");
-  const [objetivos, setObjetivos] = useState(existingAgreement?.objetivos || "");
-  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || []);
-  const [subTipoDocente, setSubTipoDocente] = useState(existingAgreement?.sub_tipo_docente || "");
+  const [objetivos, setObjetivos] = useState(
+    existingAgreement?.objetivos || ""
+  );
+  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(
+    existingAgreement?.tipo_convenio || []
+  );
+  const [subTipoDocente, setSubTipoDocente] = useState(
+    existingAgreement?.sub_tipo_docente || ""
+  );
 
   const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
@@ -55,14 +72,34 @@ export default function AgreementsForm({
 
     if (existingAgreement?.id) {
       fetchAreasVinculadas(existingAgreement.id);
+      fetchResponsablesInternos(existingAgreement.id);
     }
   }, []);
 
   const fetchResponsables = async () => {
-    const { data: internosData } = await supabase.from("profiles").select("id, full_name").eq("role", "internal");
-    const { data: externosData } = await supabase.from("profiles").select("id, full_name").eq("role", "external");
+    const { data: internosData } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("role", "internal");
+    const { data: externosData } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("role", "external");
     setInternos(internosData || []);
     setExternos(externosData || []);
+  };
+
+  const fetchResponsablesInternos = async (agreementId: string) => {
+    const { data } = await supabase
+      .from("agreement_internal_responsibles")
+      .select("internal_responsible_id")
+      .eq("agreement_id", agreementId);
+    if (data) {
+      const seleccionados = internos.filter((i) =>
+        data.some((r) => r.internal_responsible_id === i.id)
+      );
+      setSelectedInternals(seleccionados);
+    }
   };
 
   const fetchPaises = async () => {
@@ -91,7 +128,9 @@ export default function AgreementsForm({
   };
 
   const fetchAreas = async () => {
-    const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
+    const { data, error } = await supabase
+      .from("areas_vinculadas")
+      .select("id, nombre");
     if (!error && data) setAreas(data);
   };
 
@@ -140,16 +179,16 @@ export default function AgreementsForm({
       return;
     }
 
-    const convenioNormalizado =
-      tipoConvenio.toLowerCase().includes("marco")
-        ? "marco"
-        : tipoConvenio.toLowerCase().includes("espec")
-        ? "específico"
-        : tipoConvenio;
+    const convenioNormalizado = tipoConvenio
+      .toLowerCase()
+      .includes("marco")
+      ? "marco"
+      : tipoConvenio.toLowerCase().includes("espec")
+      ? "específico"
+      : tipoConvenio;
 
     const dataToSave = {
       name,
-      internal_responsible: internalResponsible,
       external_responsible: externalResponsible,
       signature_date: signatureDate,
       duration_years: durationYears,
@@ -189,15 +228,33 @@ export default function AgreementsForm({
       return;
     }
 
-    // Guardar áreas vinculadas
+    // Guardar responsables internos
     if (agreementId) {
-      await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
-      const registros = areasSeleccionadas.map((areaId) => ({
+      await supabase
+        .from("agreement_internal_responsibles")
+        .delete()
+        .eq("agreement_id", agreementId);
+      const registrosResponsables = selectedInternals.map((r) => ({
+        agreement_id: agreementId,
+        internal_responsible_id: r.value,
+      }));
+      if (registrosResponsables.length > 0) {
+        await supabase
+          .from("agreement_internal_responsibles")
+          .insert(registrosResponsables);
+      }
+
+      // Guardar áreas vinculadas
+      await supabase
+        .from("agreement_areas_vinculadas")
+        .delete()
+        .eq("agreement_id", agreementId);
+      const registrosAreas = areasSeleccionadas.map((areaId) => ({
         agreement_id: agreementId,
         area_vinculada_id: areaId,
       }));
-      if (registros.length > 0) {
-        await supabase.from("agreement_areas_vinculadas").insert(registros);
+      if (registrosAreas.length > 0) {
+        await supabase.from("agreement_areas_vinculadas").insert(registrosAreas);
       }
     }
 
@@ -207,7 +264,10 @@ export default function AgreementsForm({
 
   return (
     <div className="container mt-5" style={{ maxWidth: "850px" }}>
-      <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
+      <div
+        className="card shadow-lg p-4 border-0"
+        style={{ borderRadius: "16px" }}
+      >
         <h3 className="mb-4 text-center text-primary fw-bold">
           {existingAgreement ? "✏️ Editar Convenio" : "Registrar Nuevo Convenio"}
         </h3>
@@ -227,19 +287,19 @@ export default function AgreementsForm({
           {/* RESPONSABLES */}
           <div className="row">
             <div className="col-md-6 mb-3">
-              <label>Responsable Interno</label>
-              <select
-                className="form-select"
-                value={internalResponsible}
-                onChange={(e) => setInternalResponsible(e.target.value)}
-              >
-                <option value="">Seleccione</option>
-                {internos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name}
-                  </option>
-                ))}
-              </select>
+              <label>Responsables Internos (uno o más)</label>
+              <Select
+                isMulti
+                options={internos.map((p) => ({
+                  value: p.id,
+                  label: p.full_name,
+                }))}
+                value={selectedInternals}
+                onChange={(val: MultiValue<any>) =>
+                  setSelectedInternals([...val])
+                }
+                placeholder="Buscar y seleccionar responsables internos"
+              />
             </div>
             <div className="col-md-6 mb-3">
               <label>Responsable Externo</label>
@@ -371,7 +431,7 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* 🔹 ÁREAS VINCULADAS */}
+          {/* ÁREAS VINCULADAS */}
           <div className="mb-4">
             <label>Áreas vinculadas</label>
             <div className="border rounded p-3 bg-light">
@@ -395,7 +455,11 @@ export default function AgreementsForm({
 
           {/* BOTONES */}
           <div className="d-flex justify-content-end">
-            <button type="button" className="btn btn-secondary me-3" onClick={onCancel}>
+            <button
+              type="button"
+              className="btn btn-secondary me-3"
+              onClick={onCancel}
+            >
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary">
@@ -407,6 +471,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
