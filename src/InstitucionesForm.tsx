@@ -63,7 +63,6 @@ export default function InstitucionesForm({
 
     const { error } = result;
 
-    // ✅ Nueva validación: solo muestra mensaje correcto
     if (error) {
       console.error("❌ Error al guardar institución:", error);
       if (
@@ -103,6 +102,7 @@ export default function InstitucionesForm({
           gap: "15px",
         }}
       >
+        {/* Nombre */}
         <div>
           <label>Nombre</label>
           <input
@@ -114,6 +114,7 @@ export default function InstitucionesForm({
           />
         </div>
 
+        {/* Tipo */}
         <div>
           <label>Tipo</label>
           <select
@@ -122,19 +123,20 @@ export default function InstitucionesForm({
             style={{ width: "100%", padding: "8px" }}
           >
             <option value="Hospital">Hospital</option>
-            <option value="Universidad">Universidad Privada</option>
-            <option value="Universidad">Universidad Publica</option>
+            <option value="Universidad pública">Universidad pública</option>
+            <option value="Universidad privada">Universidad privada</option>
             <option value="Instituto">Instituto</option>
-            <option value="Instituto">Asociacion</option>
-            <option value="Instituto">Colegio profesional</option>
-            <option value="Instituto">Sociedad</option>
-            <option value="Instituto">Laboratorio</option>
-            <option value="Instituto">Clinica</option>
-            <option value="Instituto">Red de salud</option>
+            <option value="Asociación">Asociación</option>
+            <option value="Colegio profesional">Colegio profesional</option>
+            <option value="Sociedad">Sociedad</option>
+            <option value="Laboratorio">Laboratorio</option>
+            <option value="Clínica">Clínica</option>
+            <option value="Red de salud">Red de salud</option>
             <option value="Otro">Otro</option>
           </select>
         </div>
 
+        {/* País */}
         <div>
           <label>País</label>
           <select
@@ -152,6 +154,7 @@ export default function InstitucionesForm({
           </select>
         </div>
 
+        {/* Ciudad */}
         <div>
           <label>Ciudad</label>
           <input
@@ -162,6 +165,7 @@ export default function InstitucionesForm({
           />
         </div>
 
+        {/* Dirección */}
         <div>
           <label>Dirección</label>
           <input
@@ -172,6 +176,7 @@ export default function InstitucionesForm({
           />
         </div>
 
+        {/* Contacto */}
         <div>
           <label>Contacto</label>
           <input
@@ -182,6 +187,7 @@ export default function InstitucionesForm({
           />
         </div>
 
+        {/* Email */}
         <div>
           <label>Email</label>
           <input
@@ -192,6 +198,7 @@ export default function InstitucionesForm({
           />
         </div>
 
+        {/* Teléfono */}
         <div>
           <label>Teléfono</label>
           <input
@@ -203,6 +210,7 @@ export default function InstitucionesForm({
         </div>
       </div>
 
+      {/* Botones */}
       <div
         style={{
           marginTop: "20px",
@@ -242,6 +250,7 @@ export default function InstitucionesForm({
     </form>
   );
 }
+
 
 
 
