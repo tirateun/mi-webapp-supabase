@@ -26,8 +26,6 @@ export default function AgreementsList({
   const [search, setSearch] = useState("");
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showInformeModal, setShowInformeModal] = useState(false);
-  const [selectedConvenio, setSelectedConvenio] = useState<any | null>(null);
 
   const tipos = [
     "Docente Asistencial",
@@ -63,14 +61,8 @@ export default function AgreementsList({
         console.error("Error al cargar convenios:", error);
         alert("Error al cargar convenios. Revisa consola.");
       } else {
-        const filteredData = (data || []).filter(
-          (a) =>
-            ["admin", "Admin", "Administrador"].includes(role) ||
-            a.internal_responsible === user.id ||
-            a.external_responsible === user.id
-        );
-        setAgreements(filteredData);
-        setFiltered(filteredData);
+        setAgreements(data || []);
+        setFiltered(data || []);
       }
     } catch (err) {
       console.error("Error inesperado:", err);
@@ -79,82 +71,66 @@ export default function AgreementsList({
     }
   };
 
-  useEffect(() => {
-    let filteredData = agreements;
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`¿Eliminar el convenio "${name}"?`)) return;
 
-    if (search.trim() !== "") {
-      filteredData = filteredData.filter((a) =>
+    try {
+      const { error } = await supabase.from("agreements").delete().eq("id", id);
+      if (error) {
+        console.error(error);
+        alert("❌ Error al eliminar: " + error.message);
+      } else {
+        setAgreements((prev) => prev.filter((a) => a.id !== id));
+        setFiltered((prev) => prev.filter((a) => a.id !== id));
+        alert("✅ Convenio eliminado correctamente");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Error inesperado al eliminar");
+    }
+  };
+
+  const toggleTipo = (tipo: string) => {
+    setSelectedTipos((prev) =>
+      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+    );
+  };
+
+  useEffect(() => {
+    let result = agreements;
+
+    if (search.trim()) {
+      result = result.filter((a) =>
         a.name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     if (selectedTipos.length > 0) {
-      filteredData = filteredData.filter((a) =>
+      result = result.filter((a) =>
         a.tipo_convenio?.some((t: string) => selectedTipos.includes(t))
       );
     }
 
-    setFiltered(filteredData);
+    setFiltered(result);
   }, [search, selectedTipos, agreements]);
-
-  const toggleTipo = (tipo: string) => {
-    setSelectedTipos((prev) =>
-      prev.includes(tipo)
-        ? prev.filter((t) => t !== tipo)
-        : [...prev, tipo]
-    );
-  };
-
-  // 🗑️ Eliminar convenio con confirmación
-  const handleDelete = async (id: string, name: string) => {
-    const confirmDelete = window.confirm(
-      `¿Seguro que deseas eliminar el convenio:\n\n"${name}"?\n\nEsta acción no se puede deshacer.`
-    );
-    if (!confirmDelete) return;
-
-    try {
-      // 🔍 Verificar dependencias
-      const { count: countAreas } = await supabase
-        .from("agreement_areas_vinculadas")
-        .select("id", { count: "exact", head: true })
-        .eq("agreement_id", id);
-
-      if (countAreas && countAreas > 0) {
-        alert("⚠️ No se puede eliminar este convenio porque tiene áreas vinculadas.");
-        return;
-      }
-
-      const { error } = await supabase.from("agreements").delete().eq("id", id);
-
-      if (error) {
-        console.error("Error al eliminar convenio:", error);
-        alert("❌ Error al eliminar convenio: " + error.message);
-      } else {
-        alert("✅ Convenio eliminado correctamente.");
-        setAgreements((prev) => prev.filter((a) => a.id !== id));
-        setFiltered((prev) => prev.filter((a) => a.id !== id));
-      }
-    } catch (err) {
-      console.error("Error inesperado al eliminar:", err);
-      alert("❌ Error inesperado al eliminar convenio.");
-    }
-  };
 
   return (
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
+        <h3 className="fw-bold text-primary">
+          📄 Lista de Convenios
+        </h3>
         {role === "admin" && (
-          <button className="btn btn-success" onClick={onCreate}>
+          <button className="btn btn-success shadow-sm" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
         )}
       </div>
 
       {/* 🔍 Filtros y búsqueda */}
-      <div className="card p-3 shadow-sm border-0 mb-4">
-        <div className="row">
-          <div className="col-md-6 mb-2">
+      <div className="card shadow-sm border-0 p-3 mb-4">
+        <div className="row align-items-center">
+          <div className="col-md-4 mb-2">
             <input
               type="text"
               className="form-control"
@@ -163,22 +139,20 @@ export default function AgreementsList({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="col-md-6 mb-2">
-            <div className="d-flex flex-wrap">
-              {tipos.map((tipo) => (
-                <button
-                  key={tipo}
-                  className={`btn btn-sm me-2 mb-2 ${
-                    selectedTipos.includes(tipo)
-                      ? "btn-primary"
-                      : "btn-outline-primary"
-                  }`}
-                  onClick={() => toggleTipo(tipo)}
-                >
-                  {tipo}
-                </button>
-              ))}
-            </div>
+          <div className="col-md-8 d-flex flex-wrap">
+            {tipos.map((tipo) => (
+              <button
+                key={tipo}
+                className={`btn btn-sm me-2 mb-2 ${
+                  selectedTipos.includes(tipo)
+                    ? "btn-primary"
+                    : "btn-outline-primary"
+                }`}
+                onClick={() => toggleTipo(tipo)}
+              >
+                {tipo}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -189,35 +163,49 @@ export default function AgreementsList({
       ) : filtered.length === 0 ? (
         <p className="text-center text-muted">No se encontraron convenios.</p>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-hover align-middle">
-            <thead className="table-primary">
+        <div
+          className="table-responsive shadow-sm"
+          style={{
+            maxHeight: "600px",
+            overflowX: "auto",
+            borderRadius: "10px",
+            border: "1px solid #ddd",
+          }}
+        >
+          <table
+            className="table table-bordered align-middle table-hover"
+            style={{
+              fontSize: "0.9rem",
+              whiteSpace: "nowrap",
+              textAlign: "center",
+            }}
+          >
+            <thead
+              className="table-primary sticky-top"
+              style={{ top: 0, zIndex: 1 }}
+            >
               <tr>
-                <th>Nombre</th>
+                <th style={{ minWidth: "250px" }}>Nombre</th>
                 <th>Tipo</th>
                 <th>Subtipo Docente</th>
                 <th>País</th>
                 <th>Resolución Rectoral</th>
                 <th>Duración (años)</th>
-                <th>Objetivos</th>
+                <th style={{ minWidth: "300px" }}>Objetivos</th>
                 <th>Fecha Firma</th>
-                <th>Acciones</th>
+                <th style={{ minWidth: "350px" }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((a) => (
                 <tr key={a.id}>
-                  <td className="fw-semibold">{a.name}</td>
-                  <td>
-                    {a.convenio
-                      ? a.convenio.charAt(0).toUpperCase() + a.convenio.slice(1)
-                      : "-"}
-                  </td>
+                  <td style={{ textAlign: "left" }}>{a.name}</td>
+                  <td>{a.convenio || "-"}</td>
                   <td>{a.sub_tipo_docente || "-"}</td>
                   <td>{a.pais || "-"}</td>
                   <td>{a["Resolución Rectoral"] || "-"}</td>
                   <td>{a.duration_years}</td>
-                  <td style={{ maxWidth: "250px", whiteSpace: "pre-wrap" }}>
+                  <td style={{ textAlign: "left", whiteSpace: "normal" }}>
                     {a.objetivos || "-"}
                   </td>
                   <td>
@@ -225,43 +213,48 @@ export default function AgreementsList({
                       ? new Date(a.signature_date).toLocaleDateString("es-PE")
                       : "-"}
                   </td>
-                  <td className="d-flex flex-wrap gap-2">
-                    {role === "admin" && (
-                      <>
-                        <button
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => onEdit(a)}
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => handleDelete(a.id, a.name)}
-                        >
-                          🗑️ Eliminar
-                        </button>
-                      </>
-                    )}
-                    <button
-                      className="btn btn-outline-success btn-sm"
-                      onClick={() => onOpenContraprestaciones(a.id)}
+                  <td>
+                    <div
+                      className="d-flex justify-content-center flex-wrap gap-2"
+                      style={{ minWidth: "330px" }}
                     >
-                      📋 Programar
-                    </button>
-                    <button
-                      className="btn btn-outline-info btn-sm"
-                      onClick={() => onOpenEvidencias(a.id)}
-                    >
-                      📂 Cumplimiento
-                    </button>
-                    <button
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() =>
-                        (window.location.href = `/informe/${a.id}`)
-                      }
-                    >
-                      📝 Informe
-                    </button>
+                      {role === "admin" && (
+                        <>
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => onEdit(a)}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDelete(a.id, a.name)}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </>
+                      )}
+                      <button
+                        className="btn btn-sm btn-outline-success"
+                        onClick={() => onOpenContraprestaciones(a.id)}
+                      >
+                        📋 Programar
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-info"
+                        onClick={() => onOpenEvidencias(a.id)}
+                      >
+                        📂 Cumplimiento
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() =>
+                          (window.location.href = `/informe/${a.id}`)
+                        }
+                      >
+                        📝 Informe
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -269,19 +262,10 @@ export default function AgreementsList({
           </table>
         </div>
       )}
-
-      {showInformeModal && selectedConvenio && (
-        <InformeSemestralModal
-          convenioId={selectedConvenio.id}
-          onClose={() => {
-            setShowInformeModal(false);
-            setSelectedConvenio(null);
-          }}
-        />
-      )}
     </div>
   );
 }
+
 
 
 
