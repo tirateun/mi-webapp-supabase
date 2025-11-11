@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import Select from "react-select";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsFormProps {
@@ -14,37 +13,23 @@ export default function AgreementsForm({
   onCancel,
 }: AgreementsFormProps) {
   const [name, setName] = useState(existingAgreement?.name || "");
-  const [internalResponsibles, setInternalResponsibles] = useState<any[]>([]);
-  const [selectedInternals, setSelectedInternals] = useState<any[]>([]);
-  const [externalResponsible, setExternalResponsible] = useState(
-    existingAgreement?.external_responsible || ""
-  );
-  const [signatureDate, setSignatureDate] = useState(
-    existingAgreement?.signature_date || ""
-  );
-  const [durationYears, setDurationYears] = useState(
-    existingAgreement?.duration_years || 1
-  );
-  const [tipoConvenio, setTipoConvenio] = useState(
-    existingAgreement?.convenio || "marco"
-  );
-  const [resolucion, setResolucion] = useState(
-    existingAgreement?.["Resolución Rectoral"] || ""
-  );
+  const [internalResponsible, setInternalResponsible] = useState(existingAgreement?.internal_responsible || "");
+  const [externalResponsible, setExternalResponsible] = useState(existingAgreement?.external_responsible || "");
+  const [signatureDate, setSignatureDate] = useState(existingAgreement?.signature_date || "");
+  const [durationYears, setDurationYears] = useState(existingAgreement?.duration_years || 1);
+  const [tipoConvenio, setTipoConvenio] = useState(existingAgreement?.convenio || "marco");
+  const [resolucion, setResolucion] = useState(existingAgreement?.["Resolución Rectoral"] || "");
   const [pais, setPais] = useState(existingAgreement?.pais || "");
   const [objetivos, setObjetivos] = useState(existingAgreement?.objetivos || "");
-  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(
-    existingAgreement?.tipo_convenio || []
-  );
-  const [subTipoDocente, setSubTipoDocente] = useState(
-    existingAgreement?.sub_tipo_docente || ""
-  );
+  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || []);
+  const [subTipoDocente, setSubTipoDocente] = useState(existingAgreement?.sub_tipo_docente || "");
+
+  const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<string[]>([]);
 
-  // Listas estáticas
   const tipos = [
     "Docente Asistencial",
     "Cooperación técnica",
@@ -63,9 +48,6 @@ export default function AgreementsForm({
     "POSTGRADO 2DA ESPECIALIDAD NUTRICIÓN PALIATIVA",
   ];
 
-  // ===============================
-  // CARGA INICIAL
-  // ===============================
   useEffect(() => {
     fetchResponsables();
     fetchPaises();
@@ -73,23 +55,13 @@ export default function AgreementsForm({
 
     if (existingAgreement?.id) {
       fetchAreasVinculadas(existingAgreement.id);
-      fetchInternalResponsibles(existingAgreement.id);
     }
   }, []);
 
-  // ===============================
-  // FETCH DATA
-  // ===============================
   const fetchResponsables = async () => {
-    const { data: internosData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "internal");
-    const { data: externosData } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("role", "external");
-    setInternalResponsibles(internosData || []);
+    const { data: internosData } = await supabase.from("profiles").select("id, full_name").eq("role", "internal");
+    const { data: externosData } = await supabase.from("profiles").select("id, full_name").eq("role", "external");
+    setInternos(internosData || []);
     setExternos(externosData || []);
   };
 
@@ -119,9 +91,7 @@ export default function AgreementsForm({
   };
 
   const fetchAreas = async () => {
-    const { data, error } = await supabase
-      .from("areas_vinculadas")
-      .select("id, nombre");
+    const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
     if (!error && data) setAreas(data);
   };
 
@@ -133,24 +103,6 @@ export default function AgreementsForm({
     if (data) setAreasSeleccionadas(data.map((a) => a.area_vinculada_id));
   };
 
-  const fetchInternalResponsibles = async (agreementId: string) => {
-    const { data } = await supabase
-      .from("agreement_internal_responsibles")
-      .select("internal_responsible_id")
-      .eq("agreement_id", agreementId);
-    if (data && data.length > 0) {
-      const seleccionados = internalResponsibles
-        .filter((r) =>
-          data.some((d) => d.internal_responsible_id === r.id)
-        )
-        .map((r) => ({ value: r.id, label: r.full_name }));
-      setSelectedInternals(seleccionados);
-    }
-  };
-
-  // ===============================
-  // HANDLERS
-  // ===============================
   const handleTipoChange = (tipo: string) => {
     if (tipoSeleccionados.includes(tipo)) {
       setTipoSeleccionados(tipoSeleccionados.filter((t) => t !== tipo));
@@ -188,16 +140,16 @@ export default function AgreementsForm({
       return;
     }
 
-    const convenioNormalizado = tipoConvenio
-      .toLowerCase()
-      .includes("marco")
-      ? "marco"
-      : tipoConvenio.toLowerCase().includes("espec")
-      ? "específico"
-      : tipoConvenio;
+    const convenioNormalizado =
+      tipoConvenio.toLowerCase().includes("marco")
+        ? "marco"
+        : tipoConvenio.toLowerCase().includes("espec")
+        ? "específico"
+        : tipoConvenio;
 
     const dataToSave = {
       name,
+      internal_responsible: internalResponsible,
       external_responsible: externalResponsible,
       signature_date: signatureDate,
       duration_years: durationYears,
@@ -237,41 +189,22 @@ export default function AgreementsForm({
       return;
     }
 
+    // Guardar áreas vinculadas
     if (agreementId) {
-      // Guardar áreas vinculadas
-      await supabase
-        .from("agreement_areas_vinculadas")
-        .delete()
-        .eq("agreement_id", agreementId);
-      const registrosAreas = areasSeleccionadas.map((areaId) => ({
+      await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
+      const registros = areasSeleccionadas.map((areaId) => ({
         agreement_id: agreementId,
         area_vinculada_id: areaId,
       }));
-      if (registrosAreas.length > 0)
-        await supabase.from("agreement_areas_vinculadas").insert(registrosAreas);
-
-      // Guardar responsables internos
-      await supabase
-        .from("agreement_internal_responsibles")
-        .delete()
-        .eq("agreement_id", agreementId);
-      const registrosInternos = selectedInternals.map((r) => ({
-        agreement_id: agreementId,
-        internal_responsible_id: r.value,
-      }));
-      if (registrosInternos.length > 0)
-        await supabase
-          .from("agreement_internal_responsibles")
-          .insert(registrosInternos);
+      if (registros.length > 0) {
+        await supabase.from("agreement_areas_vinculadas").insert(registros);
+      }
     }
 
     alert("✅ Convenio guardado correctamente");
     onSave();
   };
 
-  // ===============================
-  // RENDER
-  // ===============================
   return (
     <div className="container mt-5" style={{ maxWidth: "850px" }}>
       <div className="card shadow-lg p-4 border-0" style={{ borderRadius: "16px" }}>
@@ -280,7 +213,7 @@ export default function AgreementsForm({
         </h3>
 
         <form onSubmit={handleSubmit}>
-          {/* Nombre */}
+          {/* NOMBRE */}
           <div className="mb-3">
             <label>Nombre del convenio</label>
             <input
@@ -291,20 +224,22 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* Responsables */}
+          {/* RESPONSABLES */}
           <div className="row">
             <div className="col-md-6 mb-3">
-              <label>Responsables Internos (uno o más)</label>
-              <Select
-                isMulti
-                options={internalResponsibles.map((p) => ({
-                  value: p.id,
-                  label: p.full_name,
-                }))}
-                value={selectedInternals}
-                onChange={(selected) => setSelectedInternals(selected || [])}
-                placeholder="Buscar y seleccionar responsables..."
-              />
+              <label>Responsable Interno</label>
+              <select
+                className="form-select"
+                value={internalResponsible}
+                onChange={(e) => setInternalResponsible(e.target.value)}
+              >
+                <option value="">Seleccione</option>
+                {internos.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.full_name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="col-md-6 mb-3">
               <label>Responsable Externo</label>
@@ -323,7 +258,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* Fecha, duración y tipo */}
+          {/* FECHA, DURACIÓN, CONVENIO */}
           <div className="row">
             <div className="col-md-4 mb-3">
               <label>Fecha de firma</label>
@@ -361,7 +296,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* Resolución rectoral */}
+          {/* RESOLUCIÓN Y PAÍS */}
           <div className="mb-3">
             <label>Resolución Rectoral</label>
             <input
@@ -371,8 +306,6 @@ export default function AgreementsForm({
               placeholder="Ingrese número de resolución"
             />
           </div>
-
-          {/* País */}
           <div className="mb-3">
             <label>País</label>
             <select
@@ -389,7 +322,7 @@ export default function AgreementsForm({
             </select>
           </div>
 
-          {/* Tipos de convenio */}
+          {/* TIPOS DE CONVENIO */}
           <div className="mb-4">
             <label>Tipos de convenio</label>
             <div className="border rounded p-3 bg-light">
@@ -407,7 +340,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* Subtipo docente */}
+          {/* SUBTIPOS DOCENTE */}
           {tipoSeleccionados.includes("Docente Asistencial") && (
             <div className="mb-4">
               <label>Subtipo Docente Asistencial</label>
@@ -426,7 +359,7 @@ export default function AgreementsForm({
             </div>
           )}
 
-          {/* Objetivos */}
+          {/* OBJETIVOS */}
           <div className="mb-4">
             <label>Objetivos del convenio</label>
             <textarea
@@ -438,7 +371,7 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* Áreas vinculadas */}
+          {/* 🔹 ÁREAS VINCULADAS */}
           <div className="mb-4">
             <label>Áreas vinculadas</label>
             <div className="border rounded p-3 bg-light">
@@ -460,13 +393,9 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* Botones */}
+          {/* BOTONES */}
           <div className="d-flex justify-content-end">
-            <button
-              type="button"
-              className="btn btn-secondary me-3"
-              onClick={onCancel}
-            >
+            <button type="button" className="btn btn-secondary me-3" onClick={onCancel}>
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary">
@@ -478,7 +407,6 @@ export default function AgreementsForm({
     </div>
   );
 }
-
 
 
 
