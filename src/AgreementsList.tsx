@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import InformeSemestralModal from "./InformeSemestralModal";
 
 interface AgreementsListProps {
   user: any;
@@ -45,27 +44,58 @@ export default function AgreementsList({
   const fetchAgreements = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("agreements")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let visible: any[] = [];
 
-      if (["internal", "interno"].includes(role)) {
-        query = query.eq("internal_responsible", user.id);
-      } else if (["external", "externo"].includes(role)) {
-        query = query.eq("external_responsible", user.id);
+      // 🔹 ADMIN: ve todos
+      if (["admin", "Admin", "Administrador"].includes(role)) {
+        const { data, error } = await supabase
+          .from("agreements")
+          .select("*")
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        visible = data || [];
       }
 
-      const { data, error } = await query;
-      if (error) {
-        console.error("Error al cargar convenios:", error);
-        alert("Error al cargar convenios. Revisa consola.");
-      } else {
-        setAgreements(data || []);
-        setFiltered(data || []);
+      // 🔹 INTERNO: busca en la tabla intermedia
+      else if (["internal", "interno"].includes(role)) {
+        const { data: vinculos, error: err1 } = await supabase
+          .from("agreement_internal_responsibles")
+          .select("agreement_id")
+          .eq("internal_responsible_id", user.id);
+
+        if (err1) throw err1;
+
+        const ids = vinculos.map((v) => v.agreement_id);
+
+        if (ids.length > 0) {
+          const { data, error } = await supabase
+            .from("agreements")
+            .select("*")
+            .in("id", ids)
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          visible = data || [];
+        } else {
+          visible = [];
+        }
       }
+
+      // 🔹 EXTERNO: ve convenios donde figura como responsable externo
+      else if (["external", "externo"].includes(role)) {
+        const { data, error } = await supabase
+          .from("agreements")
+          .select("*")
+          .eq("external_responsible", user.id)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        visible = data || [];
+      }
+
+      setAgreements(visible);
+      setFiltered(visible);
     } catch (err) {
-      console.error("Error inesperado:", err);
+      console.error("❌ Error al cargar convenios:", err);
+      alert("Error al cargar convenios. Ver consola.");
     } finally {
       setLoading(false);
     }
@@ -73,26 +103,23 @@ export default function AgreementsList({
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`¿Eliminar el convenio "${name}"?`)) return;
-
     try {
       const { error } = await supabase.from("agreements").delete().eq("id", id);
-      if (error) {
-        console.error(error);
-        alert("❌ Error al eliminar: " + error.message);
-      } else {
-        setAgreements((prev) => prev.filter((a) => a.id !== id));
-        setFiltered((prev) => prev.filter((a) => a.id !== id));
-        alert("✅ Convenio eliminado correctamente");
-      }
+      if (error) throw error;
+      setAgreements((prev) => prev.filter((a) => a.id !== id));
+      setFiltered((prev) => prev.filter((a) => a.id !== id));
+      alert("✅ Convenio eliminado correctamente");
     } catch (err) {
       console.error(err);
-      alert("❌ Error inesperado al eliminar");
+      alert("❌ Error al eliminar convenio");
     }
   };
 
   const toggleTipo = (tipo: string) => {
     setSelectedTipos((prev) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+      prev.includes(tipo)
+        ? prev.filter((t) => t !== tipo)
+        : [...prev, tipo]
     );
   };
 
@@ -117,10 +144,8 @@ export default function AgreementsList({
   return (
     <div className="container mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className="fw-bold text-primary">
-          📄 Lista de Convenios
-        </h3>
-        {role === "admin" && (
+        <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
+        {["admin", "Admin", "Administrador"].includes(role) && (
           <button className="btn btn-success shadow-sm" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
@@ -216,12 +241,9 @@ export default function AgreementsList({
                   <td>
                     <div
                       className="d-flex justify-content-center align-items-center flex-wrap gap-2"
-                      style={{
-                        minWidth: "420px",
-                        gap: "8px",
-                      }}
+                      style={{ minWidth: "420px", gap: "8px" }}
                     >
-                      {role === "admin" && (
+                      {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
                           <button
                             className="btn btn-sm btn-outline-secondary d-flex align-items-center"
@@ -256,7 +278,7 @@ export default function AgreementsList({
                       <button
                         className="btn btn-sm btn-outline-primary d-flex align-items-center"
                         style={{ minWidth: "120px" }}
-                        onClick={() => (window.location.href = `/informe/${a.id}`)}
+                        onClick={() => onOpenInforme(a.id)}
                       >
                         📝 Informe
                       </button>
@@ -271,6 +293,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
