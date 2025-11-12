@@ -72,9 +72,15 @@ export default function AgreementsForm({
 
     if (existingAgreement?.id) {
       fetchAreasVinculadas(existingAgreement.id);
-      fetchResponsablesInternos(existingAgreement.id);
     }
   }, []);
+
+  // 🧩 Nuevo useEffect: asegura que los responsables internos se carguen cuando ya existan los "internos"
+  useEffect(() => {
+    if (internos.length > 0 && existingAgreement?.id) {
+      fetchResponsablesInternos(existingAgreement.id);
+    }
+  }, [internos]);
 
   const fetchResponsables = async () => {
     const { data: internosData } = await supabase
@@ -94,10 +100,11 @@ export default function AgreementsForm({
       .from("agreement_internal_responsibles")
       .select("internal_responsible_id")
       .eq("agreement_id", agreementId);
-    if (data) {
-      const seleccionados = internos.filter((i) =>
-        data.some((r) => r.internal_responsible_id === i.id)
-      );
+
+    if (data && internos.length > 0) {
+      const seleccionados = internos
+        .filter((i) => data.some((r) => r.internal_responsible_id === i.id))
+        .map((i) => ({ value: i.id, label: i.full_name }));
       setSelectedInternals(seleccionados);
     }
   };
@@ -228,8 +235,8 @@ export default function AgreementsForm({
       return;
     }
 
-    // Guardar responsables internos
     if (agreementId) {
+      // Guardar responsables internos
       await supabase
         .from("agreement_internal_responsibles")
         .delete()
@@ -273,7 +280,6 @@ export default function AgreementsForm({
         </h3>
 
         <form onSubmit={handleSubmit}>
-          {/* NOMBRE */}
           <div className="mb-3">
             <label>Nombre del convenio</label>
             <input
@@ -284,7 +290,6 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* RESPONSABLES */}
           <div className="row">
             <div className="col-md-6 mb-3">
               <label>Responsables Internos (uno o más)</label>
@@ -296,7 +301,7 @@ export default function AgreementsForm({
                 }))}
                 value={selectedInternals}
                 onChange={(val: MultiValue<any>) =>
-                  setSelectedInternals([...val])
+                  setSelectedInternals(Array.from(val))
                 }
                 placeholder="Buscar y seleccionar responsables internos"
               />
@@ -471,6 +476,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
