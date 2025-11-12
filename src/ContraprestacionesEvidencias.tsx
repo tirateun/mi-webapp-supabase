@@ -70,13 +70,6 @@ export default function ContraprestacionesEvidencias({
 
       if (errSeg) throw errSeg;
 
-      const { data: detalles, error: errDet } = await supabase
-        .from("contraprestaciones")
-        .select("id, tipo, descripcion")
-        .in("id", ids);
-
-      if (errDet) throw errDet;
-
       const uniqueSeguimientos = Array.from(
         new Map(rawSeguimientos.map((s: any) => [s.id, s])).values()
       );
@@ -105,13 +98,8 @@ export default function ContraprestacionesEvidencias({
   };
 
   const handleToggleEjecutado = async (s: ContraprestacionSeguimiento) => {
-    if (!(role === "admin" || role === "internal" || role === "interno")) {
-      alert("No tienes permisos para cambiar el estado de cumplimiento.");
-      return;
-    }
-
-    if (s.evidencia_url && role !== "admin") {
-      alert("No puedes desmarcar una contraprestación que ya tiene evidencia (solo admin).");
+    if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
+      alert("Solo los administradores pueden cambiar el estado de cumplimiento.");
       return;
     }
 
@@ -145,6 +133,11 @@ export default function ContraprestacionesEvidencias({
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: ContraprestacionSeguimiento) => {
+    if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
+      alert("Solo los administradores pueden subir evidencias.");
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -182,9 +175,7 @@ export default function ContraprestacionesEvidencias({
     }
   };
 
-  const formatAnio = (anio: number) => {
-    return `${anio}° año`;
-  };
+  const formatAnio = (anio: number) => `${anio}° año`;
 
   if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
 
@@ -209,7 +200,9 @@ export default function ContraprestacionesEvidencias({
                 <th>Descripción</th>
                 <th>Estado</th>
                 <th>Evidencia</th>
-                <th>Acciones</th>
+                {role === "admin" || role === "Admin" || role === "Administrador" ? (
+                  <th>Acciones</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -217,7 +210,9 @@ export default function ContraprestacionesEvidencias({
                 <tr key={s.id}>
                   <td>{formatAnio(s.año)}</td>
                   <td>{s.contraprestacion?.tipo ?? "-"}</td>
-                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
+                  <td style={{ maxWidth: 320, whiteSpace: "pre-wrap" }}>
+                    {s.contraprestacion?.descripcion ?? "-"}
+                  </td>
                   <td>
                     {s.estado === "Cumplido" ? (
                       <span className="badge bg-success">Cumplido</span>
@@ -234,24 +229,28 @@ export default function ContraprestacionesEvidencias({
                       <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">
                         📎 Ver PDF
                       </a>
-                    ) : (
+                    ) : role === "admin" || role === "Admin" || role === "Administrador" ? (
                       <input
                         type="file"
                         accept="application/pdf"
                         disabled={uploadingId === s.id}
                         onChange={(e) => handleFileUpload(e, s)}
                       />
+                    ) : (
+                      <span className="text-muted">Sin evidencia</span>
                     )}
                   </td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={s.ejecutado}
-                      onChange={() => handleToggleEjecutado(s)}
-                      disabled={uploadingId === s.id || !(role === "admin" || role === "Admin" || role === "Administrador")}
-                    />
-                    {uploadingId === s.id && <small> Subiendo...</small>}
-                  </td>
+                  {role === "admin" || role === "Admin" || role === "Administrador" ? (
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={s.ejecutado}
+                        onChange={() => handleToggleEjecutado(s)}
+                        disabled={uploadingId === s.id}
+                      />
+                      {uploadingId === s.id && <small> Subiendo...</small>}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
