@@ -30,13 +30,47 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [unidades, setUnidades] = useState(1);
   const [aniosConvenio, setAniosConvenio] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
+  const [puedeEditar, setPuedeEditar] = useState(false);
 
-  // 🔹 Cargar catálogo y contraprestaciones iniciales
+  // 🔹 Cargar permisos y datos iniciales
   useEffect(() => {
+    verificarPermisos();
     fetchCatalogo();
     fetchContraprestaciones();
     fetchDuracionConvenio();
   }, []);
+
+  // 🔹 Verifica si el usuario tiene acceso al convenio
+  const verificarPermisos = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+    if (!userId) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (!profile) return;
+
+    if (["admin", "Admin", "Administrador"].includes(profile.role)) {
+      setPuedeEditar(true);
+      return;
+    }
+
+    // Verificar si es responsable interno del convenio
+    const { data: vinculo } = await supabase
+      .from("agreement_internal_responsibles")
+      .select("id")
+      .eq("agreement_id", agreementId)
+      .eq("internal_responsible_id", userId)
+      .maybeSingle();
+
+    if (vinculo) {
+      setPuedeEditar(true);
+    }
+  };
 
   // 🔹 Cargar catálogo desde tabla
   const fetchCatalogo = async () => {
@@ -84,7 +118,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
-  // 🔹 Registrar nueva contraprestación (sin seleccionar año manualmente)
+  // 🔹 Registrar nueva contraprestación
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -100,7 +134,6 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
       : tipo;
 
-    // ✅ Inserta contraprestación
     const { data: inserted, error } = await supabase
       .from("contraprestaciones")
       .insert([
@@ -121,7 +154,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       return;
     }
 
-    // ✅ Crear seguimiento automático por cada año del convenio
+    // Crear seguimiento automático por cada año del convenio
     if (inserted && aniosConvenio.length > 0) {
       const seguimientoData = aniosConvenio.map((a, i) => ({
         contraprestacion_id: inserted.id,
@@ -170,55 +203,63 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
           </button>
         </div>
 
-        {/* Formulario */}
-        <form onSubmit={handleSubmit} className="mb-4">
-          <div className="row">
-            <div className="col-md-6 mb-3">
-              <label className="fw-semibold">Tipo de contraprestación</label>
-              <select
-                className="form-select"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value)}
-                required
-              >
-                <option value="">Seleccione...</option>
-                {tipos.map((t) => (
-                  <option key={t.id} value={t.nombre}>
-                    {t.nombre} ({t.unidad})
-                  </option>
-                ))}
-              </select>
-            </div>
+        {puedeEditar ? (
+          <>
+            {/* Formulario */}
+            <form onSubmit={handleSubmit} className="mb-4">
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label className="fw-semibold">Tipo de contraprestación</label>
+                  <select
+                    className="form-select"
+                    value={tipo}
+                    onChange={(e) => setTipo(e.target.value)}
+                    required
+                  >
+                    <option value="">Seleccione...</option>
+                    {tipos.map((t) => (
+                      <option key={t.id} value={t.nombre}>
+                        {t.nombre} ({t.unidad})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="col-md-6 mb-3">
-              <label className="fw-semibold">Unidades comprometidas</label>
-              <input
-                type="number"
-                className="form-control"
-                min={1}
-                value={unidades}
-                onChange={(e) => setUnidades(Number(e.target.value))}
-              />
-            </div>
-          </div>
+                <div className="col-md-6 mb-3">
+                  <label className="fw-semibold">Unidades comprometidas</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    min={1}
+                    value={unidades}
+                    onChange={(e) => setUnidades(Number(e.target.value))}
+                  />
+                </div>
+              </div>
 
-          <div className="mb-3">
-            <label className="fw-semibold">Descripción / Detalle</label>
-            <textarea
-              className="form-control"
-              rows={2}
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Ejemplo: 2 becas del 50% para maestría en salud pública"
-            />
-          </div>
+              <div className="mb-3">
+                <label className="fw-semibold">Descripción / Detalle</label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Ejemplo: 2 becas del 50% para maestría en salud pública"
+                />
+              </div>
 
-          <div className="d-flex justify-content-end">
-            <button type="submit" className="btn btn-primary px-4" disabled={loading}>
-              {loading ? "Guardando..." : "Guardar Contraprestación"}
-            </button>
-          </div>
-        </form>
+              <div className="d-flex justify-content-end">
+                <button type="submit" className="btn btn-primary px-4" disabled={loading}>
+                  {loading ? "Guardando..." : "Guardar Contraprestación"}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <p className="text-muted fst-italic mb-4">
+            ⚠️ No tienes permisos para registrar contraprestaciones. Solo puedes visualizarlas.
+          </p>
+        )}
 
         {/* Lista */}
         <h5 className="fw-bold text-secondary mt-4">📋 Contraprestaciones registradas</h5>
@@ -232,7 +273,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                   <th>Tipo</th>
                   <th>Descripción</th>
                   <th>Unidades</th>
-                  <th>Acciones</th>
+                  {puedeEditar && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -241,14 +282,16 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                     <td>{c.tipo}</td>
                     <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
                     <td>{c.unidades_comprometidas}</td>
-                    <td>
-                      <button
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => handleDelete(c.id)}
-                      >
-                        🗑️
-                      </button>
-                    </td>
+                    {puedeEditar && (
+                      <td>
+                        <button
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => handleDelete(c.id)}
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -259,6 +302,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     </div>
   );
 }
+
+
 
 
 
