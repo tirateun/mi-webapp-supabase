@@ -66,21 +66,15 @@ export default function AgreementsForm({
   ];
 
   useEffect(() => {
-    fetchResponsables();
+    fetchResponsables().then(() => {
+      if (existingAgreement?.id) {
+        fetchAreasVinculadas(existingAgreement.id);
+        fetchResponsablesInternos(existingAgreement.id);
+      }
+    });
     fetchPaises();
     fetchAreas();
-
-    if (existingAgreement?.id) {
-      fetchAreasVinculadas(existingAgreement.id);
-    }
   }, []);
-
-  // 🧩 Nuevo useEffect: asegura que los responsables internos se carguen cuando ya existan los "internos"
-  useEffect(() => {
-    if (internos.length > 0 && existingAgreement?.id) {
-      fetchResponsablesInternos(existingAgreement.id);
-    }
-  }, [internos]);
 
   const fetchResponsables = async () => {
     const { data: internosData } = await supabase
@@ -103,7 +97,9 @@ export default function AgreementsForm({
 
     if (data && internos.length > 0) {
       const seleccionados = internos
-        .filter((i) => data.some((r) => r.internal_responsible_id === i.id))
+        .filter((i) =>
+          data.some((r) => r.internal_responsible_id === i.id)
+        )
         .map((i) => ({ value: i.id, label: i.full_name }));
       setSelectedInternals(seleccionados);
     }
@@ -236,22 +232,24 @@ export default function AgreementsForm({
     }
 
     if (agreementId) {
-      // Guardar responsables internos
+      // 🔹 Guardar responsables internos
       await supabase
         .from("agreement_internal_responsibles")
         .delete()
         .eq("agreement_id", agreementId);
+
       const registrosResponsables = selectedInternals.map((r) => ({
         agreement_id: agreementId,
         internal_responsible_id: r.value,
       }));
+
       if (registrosResponsables.length > 0) {
         await supabase
           .from("agreement_internal_responsibles")
           .insert(registrosResponsables);
       }
 
-      // Guardar áreas vinculadas
+      // 🔹 Guardar áreas vinculadas
       await supabase
         .from("agreement_areas_vinculadas")
         .delete()
@@ -280,6 +278,7 @@ export default function AgreementsForm({
         </h3>
 
         <form onSubmit={handleSubmit}>
+          {/* 🔹 NOMBRE */}
           <div className="mb-3">
             <label>Nombre del convenio</label>
             <input
@@ -290,6 +289,7 @@ export default function AgreementsForm({
             />
           </div>
 
+          {/* 🔹 RESPONSABLES */}
           <div className="row">
             <div className="col-md-6 mb-3">
               <label>Responsables Internos (uno o más)</label>
@@ -301,7 +301,7 @@ export default function AgreementsForm({
                 }))}
                 value={selectedInternals}
                 onChange={(val: MultiValue<any>) =>
-                  setSelectedInternals(Array.from(val))
+                  setSelectedInternals([...val])
                 }
                 placeholder="Buscar y seleccionar responsables internos"
               />
@@ -323,7 +323,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* FECHA, DURACIÓN, CONVENIO */}
+          {/* 🔹 FECHA, DURACIÓN, CONVENIO */}
           <div className="row">
             <div className="col-md-4 mb-3">
               <label>Fecha de firma</label>
@@ -361,7 +361,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* RESOLUCIÓN Y PAÍS */}
+          {/* 🔹 RESOLUCIÓN Y PAÍS */}
           <div className="mb-3">
             <label>Resolución Rectoral</label>
             <input
@@ -387,7 +387,7 @@ export default function AgreementsForm({
             </select>
           </div>
 
-          {/* TIPOS DE CONVENIO */}
+          {/* 🔹 TIPOS DE CONVENIO */}
           <div className="mb-4">
             <label>Tipos de convenio</label>
             <div className="border rounded p-3 bg-light">
@@ -405,7 +405,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* SUBTIPOS DOCENTE */}
+          {/* 🔹 SUBTIPO DOCENTE */}
           {tipoSeleccionados.includes("Docente Asistencial") && (
             <div className="mb-4">
               <label>Subtipo Docente Asistencial</label>
@@ -424,7 +424,7 @@ export default function AgreementsForm({
             </div>
           )}
 
-          {/* OBJETIVOS */}
+          {/* 🔹 OBJETIVOS */}
           <div className="mb-4">
             <label>Objetivos del convenio</label>
             <textarea
@@ -436,7 +436,7 @@ export default function AgreementsForm({
             />
           </div>
 
-          {/* ÁREAS VINCULADAS */}
+          {/* 🔹 ÁREAS VINCULADAS */}
           <div className="mb-4">
             <label>Áreas vinculadas</label>
             <div className="border rounded p-3 bg-light">
@@ -458,7 +458,7 @@ export default function AgreementsForm({
             </div>
           </div>
 
-          {/* BOTONES */}
+          {/* 🔹 BOTONES */}
           <div className="d-flex justify-content-end">
             <button
               type="button"
@@ -476,6 +476,7 @@ export default function AgreementsForm({
     </div>
   );
 }
+
 
 
 
