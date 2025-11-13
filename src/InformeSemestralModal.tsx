@@ -21,7 +21,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
       try {
         const { data: convenio, error } = await supabase
           .from("agreements")
-          .select("fecha_firma, duracion_anios")
+          .select("signature_date, duration_years")
           .eq("id", convenioId)
           .maybeSingle();
 
@@ -30,8 +30,8 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
           return;
         }
 
-        const fechaFirma = new Date(convenio.fecha_firma);
-        const duracionAnios = convenio.duracion_anios || 3; // por defecto 3 años si no existe el campo
+        const fechaFirma = new Date(convenio.signature_date);
+        const duracionAnios = convenio.duration_years || 3; // por defecto 3 años si no existe el campo
 
         const periodos: string[] = [];
         let inicio = new Date(fechaFirma);
