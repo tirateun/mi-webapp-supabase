@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface InformeSemestralModalProps {
@@ -13,6 +13,55 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
   const [loading, setLoading] = useState(false);
+  const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
+
+  // 🔹 Cargar los periodos dinámicos desde la fecha de firma
+  useEffect(() => {
+    const fetchPeriodoData = async () => {
+      try {
+        const { data: convenio, error } = await supabase
+          .from("agreements")
+          .select("fecha_firma, duracion_anios")
+          .eq("id", convenioId)
+          .maybeSingle();
+
+        if (error || !convenio) {
+          console.error("Error al cargar convenio:", error);
+          return;
+        }
+
+        const fechaFirma = new Date(convenio.fecha_firma);
+        const duracionAnios = convenio.duracion_anios || 3; // por defecto 3 años si no existe el campo
+
+        const periodos: string[] = [];
+        let inicio = new Date(fechaFirma);
+
+        for (let i = 1; i <= duracionAnios * 2; i++) {
+          const fin = new Date(inicio);
+          fin.setMonth(fin.getMonth() + 6);
+
+          const label = `${inicio.toLocaleDateString("es-PE", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })} - ${fin.toLocaleDateString("es-PE", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })} (${Math.ceil(i / 2)}° año)`;
+
+          periodos.push(label);
+          inicio = fin;
+        }
+
+        setPeriodosDisponibles(periodos);
+      } catch (err) {
+        console.error("Error generando periodos:", err);
+      }
+    };
+
+    if (convenioId) fetchPeriodoData();
+  }, [convenioId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +81,26 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
         return;
       }
 
+      // 🔸 Verificar si el usuario ya registró un informe en este mismo periodo
+      const { data: existente, error: errorCheck } = await supabase
+        .from("informes_semestrales")
+        .select("id")
+        .eq("convenio_id", convenioId)
+        .eq("user_id", userId)
+        .eq("periodo", periodo)
+        .maybeSingle();
+
+      if (errorCheck) throw errorCheck;
+
+      if (existente) {
+        alert(
+          "⚠️ Ya registró un informe para este periodo. Comuníquese con la UCRIGP al correo convenios.medicina@unmsm.edu.pe para solicitar rectificación."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 🔸 Insertar nuevo informe
       const { error } = await supabase.from("informes_semestrales").insert([
         {
           convenio_id: convenioId,
@@ -81,6 +150,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
 
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
+              {/* 🔹 Selector dinámico de periodos */}
               <div className="mb-3">
                 <label className="form-label fw-semibold">Periodo</label>
                 <select
@@ -90,13 +160,18 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
                   required
                 >
                   <option value="">Seleccione un periodo</option>
-                  <option value="Primer semestre">Primer semestre (Ene-Jun)</option>
-                  <option value="Segundo semestre">Segundo semestre (Jul-Dic)</option>
+                  {periodosDisponibles.map((p, i) => (
+                    <option key={i} value={p}>
+                      {p}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div className="mb-3">
-                <label className="form-label fw-semibold">Resumen de actividades realizadas *</label>
+                <label className="form-label fw-semibold">
+                  Resumen de actividades realizadas *
+                </label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -108,7 +183,9 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
               </div>
 
               <div className="mb-3">
-                <label className="form-label fw-semibold">Actividades principales</label>
+                <label className="form-label fw-semibold">
+                  Actividades principales
+                </label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -130,7 +207,9 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
               </div>
 
               <div className="mb-3">
-                <label className="form-label fw-semibold">Dificultades encontradas</label>
+                <label className="form-label fw-semibold">
+                  Dificultades encontradas
+                </label>
                 <textarea
                   className="form-control"
                   rows={3}
@@ -164,3 +243,4 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
     </div>
   );
 }
+
