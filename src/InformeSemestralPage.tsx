@@ -1,212 +1,212 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 
 export default function InformeSemestralPage() {
   const { convenioId } = useParams<{ convenioId: string }>();
-  const navigate = useNavigate();
 
-  // 🔒 Estado de usuario y rol
+  // 🔒 Usuario
   const [userRole, setUserRole] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
 
-  // 🔹 Estados del formulario
+  // 🔹 Formulario
   const [periodo, setPeriodo] = useState("");
   const [resumen, setResumen] = useState("");
   const [actividades, setActividades] = useState("");
   const [logros, setLogros] = useState("");
   const [dificultades, setDificultades] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [duracion, setDuracion] = useState<number>(1);
+
+  // 🔹 Periodos dinámicos
   const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
 
-  // 🔹 Estados de informes
+  // 🔹 Informes existentes
   const [informes, setInformes] = useState<any[]>([]);
   const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
   const [mostrarInforme, setMostrarInforme] = useState(false);
   const [editandoInforme, setEditandoInforme] = useState<any | null>(null);
 
-  // 🔒 Solo admin o interno/internal pueden editar/eliminar
-  const puedeEditar = ["admin", "Admin", "Administrador", "interno", "internal"].includes(userRole);
+  // 🔒 Permisos
+  const puedeEditar = ["admin", "Admin", "Administrador"].includes(userRole);
 
-  // 🧩 Obtener rol del usuario desde Supabase
+  // ---------------------------------------------------------
+  // 🔹 Obtener usuario y rol
+  // ---------------------------------------------------------
   useEffect(() => {
-    const fetchUserRole = async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error("No se encontró usuario:", userError);
-        return;
-      }
+    const fetchUser = async () => {
+      const { data: auth } = await supabase.auth.getUser();
 
-      setUserId(user.id);
+      if (!auth?.user) return;
+      setUserId(auth.user.id);
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", user.id)
-        .single();
+        .eq("id", auth.user.id)
+        .maybeSingle();
 
-      if (profileError) {
-        console.error("Error al obtener el rol del usuario:", profileError);
-      } else {
-        setUserRole(profile?.role || "externo");
-      }
+      setUserRole(profile?.role || "externo");
     };
 
-    fetchUserRole();
+    fetchUser();
   }, []);
 
-  // 🔹 Cargar duración del convenio
+  // ---------------------------------------------------------
+  // 🔹 Cargar periodos dinámicos desde agreements.signature_date
+  // ---------------------------------------------------------
   useEffect(() => {
-    const fetchConvenio = async () => {
+    const cargarPeriodos = async () => {
       if (!convenioId) return;
 
       const { data, error } = await supabase
         .from("agreements")
-        .select("duration_years")
+        .select("signature_date, duration_years")
         .eq("id", convenioId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error("Error al obtener duración del convenio:", error);
-      } else {
-        const años = data?.duration_years || 1;
-        setDuracion(años);
-
-        const periodos: string[] = [];
-        for (let i = 1; i <= años; i++) {
-          periodos.push(`Enero-Junio ${i}° año`);
-          periodos.push(`Julio-Diciembre ${i}° año`);
-        }
-        setPeriodosDisponibles(periodos);
+      if (error || !data) {
+        console.error("Error al cargar convenio:", error);
+        return;
       }
+
+      const fechaFirma = new Date(data.signature_date);
+      const duracionAnios = data.duration_years ?? 1;
+
+      const periodos: string[] = [];
+      let inicio = new Date(fechaFirma);
+
+      for (let i = 1; i <= duracionAnios * 2; i++) {
+        const fin = new Date(inicio);
+        fin.setMonth(fin.getMonth() + 6);
+
+        const etiqueta = `${inicio.toLocaleDateString("es-PE")} - ${fin.toLocaleDateString("es-PE")} (${Math.ceil(i / 2)}° año)`;
+
+        periodos.push(etiqueta);
+
+        inicio = fin;
+      }
+
+      setPeriodosDisponibles(periodos);
     };
 
-    fetchConvenio();
+    cargarPeriodos();
   }, [convenioId]);
 
-  // 🔹 Cargar informes existentes
+  // ---------------------------------------------------------
+  // 🔹 Cargar informes registrados
+  // ---------------------------------------------------------
   const fetchInformes = async () => {
     if (!convenioId) return;
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("informes_semestrales")
       .select("*")
       .eq("convenio_id", convenioId)
       .order("created_at", { ascending: false });
 
-    if (error) console.error("Error al cargar informes:", error);
-    else setInformes(data || []);
+    setInformes(data || []);
   };
 
   useEffect(() => {
     fetchInformes();
   }, [convenioId]);
 
-  // 🔹 Guardar o actualizar informe
+  // ---------------------------------------------------------
+  // 🔹 Guardar informe
+  // ---------------------------------------------------------
   const handleGuardar = async () => {
-    if (!convenioId) {
-      alert("❌ No se encontró el ID del convenio.");
-      return;
-    }
-
     if (!periodo) {
-      alert("⚠️ Debes seleccionar un periodo antes de guardar.");
+      alert("Debes seleccionar un periodo.");
       return;
     }
 
-    if (editandoInforme) {
-      const { error } = await supabase
-        .from("informes_semestrales")
-        .update({
-          periodo,
-          resumen,
-          actividades,
-          logros,
-          dificultades,
-          descripcion,
-          updated_at: new Date(),
-        })
-        .eq("id", editandoInforme.id);
+    // ❗ Validar duplicado por usuario
+    const { data: duplicado } = await supabase
+      .from("informes_semestrales")
+      .select("id")
+      .eq("convenio_id", convenioId)
+      .eq("user_id", userId)
+      .eq("periodo", periodo)
+      .maybeSingle();
 
-        if (error) {
-          console.error(error);
-          alert("❌ Error al actualizar: " + error.message);
-        } else {
-          alert("✅ Informe actualizado correctamente");
-          setEditandoInforme(null);
-          fetchInformes();
-        }
-      } else {
-        const { error } = await supabase.from("informes_semestrales").insert([
-          {
-            convenio_id: convenioId,
-            periodo,
-            resumen,
-            actividades,
-            logros,
-            dificultades,
-            descripcion,
-            created_at: new Date(),
-          },
-        ]);
-    
-        if (error) {
-          console.error(error);
-          alert("❌ Error al guardar el informe: " + error.message);
-        } else {
-          alert("✅ Informe guardado correctamente");
-          fetchInformes();
-        }
-      }
-    };
-    
-    // 🔹 Eliminar informe
-    const handleEliminar = async (id: string) => {
-      if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
-    
-      const { error } = await supabase
-        .from("informes_semestrales")
-        .delete()
-        .eq("id", id);
-    
-      if (error) {
-        console.error(error);
-        alert("❌ Error al eliminar informe: " + error.message);
-      } else {
-        alert("✅ Informe eliminado correctamente");
-        fetchInformes();
-      }
-    };
+    if (duplicado) {
+      alert(
+        "⚠️ Ya registraste un informe para este periodo.\n\nComunica a la UCRIGP: convenios.medicina@unmsm.edu.pe"
+      );
+      return;
+    }
 
-  // 🔹 Ver informe
-  const verInforme = (informe: any) => {
-    setUltimoInforme(informe);
+    // Insertar
+    const { error } = await supabase.from("informes_semestrales").insert([
+      {
+        convenio_id: convenioId,
+        user_id: userId,
+        periodo,
+        resumen,
+        actividades,
+        logros,
+        dificultades,
+        descripcion,
+        created_at: new Date(),
+      },
+    ]);
+
+    if (error) {
+      alert("❌ Error al guardar: " + error.message);
+      return;
+    }
+
+    alert("✅ Informe guardado correctamente");
+    fetchInformes();
+  };
+
+  // ---------------------------------------------------------
+  // 🔹 Eliminar informe (solo admin)
+  // ---------------------------------------------------------
+  const handleEliminar = async (id: string) => {
+    if (!puedeEditar) {
+      alert("Solo el administrador puede eliminar informes.");
+      return;
+    }
+
+    if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
+
+    const { error } = await supabase
+      .from("informes_semestrales")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      alert("❌ Error al eliminar: " + error.message);
+      return;
+    }
+
+    alert("🗑️ Informe eliminado");
+    fetchInformes();
+  };
+
+  // ---------------------------------------------------------
+  // 🔹 Ver/Editar informes
+  // ---------------------------------------------------------
+  const verInforme = (inf: any) => {
+    setUltimoInforme(inf);
     setMostrarInforme(true);
   };
 
-  // 🔹 Editar informe
-  const editarInforme = (informe: any) => {
-    setPeriodo(informe.periodo);
-    setResumen(informe.resumen);
-    setActividades(informe.actividades);
-    setLogros(informe.logros);
-    setDificultades(informe.dificultades);
-    setDescripcion(informe.descripcion);
-    setEditandoInforme(informe);
+  const editarInforme = (inf: any) => {
+    setPeriodo(inf.periodo);
+    setResumen(inf.resumen);
+    setActividades(inf.actividades);
+    setLogros(inf.logros);
+    setDificultades(inf.dificultades);
+    setDescripcion(inf.descripcion);
+    setEditandoInforme(inf);
     setMostrarInforme(false);
   };
 
-  // 🔹 Limpiar formulario
-  const limpiarFormulario = () => {
-    setPeriodo("");
-    setResumen("");
-    setActividades("");
-    setLogros("");
-    setDificultades("");
-    setDescripcion("");
-  };
-
+  // ---------------------------------------------------------
+  // 🔹 UI
+  // ---------------------------------------------------------
   return (
     <div
       className="container mt-5"
@@ -243,6 +243,7 @@ export default function InformeSemestralPage() {
                   </select>
                 </td>
               </tr>
+
               <tr>
                 <th>Resumen</th>
                 <td>
@@ -254,6 +255,7 @@ export default function InformeSemestralPage() {
                   />
                 </td>
               </tr>
+
               <tr>
                 <th>Actividades</th>
                 <td>
@@ -265,6 +267,7 @@ export default function InformeSemestralPage() {
                   />
                 </td>
               </tr>
+
               <tr>
                 <th>Logros</th>
                 <td>
@@ -276,6 +279,7 @@ export default function InformeSemestralPage() {
                   />
                 </td>
               </tr>
+
               <tr>
                 <th>Dificultades</th>
                 <td>
@@ -287,6 +291,7 @@ export default function InformeSemestralPage() {
                   />
                 </td>
               </tr>
+
               <tr>
                 <th>Descripción</th>
                 <td>
@@ -301,13 +306,11 @@ export default function InformeSemestralPage() {
             </tbody>
           </table>
 
-          {puedeEditar && (
-            <div className="d-flex justify-content-end mt-4">
-              <button className="btn btn-primary" onClick={handleGuardar}>
-                {editandoInforme ? "💾 Actualizar Informe" : "💾 Guardar Informe"}
-              </button>
-            </div>
-          )}
+          <div className="d-flex justify-content-end mt-4">
+            <button className="btn btn-primary" onClick={handleGuardar}>
+              💾 Guardar Informe
+            </button>
+          </div>
 
           <hr className="my-5" />
           <h4 className="text-primary fw-bold mb-3">📚 Informes Guardados</h4>
@@ -321,6 +324,7 @@ export default function InformeSemestralPage() {
                 <th>Acciones</th>
               </tr>
             </thead>
+
             <tbody>
               {informes.length === 0 ? (
                 <tr>
@@ -343,7 +347,8 @@ export default function InformeSemestralPage() {
                       >
                         👁️ Ver
                       </button>
-                      {puedeEditar && (
+
+                      {puedeEditar ? (
                         <>
                           <button
                             className="btn btn-outline-warning btn-sm me-2"
@@ -358,7 +363,7 @@ export default function InformeSemestralPage() {
                             🗑️ Eliminar
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))
