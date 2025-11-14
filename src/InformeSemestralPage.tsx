@@ -29,13 +29,37 @@ export default function InformeSemestralPage() {
   // 🔒 Permisos
   const puedeEditar = ["admin", "Admin", "Administrador"].includes(userRole);
 
+  // -----------------------
+  // Util helpers fechas
+  // -----------------------
+  const addMonths = (d: Date, months: number) => {
+    const res = new Date(d.getTime());
+    const day = res.getDate();
+    res.setMonth(res.getMonth() + months);
+
+    // Manejo de meses cortos: si cambiamos mes y el día se "recarga" (ej. 31 ene + 1 mes -> 3 mar),
+    // forzamos al último día válido del mes objetivo si pasó.
+    if (res.getDate() < day) {
+      res.setDate(0); // vuelve al último día del mes anterior (efecto buscado)
+    }
+    return res;
+  };
+
+  const addDays = (d: Date, days: number) => {
+    const r = new Date(d.getTime());
+    r.setDate(r.getDate() + days);
+    return r;
+  };
+
+  const formatDate = (d: Date) =>
+    d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" });
+
   // ---------------------------------------------------------
   // 🔹 Obtener usuario y rol
   // ---------------------------------------------------------
   useEffect(() => {
     const fetchUser = async () => {
       const { data: auth } = await supabase.auth.getUser();
-
       if (!auth?.user) return;
       setUserId(auth.user.id);
 
@@ -52,7 +76,7 @@ export default function InformeSemestralPage() {
   }, []);
 
   // ---------------------------------------------------------
-  // 🔹 Cargar periodos dinámicos desde agreements.signature_date
+  // 🔹 Cargar periodos dinámicos desde agreements.signature_date (CORREGIDO)
   // ---------------------------------------------------------
   useEffect(() => {
     const cargarPeriodos = async () => {
@@ -69,21 +93,33 @@ export default function InformeSemestralPage() {
         return;
       }
 
-      const fechaFirma = new Date(data.signature_date);
-      const duracionAnios = data.duration_years ?? 1;
+      // Validar fecha
+      const signature = data.signature_date ? new Date(data.signature_date) : null;
+      if (!signature || isNaN(signature.getTime())) {
+        console.error("signature_date inválida en el convenio:", data.signature_date);
+        return;
+      }
+
+      const duracionAnios: number = Number(data.duration_years ?? 1);
 
       const periodos: string[] = [];
-      let inicio = new Date(fechaFirma);
 
-      for (let i = 1; i <= duracionAnios * 2; i++) {
-        const fin = new Date(inicio);
-        fin.setMonth(fin.getMonth() + 6);
+      // inicio del primer periodo = fecha de firma (mismo día)
+      let inicioPeriodo = new Date(signature);
 
-        const etiqueta = `${inicio.toLocaleDateString("es-PE")} - ${fin.toLocaleDateString("es-PE")} (${Math.ceil(i / 2)}° año)`;
+      // Generamos duracionAnios * 2 periodos (cada periodo = 6 meses)
+      const totalPeriodos = duracionAnios * 2;
+      for (let i = 0; i < totalPeriodos; i++) {
+        // fin = inicio + 6 meses - 1 día
+        const finTentativo = addMonths(inicioPeriodo, 6);
+        const finPeriodo = addDays(finTentativo, -1);
 
+        // etiqueta amigable: "01/11/2025 - 30/04/2026 (1° año)"
+        const etiqueta = `${formatDate(inicioPeriodo)} - ${formatDate(finPeriodo)} (${Math.ceil((i + 1) / 2)}° año)`;
         periodos.push(etiqueta);
 
-        inicio = fin;
+        // siguiente inicio = finPeriodo + 1 día
+        inicioPeriodo = addDays(finPeriodo, 1);
       }
 
       setPeriodosDisponibles(periodos);
@@ -98,13 +134,18 @@ export default function InformeSemestralPage() {
   const fetchInformes = async () => {
     if (!convenioId) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("informes_semestrales")
       .select("*")
       .eq("convenio_id", convenioId)
       .order("created_at", { ascending: false });
 
-    setInformes(data || []);
+    if (error) {
+      console.error("Error al cargar informes:", error);
+      setInformes([]);
+    } else {
+      setInformes(data || []);
+    }
   };
 
   useEffect(() => {
@@ -112,7 +153,7 @@ export default function InformeSemestralPage() {
   }, [convenioId]);
 
   // ---------------------------------------------------------
-  // 🔹 Guardar informe
+  // 🔹 Guardar informe (con verificación de duplicado por user+periodo)
   // ---------------------------------------------------------
   const handleGuardar = async () => {
     if (!periodo) {
@@ -120,8 +161,8 @@ export default function InformeSemestralPage() {
       return;
     }
 
-    // ❗ Validar duplicado por usuario
-    const { data: duplicado } = await supabase
+    // Verificar duplicado por usuario (mismo convenio, mismo periodo, mismo user)
+    const { data: duplicado, error: errDup } = await supabase
       .from("informes_semestrales")
       .select("id")
       .eq("convenio_id", convenioId)
@@ -129,14 +170,19 @@ export default function InformeSemestralPage() {
       .eq("periodo", periodo)
       .maybeSingle();
 
+    if (errDup) {
+      console.error("Error verificando duplicado:", errDup);
+      alert("Ocurrió un error al verificar duplicados.");
+      return;
+    }
+
     if (duplicado) {
       alert(
-        "⚠️ Ya registraste un informe para este periodo.\n\nComunica a la UCRIGP: convenios.medicina@unmsm.edu.pe"
+        "⚠️ Ya registraste un informe para este periodo.\n\nComunica a la UCRIGP: convenios.medicina@unmsm.edu.pe para solicitar rectificación."
       );
       return;
     }
 
-    // Insertar
     const { error } = await supabase.from("informes_semestrales").insert([
       {
         convenio_id: convenioId,
@@ -152,11 +198,19 @@ export default function InformeSemestralPage() {
     ]);
 
     if (error) {
-      alert("❌ Error al guardar: " + error.message);
+      console.error("Error guardando informe:", error);
+      alert("❌ Error al guardar el informe: " + error.message);
       return;
     }
 
     alert("✅ Informe guardado correctamente");
+    // limpiar formulario
+    setPeriodo("");
+    setResumen("");
+    setActividades("");
+    setLogros("");
+    setDificultades("");
+    setDescripcion("");
     fetchInformes();
   };
 
@@ -168,25 +222,20 @@ export default function InformeSemestralPage() {
       alert("Solo el administrador puede eliminar informes.");
       return;
     }
-
     if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
 
-    const { error } = await supabase
-      .from("informes_semestrales")
-      .delete()
-      .eq("id", id);
-
+    const { error } = await supabase.from("informes_semestrales").delete().eq("id", id);
     if (error) {
-      alert("❌ Error al eliminar: " + error.message);
+      console.error("Error eliminando informe:", error);
+      alert("❌ Error al eliminar informe: " + error.message);
       return;
     }
-
-    alert("🗑️ Informe eliminado");
+    alert("✅ Informe eliminado correctamente");
     fetchInformes();
   };
 
   // ---------------------------------------------------------
-  // 🔹 Ver/Editar informes
+  // Ver/Editar informes
   // ---------------------------------------------------------
   const verInforme = (inf: any) => {
     setUltimoInforme(inf);
@@ -205,7 +254,7 @@ export default function InformeSemestralPage() {
   };
 
   // ---------------------------------------------------------
-  // 🔹 UI
+  // UI
   // ---------------------------------------------------------
   return (
     <div
@@ -218,9 +267,7 @@ export default function InformeSemestralPage() {
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
       }}
     >
-      <h2 className="text-center mb-4 text-primary fw-bold">
-        📝 Informe Semestral de Convenio
-      </h2>
+      <h2 className="text-center mb-4 text-primary fw-bold">📝 Informe Semestral de Convenio</h2>
 
       {!mostrarInforme ? (
         <>
@@ -229,11 +276,7 @@ export default function InformeSemestralPage() {
               <tr>
                 <th style={{ width: "25%" }}>Periodo</th>
                 <td>
-                  <select
-                    className="form-select"
-                    value={periodo}
-                    onChange={(e) => setPeriodo(e.target.value)}
-                  >
+                  <select className="form-select" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
                     <option value="">Seleccione un periodo</option>
                     {periodosDisponibles.map((p, i) => (
                       <option key={i} value={p}>
@@ -247,60 +290,35 @@ export default function InformeSemestralPage() {
               <tr>
                 <th>Resumen</th>
                 <td>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={resumen}
-                    onChange={(e) => setResumen(e.target.value)}
-                  />
+                  <textarea className="form-control" rows={3} value={resumen} onChange={(e) => setResumen(e.target.value)} />
                 </td>
               </tr>
 
               <tr>
                 <th>Actividades</th>
                 <td>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={actividades}
-                    onChange={(e) => setActividades(e.target.value)}
-                  />
+                  <textarea className="form-control" rows={3} value={actividades} onChange={(e) => setActividades(e.target.value)} />
                 </td>
               </tr>
 
               <tr>
                 <th>Logros</th>
                 <td>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={logros}
-                    onChange={(e) => setLogros(e.target.value)}
-                  />
+                  <textarea className="form-control" rows={3} value={logros} onChange={(e) => setLogros(e.target.value)} />
                 </td>
               </tr>
 
               <tr>
                 <th>Dificultades</th>
                 <td>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={dificultades}
-                    onChange={(e) => setDificultades(e.target.value)}
-                  />
+                  <textarea className="form-control" rows={3} value={dificultades} onChange={(e) => setDificultades(e.target.value)} />
                 </td>
               </tr>
 
               <tr>
                 <th>Descripción</th>
                 <td>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                  />
+                  <textarea className="form-control" rows={3} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
                 </td>
               </tr>
             </tbody>
@@ -335,31 +353,20 @@ export default function InformeSemestralPage() {
               ) : (
                 informes.map((inf) => (
                   <tr key={inf.id}>
-                    <td>{new Date(inf.created_at).toLocaleDateString("es-PE")}</td>
+                    <td>{inf.created_at ? new Date(inf.created_at).toLocaleDateString("es-PE") : "-"}</td>
                     <td>{inf.periodo}</td>
-                    <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>
-                      {inf.resumen}
-                    </td>
+                    <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>{inf.resumen}</td>
                     <td>
-                      <button
-                        className="btn btn-outline-info btn-sm me-2"
-                        onClick={() => verInforme(inf)}
-                      >
+                      <button className="btn btn-outline-info btn-sm me-2" onClick={() => verInforme(inf)}>
                         👁️ Ver
                       </button>
 
                       {puedeEditar ? (
                         <>
-                          <button
-                            className="btn btn-outline-warning btn-sm me-2"
-                            onClick={() => editarInforme(inf)}
-                          >
+                          <button className="btn btn-outline-warning btn-sm me-2" onClick={() => editarInforme(inf)}>
                             ✏️ Editar
                           </button>
-                          <button
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => handleEliminar(inf.id)}
-                          >
+                          <button className="btn btn-outline-danger btn-sm" onClick={() => handleEliminar(inf.id)}>
                             🗑️ Eliminar
                           </button>
                         </>
@@ -415,6 +422,7 @@ export default function InformeSemestralPage() {
     </div>
   );
 }
+
 
 
 
