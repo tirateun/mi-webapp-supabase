@@ -11,6 +11,13 @@ interface AgreementsListProps {
   onOpenInforme: (agreementId: string) => void;
 }
 
+/* 🔹 Función segura para evitar desfase UTC-5 */
+function parseLocalDate(dateString: string) {
+  if (!dateString) return null;
+  const [y, m, d] = dateString.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export default function AgreementsList({
   user,
   role,
@@ -46,7 +53,7 @@ export default function AgreementsList({
     try {
       let visible: any[] = [];
 
-      // 🔹 ADMIN: ve todos
+      // 🔹 ADMIN ve todo
       if (["admin", "Admin", "Administrador"].includes(role)) {
         const { data, error } = await supabase
           .from("agreements")
@@ -56,7 +63,7 @@ export default function AgreementsList({
         visible = data || [];
       }
 
-      // 🔹 INTERNO: busca en la tabla intermedia
+      // 🔹 INTERNO
       else if (["internal", "interno"].includes(role)) {
         const { data: vinculos, error: err1 } = await supabase
           .from("agreement_internal_responsibles")
@@ -75,12 +82,10 @@ export default function AgreementsList({
             .order("created_at", { ascending: false });
           if (error) throw error;
           visible = data || [];
-        } else {
-          visible = [];
-        }
+        } else visible = [];
       }
 
-      // 🔹 EXTERNO: ve convenios donde figura como responsable externo
+      // 🔹 EXTERNO
       else if (["external", "externo"].includes(role)) {
         const { data, error } = await supabase
           .from("agreements")
@@ -152,7 +157,7 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* 🔍 Filtros y búsqueda */}
+      {/* 🔍 Filtros */}
       <div className="card shadow-sm border-0 p-3 mb-4">
         <div className="row align-items-center">
           <div className="col-md-4 mb-2">
@@ -182,7 +187,7 @@ export default function AgreementsList({
         </div>
       </div>
 
-      {/* 🔹 Tabla de convenios */}
+      {/* 🔹 Tabla */}
       {loading ? (
         <p className="text-center">Cargando convenios...</p>
       ) : filtered.length === 0 ? (
@@ -205,10 +210,7 @@ export default function AgreementsList({
               textAlign: "center",
             }}
           >
-            <thead
-              className="table-primary sticky-top"
-              style={{ top: 0, zIndex: 1 }}
-            >
+            <thead className="table-primary sticky-top" style={{ top: 0, zIndex: 1 }}>
               <tr>
                 <th style={{ minWidth: "250px" }}>Nombre</th>
                 <th>Tipo</th>
@@ -233,11 +235,14 @@ export default function AgreementsList({
                   <td style={{ textAlign: "left", whiteSpace: "normal" }}>
                     {a.objetivos || "-"}
                   </td>
+
+                  {/* 🔹 FECHA CORREGIDA SIN RESTAR UN DÍA */}
                   <td>
                     {a.signature_date
-                      ? new Date(a.signature_date).toLocaleDateString("es-PE")
+                      ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE")
                       : "-"}
                   </td>
+
                   <td>
                     <div
                       className="d-flex justify-content-center align-items-center flex-wrap gap-2"
@@ -252,6 +257,7 @@ export default function AgreementsList({
                           >
                             ✏️ Editar
                           </button>
+
                           <button
                             className="btn btn-sm btn-outline-danger d-flex align-items-center"
                             style={{ minWidth: "110px" }}
@@ -261,6 +267,7 @@ export default function AgreementsList({
                           </button>
                         </>
                       )}
+
                       <button
                         className="btn btn-sm btn-outline-success d-flex align-items-center"
                         style={{ minWidth: "140px" }}
@@ -268,6 +275,7 @@ export default function AgreementsList({
                       >
                         📋 Programar
                       </button>
+
                       <button
                         className="btn btn-sm btn-outline-warning d-flex align-items-center"
                         style={{ minWidth: "140px" }}
@@ -275,6 +283,7 @@ export default function AgreementsList({
                       >
                         📂 Cumplimiento
                       </button>
+
                       <button
                         className="btn btn-sm btn-outline-primary d-flex align-items-center"
                         style={{ minWidth: "120px" }}
@@ -293,6 +302,7 @@ export default function AgreementsList({
     </div>
   );
 }
+
 
 
 
