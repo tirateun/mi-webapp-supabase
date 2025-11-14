@@ -103,9 +103,16 @@ export default function InformeSemestralPage() {
         setDuracion(años);
 
         // signature_date puede venir nulo; proteger
-        const sig = data?.signature_date ? new Date(data.signature_date) : null;
+        let sig: Date | null = null;
+        if (data?.signature_date) {
+          const sigParts = data.signature_date.split("-");
+          sig = new Date(
+            Number(sigParts[0]),
+            Number(sigParts[1]) - 1,
+            Number(sigParts[2])
+          );
+        }
         setSignatureDate(sig ? sig.toISOString() : null);
-
         if (sig) {
           generatePeriodsFromSignature(sig, años);
         } else {
