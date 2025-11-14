@@ -15,7 +15,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
   const [loading, setLoading] = useState(false);
   const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
 
-  // 🔹 Cargar los periodos dinámicos desde la fecha de firma
+  // 🔹 Cargar periodos semestrales reales según fecha de firma
   useEffect(() => {
     const fetchPeriodoData = async () => {
       try {
@@ -31,7 +31,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
         }
 
         const fechaFirma = new Date(convenio.signature_date);
-        const duracionAnios = convenio.duration_years || 3; // por defecto 3 años si no existe el campo
+        const duracionAnios = convenio.duration_years || 1;
 
         const periodos: string[] = [];
         let inicio = new Date(fechaFirma);
@@ -63,6 +63,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
     if (convenioId) fetchPeriodoData();
   }, [convenioId]);
 
+  // 🔹 Guardar informe con validación por periodo y responsable
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -81,7 +82,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
         return;
       }
 
-      // 🔸 Verificar si el usuario ya registró un informe en este mismo periodo
+      // 🔸 Verificar si el usuario YA registró un informe para este mismo periodo
       const { data: existente, error: errorCheck } = await supabase
         .from("informes_semestrales")
         .select("id")
@@ -94,7 +95,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
 
       if (existente) {
         alert(
-          "⚠️ Ya registró un informe para este periodo. Comuníquese con la UCRIGP al correo convenios.medicina@unmsm.edu.pe para solicitar rectificación."
+          "⚠️ Ya registró un informe para este periodo.\n\nComuníquese con la UCRIGP al correo:\n📧 convenios.medicina@unmsm.edu.pe\npara solicitar rectificación."
         );
         setLoading(false);
         return;
@@ -150,6 +151,7 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
 
           <form onSubmit={handleSubmit}>
             <div className="modal-body">
+
               {/* 🔹 Selector dinámico de periodos */}
               <div className="mb-3">
                 <label className="form-label fw-semibold">Periodo</label>
@@ -243,4 +245,5 @@ export default function InformeSemestralModal({ convenioId, onClose }: InformeSe
     </div>
   );
 }
+
 
