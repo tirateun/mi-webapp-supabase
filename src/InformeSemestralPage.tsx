@@ -5,11 +5,9 @@ import { supabase } from "./supabaseClient";
 export default function InformeSemestralPage() {
   const { convenioId } = useParams<{ convenioId: string }>();
 
-  // 🔒 Usuario
   const [userRole, setUserRole] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
 
-  // 🔹 Formulario
   const [periodo, setPeriodo] = useState("");
   const [resumen, setResumen] = useState("");
   const [actividades, setActividades] = useState("");
@@ -17,152 +15,129 @@ export default function InformeSemestralPage() {
   const [dificultades, setDificultades] = useState("");
   const [descripcion, setDescripcion] = useState("");
 
-  // 🔹 Periodos dinámicos
   const [periodosDisponibles, setPeriodosDisponibles] = useState<string[]>([]);
-
-  // 🔹 Informes existentes
   const [informes, setInformes] = useState<any[]>([]);
-  const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
-  const [mostrarInforme, setMostrarInforme] = useState(false);
   const [editandoInforme, setEditandoInforme] = useState<any | null>(null);
+  const [mostrarInforme, setMostrarInforme] = useState(false);
+  const [ultimoInforme, setUltimoInforme] = useState<any | null>(null);
 
-  // 🔒 Permisos
-  const puedeEditar = ["admin", "Admin", "Administrador"].includes(userRole);
+  const puedeEditar = ["admin", "Administrador", "Admin", "internal", "interno"].includes(userRole);
 
-  // -----------------------
-  // Util helpers fechas
-  // -----------------------
-  const addMonths = (d: Date, months: number) => {
-    const res = new Date(d.getTime());
-    const day = res.getDate();
-    res.setMonth(res.getMonth() + months);
+  /* ---------------------------------------------------------
+     🔹 FUNCIONES SEGURAS PARA SUMAR MESES (respeta días reales)
+     --------------------------------------------------------- */
+  function addMonthsSafe(date: Date, months: number) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
 
-    // Manejo de meses cortos: si cambiamos mes y el día se "recarga" (ej. 31 ene + 1 mes -> 3 mar),
-    // forzamos al último día válido del mes objetivo si pasó.
-    if (res.getDate() < day) {
-      res.setDate(0); // vuelve al último día del mes anterior (efecto buscado)
-    }
-    return res;
-  };
+    const targetMonth = d.getMonth() + months;
+    const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
+    const finalMonth = ((targetMonth % 12) + 12) % 12;
 
-  const addDays = (d: Date, days: number) => {
-    const r = new Date(d.getTime());
-    r.setDate(r.getDate() + days);
-    return r;
-  };
+    const lastDay = new Date(targetYear, finalMonth + 1, 0).getDate();
+    const day = Math.min(d.getDate(), lastDay);
 
-  const formatDate = (d: Date) =>
-    d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return new Date(targetYear, finalMonth, day);
+  }
 
-  // ---------------------------------------------------------
-  // 🔹 Obtener usuario y rol
-  // ---------------------------------------------------------
+  function formatDate(date: Date) {
+    return new Intl.DateTimeFormat("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(date);
+  }
+
+  /* ---------------------------------------------------------
+     🔹 OBTENER USUARIO Y ROL
+     --------------------------------------------------------- */
   useEffect(() => {
-    const fetchUser = async () => {
+    async function fetchUser() {
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user) return;
+      if (!auth?.user?.id) return;
+
       setUserId(auth.user.id);
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", auth.user.id)
-        .maybeSingle();
+        .single();
 
       setUserRole(profile?.role || "externo");
-    };
+    }
 
     fetchUser();
   }, []);
 
-  // ---------------------------------------------------------
-  // 🔹 Cargar periodos dinámicos desde agreements.signature_date (CORREGIDO)
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     🔹 GENERAR PERIODOS DESDE signature_date
+     --------------------------------------------------------- */
   useEffect(() => {
-    const cargarPeriodos = async () => {
-      if (!convenioId) return;
+    if (!convenioId) return;
 
+    async function cargarPeriodos() {
       const { data, error } = await supabase
         .from("agreements")
         .select("signature_date, duration_years")
         .eq("id", convenioId)
-        .maybeSingle();
+        .single();
 
-      if (error || !data) {
-        console.error("Error al cargar convenio:", error);
-        return;
-      }
+      if (error || !data) return;
 
-      // Validar fecha
-      const signature = data.signature_date ? new Date(data.signature_date) : null;
-      if (!signature || isNaN(signature.getTime())) {
-        console.error("signature_date inválida en el convenio:", data.signature_date);
-        return;
-      }
+      const fechaFirma = new Date(data.signature_date);
+      fechaFirma.setHours(0, 0, 0, 0);
 
-      const duracionAnios: number = Number(data.duration_years ?? 1);
+      const años = data.duration_years;
+      const totalPeriodos = años * 2;
 
       const periodos: string[] = [];
 
-      // inicio del primer periodo = fecha de firma (mismo día)
-      let inicioPeriodo = new Date(signature);
+      let inicio = new Date(fechaFirma);
 
-      // Generamos duracionAnios * 2 periodos (cada periodo = 6 meses)
-      const totalPeriodos = duracionAnios * 2;
-      for (let i = 0; i < totalPeriodos; i++) {
-        // fin = inicio + 6 meses - 1 día
-        const finTentativo = addMonths(inicioPeriodo, 6);
-        const finPeriodo = addDays(finTentativo, -1);
+      for (let i = 1; i <= totalPeriodos; i++) {
+        const fin = addMonthsSafe(inicio, 6);
+        const etiqueta =
+          `${formatDate(inicio)} - ${formatDate(fin)} (${Math.ceil(i / 2)}° año)`;
 
-        // etiqueta amigable: "01/11/2025 - 30/04/2026 (1° año)"
-        const etiqueta = `${formatDate(inicioPeriodo)} - ${formatDate(finPeriodo)} (${Math.ceil((i + 1) / 2)}° año)`;
         periodos.push(etiqueta);
 
-        // siguiente inicio = finPeriodo + 1 día
-        inicioPeriodo = addDays(finPeriodo, 1);
+        inicio = fin;
       }
 
       setPeriodosDisponibles(periodos);
-    };
+    }
 
     cargarPeriodos();
   }, [convenioId]);
 
-  // ---------------------------------------------------------
-  // 🔹 Cargar informes registrados
-  // ---------------------------------------------------------
-  const fetchInformes = async () => {
+  /* ---------------------------------------------------------
+     🔹 CARGAR INFORMES EXISTENTES
+     --------------------------------------------------------- */
+  async function fetchInformes() {
     if (!convenioId) return;
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("informes_semestrales")
       .select("*")
       .eq("convenio_id", convenioId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error al cargar informes:", error);
-      setInformes([]);
-    } else {
-      setInformes(data || []);
-    }
-  };
+    setInformes(data || []);
+  }
 
   useEffect(() => {
     fetchInformes();
   }, [convenioId]);
 
-  // ---------------------------------------------------------
-  // 🔹 Guardar informe (con verificación de duplicado por user+periodo)
-  // ---------------------------------------------------------
-  const handleGuardar = async () => {
-    if (!periodo) {
-      alert("Debes seleccionar un periodo.");
-      return;
-    }
+  /* ---------------------------------------------------------
+     🔹 GUARDAR / ACTUALIZAR INFORME
+     --------------------------------------------------------- */
+  async function handleGuardar() {
+    if (!periodo) return alert("Debe seleccionar un periodo.");
 
-    // Verificar duplicado por usuario (mismo convenio, mismo periodo, mismo user)
-    const { data: duplicado, error: errDup } = await supabase
+    // 👉 Validación: evitar duplicado por usuario
+    const { data: existente } = await supabase
       .from("informes_semestrales")
       .select("id")
       .eq("convenio_id", convenioId)
@@ -170,20 +145,35 @@ export default function InformeSemestralPage() {
       .eq("periodo", periodo)
       .maybeSingle();
 
-    if (errDup) {
-      console.error("Error verificando duplicado:", errDup);
-      alert("Ocurrió un error al verificar duplicados.");
-      return;
-    }
-
-    if (duplicado) {
+    if (existente && !editandoInforme) {
       alert(
-        "⚠️ Ya registraste un informe para este periodo.\n\nComunica a la UCRIGP: convenios.medicina@unmsm.edu.pe para solicitar rectificación."
+        "⚠ Ya registró un informe para este periodo. " +
+        "Contacte al admin: convenios.medicina@unmsm.edu.pe"
       );
       return;
     }
 
-    const { error } = await supabase.from("informes_semestrales").insert([
+    if (editandoInforme) {
+      await supabase
+        .from("informes_semestrales")
+        .update({
+          periodo,
+          resumen,
+          actividades,
+          logros,
+          dificultades,
+          descripcion,
+          updated_at: new Date(),
+        })
+        .eq("id", editandoInforme.id);
+
+      alert("Informe actualizado correctamente.");
+      setEditandoInforme(null);
+      fetchInformes();
+      return;
+    }
+
+    await supabase.from("informes_semestrales").insert([
       {
         convenio_id: convenioId,
         user_id: userId,
@@ -197,91 +187,67 @@ export default function InformeSemestralPage() {
       },
     ]);
 
-    if (error) {
-      console.error("Error guardando informe:", error);
-      alert("❌ Error al guardar el informe: " + error.message);
-      return;
-    }
-
-    alert("✅ Informe guardado correctamente");
-    // limpiar formulario
-    setPeriodo("");
-    setResumen("");
-    setActividades("");
-    setLogros("");
-    setDificultades("");
-    setDescripcion("");
+    alert("Informe guardado correctamente.");
     fetchInformes();
-  };
+  }
 
-  // ---------------------------------------------------------
-  // 🔹 Eliminar informe (solo admin)
-  // ---------------------------------------------------------
-  const handleEliminar = async (id: string) => {
-    if (!puedeEditar) {
-      alert("Solo el administrador puede eliminar informes.");
-      return;
-    }
-    if (!confirm("¿Seguro que deseas eliminar este informe?")) return;
+  /* ---------------------------------------------------------
+     🔹 ELIMINAR INFORME
+     --------------------------------------------------------- */
+  async function handleEliminar(id: string) {
+    if (!confirm("¿Eliminar informe?")) return;
 
-    const { error } = await supabase.from("informes_semestrales").delete().eq("id", id);
-    if (error) {
-      console.error("Error eliminando informe:", error);
-      alert("❌ Error al eliminar informe: " + error.message);
-      return;
-    }
-    alert("✅ Informe eliminado correctamente");
+    await supabase.from("informes_semestrales").delete().eq("id", id);
+
+    alert("Informe eliminado.");
     fetchInformes();
-  };
+  }
 
-  // ---------------------------------------------------------
-  // Ver/Editar informes
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     🔹 VER / EDITAR INFORME
+     --------------------------------------------------------- */
   const verInforme = (inf: any) => {
     setUltimoInforme(inf);
     setMostrarInforme(true);
   };
 
-  const editarInforme = (inf: any) => {
+  const editar = (inf: any) => {
     setPeriodo(inf.periodo);
     setResumen(inf.resumen);
     setActividades(inf.actividades);
     setLogros(inf.logros);
     setDificultades(inf.dificultades);
     setDescripcion(inf.descripcion);
+
     setEditandoInforme(inf);
     setMostrarInforme(false);
   };
 
-  // ---------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------
+  /* ---------------------------------------------------------
+     🔹 RENDER
+     --------------------------------------------------------- */
   return (
-    <div
-      className="container mt-5"
-      style={{
-        maxWidth: "900px",
-        backgroundColor: "#fff",
-        borderRadius: "12px",
-        padding: "40px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-      }}
-    >
-      <h2 className="text-center mb-4 text-primary fw-bold">📝 Informe Semestral de Convenio</h2>
+    <div className="container mt-5" style={{ maxWidth: "900px" }}>
+      <h2 className="text-primary fw-bold mb-4">
+        📝 Informe Semestral de Convenio
+      </h2>
 
       {!mostrarInforme ? (
         <>
-          <table className="table table-bordered align-middle">
+          {/* ------------------------ FORMULARIO ------------------------ */}
+          <table className="table table-bordered">
             <tbody>
               <tr>
                 <th style={{ width: "25%" }}>Periodo</th>
                 <td>
-                  <select className="form-select" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+                  <select
+                    className="form-select"
+                    value={periodo}
+                    onChange={(e) => setPeriodo(e.target.value)}
+                  >
                     <option value="">Seleccione un periodo</option>
                     {periodosDisponibles.map((p, i) => (
-                      <option key={i} value={p}>
-                        {p}
-                      </option>
+                      <option key={i} value={p}>{p}</option>
                     ))}
                   </select>
                 </td>
@@ -290,50 +256,78 @@ export default function InformeSemestralPage() {
               <tr>
                 <th>Resumen</th>
                 <td>
-                  <textarea className="form-control" rows={3} value={resumen} onChange={(e) => setResumen(e.target.value)} />
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={resumen}
+                    onChange={(e) => setResumen(e.target.value)}
+                  />
                 </td>
               </tr>
 
               <tr>
                 <th>Actividades</th>
                 <td>
-                  <textarea className="form-control" rows={3} value={actividades} onChange={(e) => setActividades(e.target.value)} />
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={actividades}
+                    onChange={(e) => setActividades(e.target.value)}
+                  />
                 </td>
               </tr>
 
               <tr>
                 <th>Logros</th>
                 <td>
-                  <textarea className="form-control" rows={3} value={logros} onChange={(e) => setLogros(e.target.value)} />
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={logros}
+                    onChange={(e) => setLogros(e.target.value)}
+                  />
                 </td>
               </tr>
 
               <tr>
                 <th>Dificultades</th>
                 <td>
-                  <textarea className="form-control" rows={3} value={dificultades} onChange={(e) => setDificultades(e.target.value)} />
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={dificultades}
+                    onChange={(e) => setDificultades(e.target.value)}
+                  />
                 </td>
               </tr>
 
               <tr>
                 <th>Descripción</th>
                 <td>
-                  <textarea className="form-control" rows={3} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                  />
                 </td>
               </tr>
             </tbody>
           </table>
 
-          <div className="d-flex justify-content-end mt-4">
-            <button className="btn btn-primary" onClick={handleGuardar}>
-              💾 Guardar Informe
-            </button>
-          </div>
+          {puedeEditar && (
+            <div className="text-end mt-3">
+              <button className="btn btn-primary" onClick={handleGuardar}>
+                {editandoInforme ? "Actualizar Informe" : "Guardar Informe"}
+              </button>
+            </div>
+          )}
 
+          {/* ------------------------ LISTA INFORMES ------------------------ */}
           <hr className="my-5" />
-          <h4 className="text-primary fw-bold mb-3">📚 Informes Guardados</h4>
+          <h4 className="text-primary">📚 Informes Guardados</h4>
 
-          <table className="table table-striped table-bordered align-middle">
+          <table className="table table-striped table-bordered mt-3">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -342,7 +336,6 @@ export default function InformeSemestralPage() {
                 <th>Acciones</th>
               </tr>
             </thead>
-
             <tbody>
               {informes.length === 0 ? (
                 <tr>
@@ -353,24 +346,35 @@ export default function InformeSemestralPage() {
               ) : (
                 informes.map((inf) => (
                   <tr key={inf.id}>
-                    <td>{inf.created_at ? new Date(inf.created_at).toLocaleDateString("es-PE") : "-"}</td>
+                    <td>{new Date(inf.created_at).toLocaleDateString("es-PE")}</td>
                     <td>{inf.periodo}</td>
-                    <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>{inf.resumen}</td>
+                    <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>
+                      {inf.resumen}
+                    </td>
                     <td>
-                      <button className="btn btn-outline-info btn-sm me-2" onClick={() => verInforme(inf)}>
-                        👁️ Ver
+                      <button
+                        className="btn btn-outline-info btn-sm me-2"
+                        onClick={() => verInforme(inf)}
+                      >
+                        Ver
                       </button>
 
-                      {puedeEditar ? (
+                      {puedeEditar && (
                         <>
-                          <button className="btn btn-outline-warning btn-sm me-2" onClick={() => editarInforme(inf)}>
-                            ✏️ Editar
+                          <button
+                            className="btn btn-outline-warning btn-sm me-2"
+                            onClick={() => editar(inf)}
+                          >
+                            Editar
                           </button>
-                          <button className="btn btn-outline-danger btn-sm" onClick={() => handleEliminar(inf.id)}>
-                            🗑️ Eliminar
+                          <button
+                            className="btn btn-outline-danger btn-sm"
+                            onClick={() => handleEliminar(inf.id)}
+                          >
+                            Eliminar
                           </button>
                         </>
-                      ) : null}
+                      )}
                     </td>
                   </tr>
                 ))
@@ -380,9 +384,10 @@ export default function InformeSemestralPage() {
         </>
       ) : (
         <>
+          {/* ------------------------ VISTA DETALLADA ------------------------ */}
           <div className="border p-4 bg-light rounded">
-            <h4 className="text-center mb-4 text-primary">📘 Informe Guardado</h4>
-            <table className="table table-bordered">
+            <h4 className="text-primary">📘 Informe Guardado</h4>
+            <table className="table table-bordered mt-3">
               <tbody>
                 <tr>
                   <th>Periodo</th>
@@ -412,9 +417,9 @@ export default function InformeSemestralPage() {
             </table>
           </div>
 
-          <div className="d-flex justify-content-end mt-4">
+          <div className="mt-3 text-end">
             <button className="btn btn-secondary" onClick={() => setMostrarInforme(false)}>
-              🔙 Volver
+              Volver
             </button>
           </div>
         </>
@@ -422,6 +427,7 @@ export default function InformeSemestralPage() {
     </div>
   );
 }
+
 
 
 
