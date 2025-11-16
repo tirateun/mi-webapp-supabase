@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// AgreementsList.tsx
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface AgreementsListProps {
@@ -11,13 +12,71 @@ interface AgreementsListProps {
   onOpenInforme: (agreementId: string) => void;
 }
 
-/* 🔹 Función segura para evitar desfase UTC-5 */
-function parseLocalDate(dateString: string) {
+/* ------------------ Utilidades de fecha (maneja YYYY-MM-DD) ------------------ */
+function parseLocalDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
   const [y, m, d] = dateString.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
+/** Suma años a una fecha y resta 1 día para que la vigencia sea inclusive */
+function computeEndDate(start: Date, years: number): Date {
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + years);
+  // restar 1 día para que, por ejemplo, 01/01/2023 + 1 año termine 31/12/2023
+  end.setDate(end.getDate() - 1);
+  return end;
+}
+
+/** Devuelve diferencia entre dos fechas en { years, months, days, totalDays }.
+ *  Si end < start, los valores son positivos pero representan tiempo transcurrido. */
+function diffDates(start: Date, end: Date) {
+  // Normalizamos las horas para evitar problemas con DST
+  const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const e = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+  let invert = false;
+  let from = s;
+  let to = e;
+  if (s > e) {
+    // intercambiar para calcular y luego indicamos que está vencido
+    invert = true;
+    from = e;
+    to = s;
+  }
+
+  let years = to.getFullYear() - from.getFullYear();
+  let months = to.getMonth() - from.getMonth();
+  let days = to.getDate() - from.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    // coger días del mes anterior de "to"
+    const prevMonth = new Date(to.getFullYear(), to.getMonth(), 0); // último día mes anterior
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  // totalDays (positivo si to > from)
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const totalDays = Math.round((to.getTime() - from.getTime()) / msPerDay);
+
+  return { years, months, days, totalDays, invert }; // invert = true => start > end
+}
+
+/** Formatea la diferencia en string legible */
+function formatDiffString({ years, months, days }: { years: number; months: number; days: number }) {
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? "año" : "años"}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? "mes" : "meses"}`);
+  if (days > 0) parts.push(`${days} ${days === 1 ? "día" : "días"}`);
+  return parts.length > 0 ? parts.join(" ") : "0 días";
+}
+
+/* ------------------ Componente principal ------------------ */
 export default function AgreementsList({
   user,
   role,
@@ -28,65 +87,55 @@ export default function AgreementsList({
   onOpenInforme,
 }: AgreementsListProps) {
   const [agreements, setAgreements] = useState<any[]>([]);
-  const [filtered, setFiltered] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const tipos = [
-    "Docente Asistencial",
-    "Cooperación técnica",
-    "Movilidad académica",
-    "Investigación",
-    "Colaboración académica",
-    "Consultoría",
-    "Cotutela",
-  ];
+  // filtros UI
+  const [search, setSearch] = useState("");
+  const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
+  const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido">("all");
 
-  useEffect(() => {
-    if (!user?.id || !role) return;
-    fetchAgreements();
-  }, [user?.id, role]);
+  // paginación simple
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  const fetchAgreements = async () => {
+  // lista de tipos (puedes ajustar a los que uses realmente)
+  const tipos = useMemo(
+    () => [
+      "Docente Asistencial",
+      "Cooperación técnica",
+      "Movilidad académica",
+      "Investigación",
+      "Colaboración académica",
+      "Consultoría",
+      "Cotutela",
+    ],
+    []
+  );
+
+  /* ------------------ Fetch de convenios según rol ------------------ */
+  const fetchAgreements = useCallback(async () => {
     setLoading(true);
     try {
       let visible: any[] = [];
 
-      // 🔹 ADMIN ve todo
       if (["admin", "Admin", "Administrador"].includes(role)) {
-        const { data, error } = await supabase
-          .from("agreements")
-          .select("*")
-          .order("created_at", { ascending: false });
+        const { data, error } = await supabase.from("agreements").select("*").order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
-      }
-
-      // 🔹 INTERNO
-      else if (["internal", "interno"].includes(role)) {
+      } else if (["internal", "interno"].includes(role)) {
         const { data: vinculos, error: err1 } = await supabase
           .from("agreement_internal_responsibles")
           .select("agreement_id")
           .eq("internal_responsible_id", user.id);
-
         if (err1) throw err1;
-
-        const ids = vinculos.map((v) => v.agreement_id);
-
+        const ids = (vinculos || []).map((v: any) => v.agreement_id);
         if (ids.length > 0) {
-          const { data, error } = await supabase
-            .from("agreements")
-            .select("*")
-            .in("id", ids)
-            .order("created_at", { ascending: false });
+          const { data, error } = await supabase.from("agreements").select("*").in("id", ids).order("created_at", { ascending: false });
           if (error) throw error;
           visible = data || [];
         } else visible = [];
-      }
-
-      // 🔹 EXTERNO
-      else if (["external", "externo"].includes(role)) {
+      } else {
+        // externo u otros: solo los que el usuario sea responsable externo
         const { data, error } = await supabase
           .from("agreements")
           .select("*")
@@ -97,59 +146,153 @@ export default function AgreementsList({
       }
 
       setAgreements(visible);
-      setFiltered(visible);
     } catch (err) {
       console.error("❌ Error al cargar convenios:", err);
-      alert("Error al cargar convenios. Ver consola.");
+      alert("Error al cargar convenios. Revisa la consola.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`¿Eliminar el convenio "${name}"?`)) return;
-    try {
-      const { error } = await supabase.from("agreements").delete().eq("id", id);
-      if (error) throw error;
-      setAgreements((prev) => prev.filter((a) => a.id !== id));
-      setFiltered((prev) => prev.filter((a) => a.id !== id));
-      alert("✅ Convenio eliminado correctamente");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al eliminar convenio");
-    }
-  };
-
-  const toggleTipo = (tipo: string) => {
-    setSelectedTipos((prev) =>
-      prev.includes(tipo)
-        ? prev.filter((t) => t !== tipo)
-        : [...prev, tipo]
-    );
-  };
+  }, [role, user?.id]);
 
   useEffect(() => {
-    let result = agreements;
+    if (!user?.id || !role) return;
+    fetchAgreements();
+  }, [user?.id, role, fetchAgreements]);
+
+  /* ------------------ Acciones ------------------ */
+  const handleDelete = useCallback(
+    async (id: string, name: string) => {
+      if (!window.confirm(`¿Eliminar el convenio "${name}"?`)) return;
+      try {
+        const { error } = await supabase.from("agreements").delete().eq("id", id);
+        if (error) throw error;
+        setAgreements((prev) => prev.filter((a) => a.id !== id));
+        alert("✅ Convenio eliminado correctamente");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Error al eliminar convenio");
+      }
+    },
+    []
+  );
+
+  const toggleTipo = useCallback((tipo: string) => {
+    setSelectedTipos((prev) => (prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]));
+    setPage(1);
+  }, []);
+
+  /* ------------------ Cálculo de vigencia y estado ------------------ */
+  const getEndDate = useCallback((a: any): Date | null => {
+    if (!a?.signature_date || !a?.duration_years) return null;
+    const sig = parseLocalDate(a.signature_date);
+    if (!sig) return null;
+    return computeEndDate(sig, Number(a.duration_years));
+  }, []);
+
+  const getStatus = useCallback((a: any) => {
+    const sig = parseLocalDate(a.signature_date);
+    if (!sig || !a?.duration_years) return { key: "sin_info", label: "Sin vigencia", color: "secondary" };
+
+    const end = getEndDate(a);
+    if (!end) return { key: "sin_info", label: "Sin vigencia", color: "secondary" };
+
+    const today = new Date();
+    const diff = diffDates(today, end);
+    // diff.invert true => today > end => vencido
+    if (diff.invert) return { key: "vencido", label: `Vencido hace ${formatDiffString(diff)}`, color: "danger" };
+
+    // Por vencer si <= 90 días
+    if (diff.totalDays <= 90) return { key: "por_vencer", label: `Por vencer: ${formatDiffString(diff)}`, color: "warning" };
+
+    return { key: "vigente", label: `Vigente: ${formatDiffString(diff)}`, color: "success" };
+  }, [getEndDate]);
+
+  /* Renderiza badge de estado */
+  const renderStatusBadge = useCallback((a: any) => {
+    const st = getStatus(a);
+    const colorClass = st.color === "success" ? "bg-success text-white" : st.color === "warning" ? "bg-warning text-dark" : st.color === "danger" ? "bg-danger text-white" : "bg-secondary text-white";
+    return (
+      <span className={`badge ${colorClass}`} title={st.label} style={{ fontSize: "0.85rem" }}>
+        {st.key === "vigente" ? "🟢 Vigente" : st.key === "por_vencer" ? "🟡 Por vencer" : st.key === "vencido" ? "🔴 Vencido" : "⚪ Sin vigencia"}
+      </span>
+    );
+  }, [getStatus]);
+
+  /* Renderiza countdown legible */
+  const renderCountdown = useCallback((a: any) => {
+    const end = getEndDate(a);
+    if (!end) return <small className="text-muted">Sin vigencia</small>;
+
+    const today = new Date();
+    const diff = diffDates(today, end);
+    const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
+    const styleColor = diff.invert ? { color: "#6c757d" } : diff.totalDays <= 30 ? { color: "#b21f2d", fontWeight: 600 } : diff.totalDays <= 90 ? { color: "#8a6d1f", fontWeight: 600 } : { color: "#256029" };
+
+    return (
+      <div style={{ textAlign: "left" }}>
+        <div style={styleColor} title={a.signature_date ? `Termina: ${end.toLocaleDateString("es-PE")}` : undefined}>
+          {text}
+        </div>
+        <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
+      </div>
+    );
+  }, [getEndDate]);
+
+  /* ------------------ Filtrado y paginación (useMemo para performance) ------------------ */
+  const filtered = useMemo(() => {
+    let result = agreements.slice();
 
     if (search.trim()) {
-      result = result.filter((a) =>
-        a.name.toLowerCase().includes(search.toLowerCase())
-      );
+      const q = search.toLowerCase();
+      result = result.filter((a) => {
+        // busco en nombre, objetivos, país y resolución rectoral
+        const name = (a.name || "").toString().toLowerCase();
+        const objetivos = (a.objetivos || "").toString().toLowerCase();
+        const pais = (a.pais || "").toString().toLowerCase();
+        const resol = (a["Resolución Rectoral"] || "").toString().toLowerCase();
+        return name.includes(q) || objetivos.includes(q) || pais.includes(q) || resol.includes(q);
+      });
     }
 
     if (selectedTipos.length > 0) {
-      result = result.filter((a) =>
-        a.tipo_convenio?.some((t: string) => selectedTipos.includes(t))
-      );
+      result = result.filter((a) => {
+        // asumo a.tipo_convenio es array; si fuera string, adaptarlo
+        const tiposField = a.tipo_convenio || [];
+        if (Array.isArray(tiposField)) return tiposField.some((t: string) => selectedTipos.includes(t));
+        return selectedTipos.includes(tiposField);
+      });
     }
 
-    setFiltered(result);
-  }, [search, selectedTipos, agreements]);
+    if (estadoFilter !== "all") {
+      result = result.filter((a) => {
+        const st = getStatus(a);
+        if (estadoFilter === "vigente") return st.key === "vigente";
+        if (estadoFilter === "por_vencer") return st.key === "por_vencer";
+        if (estadoFilter === "vencido") return st.key === "vencido";
+        return true;
+      });
+    }
 
+    return result;
+  }, [agreements, search, selectedTipos, estadoFilter, getStatus]);
+
+  // cálculo de páginas
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [totalPages, page]);
+
+  const paged = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  /* ------------------ Render UI ------------------ */
   return (
     <div className="container mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
         <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
+
         {["admin", "Admin", "Administrador"].includes(role) && (
           <button className="btn btn-success shadow-sm" onClick={onCreate}>
             ➕ Nuevo Convenio
@@ -157,138 +300,154 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* 🔍 Filtros */}
+      {/* filtros */}
       <div className="card shadow-sm border-0 p-3 mb-4">
-        <div className="row align-items-center">
-          <div className="col-md-4 mb-2">
+        <div className="row gy-2 align-items-center">
+          <div className="col-md-4">
             <input
-              type="text"
               className="form-control"
-              placeholder="Buscar convenio..."
+              placeholder="🔎 Buscar por nombre, objetivos, país o resolución..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
-          <div className="col-md-8 d-flex flex-wrap">
-            {tipos.map((tipo) => (
-              <button
-                key={tipo}
-                className={`btn btn-sm me-2 mb-2 ${
-                  selectedTipos.includes(tipo)
-                    ? "btn-primary"
-                    : "btn-outline-primary"
-                }`}
-                onClick={() => toggleTipo(tipo)}
-              >
-                {tipo}
-              </button>
-            ))}
+
+          <div className="col-md-4 d-flex align-items-center">
+            <div className="me-2">Tipo:</div>
+            <div className="d-flex flex-wrap">
+              {tipos.map((t) => {
+                const active = selectedTipos.includes(t);
+                return (
+                  <button
+                    key={t}
+                    className={`btn btn-sm me-2 mb-2 ${active ? "btn-primary" : "btn-outline-primary"}`}
+                    onClick={() => toggleTipo(t)}
+                    title={`Filtrar por ${t}`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="col-md-2 d-flex align-items-center">
+            <label className="me-2 mb-0">Estado:</label>
+            <select
+              className="form-select"
+              value={estadoFilter}
+              onChange={(e) => {
+                setEstadoFilter(e.target.value as any);
+                setPage(1);
+              }}
+            >
+              <option value="all">Todos</option>
+              <option value="vigente">Vigente</option>
+              <option value="por_vencer">Por vencer (&lt;= 90 días)</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+
+          <div className="col-md-2 d-flex align-items-center justify-content-end">
+            <div className="me-2">Mostrar:</div>
+            <select
+              className="form-select"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
           </div>
         </div>
       </div>
 
-      {/* 🔹 Tabla */}
-      {loading ? (
-        <p className="text-center">Cargando convenios...</p>
-      ) : filtered.length === 0 ? (
-        <p className="text-center text-muted">No se encontraron convenios.</p>
-      ) : (
-        <div
-          className="table-responsive shadow-sm"
-          style={{
-            maxHeight: "600px",
-            overflowX: "auto",
-            borderRadius: "10px",
-            border: "1px solid #ddd",
-          }}
-        >
-          <table
-            className="table table-bordered align-middle table-hover"
-            style={{
-              fontSize: "0.9rem",
-              whiteSpace: "nowrap",
-              textAlign: "center",
-            }}
-          >
-            <thead className="table-primary sticky-top" style={{ top: 0, zIndex: 1 }}>
+      {/* tabla */}
+      <div className="table-responsive shadow-sm" style={{ borderRadius: 10, border: "1px solid #e6e6e6" }}>
+        {loading ? (
+          <div className="p-4 text-center">Cargando convenios...</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4 text-center text-muted">No se encontraron convenios.</div>
+        ) : (
+          <table className="table table-hover mb-0 align-middle" style={{ fontSize: "0.92rem" }}>
+            <thead className="table-light sticky-top" style={{ top: 0 }}>
               <tr>
-                <th style={{ minWidth: "250px" }}>Nombre</th>
+                <th style={{ minWidth: 260, textAlign: "left" }}>Nombre</th>
                 <th>Tipo</th>
-                <th>Subtipo Docente</th>
                 <th>País</th>
-                <th>Resolución Rectoral</th>
-                <th>Duración (años)</th>
-                <th style={{ minWidth: "300px" }}>Objetivos</th>
+                <th>Duración</th>
                 <th>Fecha Firma</th>
-                <th style={{ minWidth: "350px" }}>Acciones</th>
+                <th style={{ minWidth: 240 }}>Vigencia restante</th>
+                <th style={{ minWidth: 260 }}>Estado</th>
+                <th style={{ width: 260 }}>Acciones</th>
               </tr>
             </thead>
+
             <tbody>
-              {filtered.map((a) => (
+              {paged.map((a) => (
                 <tr key={a.id}>
-                  <td style={{ textAlign: "left" }}>{a.name}</td>
-                  <td>{a.convenio || "-"}</td>
-                  <td>{a.sub_tipo_docente || "-"}</td>
-                  <td>{a.pais || "-"}</td>
-                  <td>{a["Resolución Rectoral"] || "-"}</td>
-                  <td>{a.duration_years}</td>
-                  <td style={{ textAlign: "left", whiteSpace: "normal" }}>
-                    {a.objetivos || "-"}
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{ fontWeight: 600 }}>{a.name || "-"}</div>
+                    <div style={{ fontSize: "0.85rem", color: "#6c757d" }}>{a["Resolución Rectoral"] || ""}</div>
                   </td>
 
-                  {/* 🔹 FECHA CORREGIDA SIN RESTAR UN DÍA */}
-                  <td>
-                    {a.signature_date
-                      ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE")
-                      : "-"}
+                  <td style={{ verticalAlign: "middle" }}>
+                    {/* Mostrar badge(s) del tipo */}
+                    {Array.isArray(a.tipo_convenio)
+                      ? a.tipo_convenio.map((t: string, idx: number) => (
+                          <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>
+                            {t}
+                          </span>
+                        ))
+                      : a.convenio ? (
+                        <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>{a.convenio}</span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
                   </td>
 
-                  <td>
-                    <div
-                      className="d-flex justify-content-center align-items-center flex-wrap gap-2"
-                      style={{ minWidth: "420px", gap: "8px" }}
-                    >
+                  <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>
+
+                  <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
+
+                  <td style={{ verticalAlign: "middle" }}>
+                    {a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}
+                  </td>
+
+                  <td style={{ verticalAlign: "middle", textAlign: "left" }}>{renderCountdown(a)}</td>
+
+                  <td style={{ verticalAlign: "middle" }}>{renderStatusBadge(a)}</td>
+
+                  <td style={{ verticalAlign: "middle" }}>
+                    <div className="d-flex flex-wrap gap-2">
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
-                          <button
-                            className="btn btn-sm btn-outline-secondary d-flex align-items-center"
-                            style={{ minWidth: "110px" }}
-                            onClick={() => onEdit(a)}
-                          >
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio">
                             ✏️ Editar
                           </button>
-
-                          <button
-                            className="btn btn-sm btn-outline-danger d-flex align-items-center"
-                            style={{ minWidth: "110px" }}
-                            onClick={() => handleDelete(a.id, a.name)}
-                          >
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(a.id, a.name)} title="Eliminar convenio">
                             🗑️ Eliminar
                           </button>
                         </>
                       )}
 
-                      <button
-                        className="btn btn-sm btn-outline-success d-flex align-items-center"
-                        style={{ minWidth: "140px" }}
-                        onClick={() => onOpenContraprestaciones(a.id)}
-                      >
+                      <button className="btn btn-sm btn-outline-success" onClick={() => onOpenContraprestaciones(a.id)} title="Programar contraprestaciones">
                         📋 Programar
                       </button>
 
-                      <button
-                        className="btn btn-sm btn-outline-warning d-flex align-items-center"
-                        style={{ minWidth: "140px" }}
-                        onClick={() => onOpenEvidencias(a.id)}
-                      >
+                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">
                         📂 Cumplimiento
                       </button>
 
-                      <button
-                        className="btn btn-sm btn-outline-primary d-flex align-items-center"
-                        style={{ minWidth: "120px" }}
-                        onClick={() => onOpenInforme(a.id)}
-                      >
+                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">
                         📝 Informe
                       </button>
                     </div>
@@ -297,11 +456,32 @@ export default function AgreementsList({
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* paginación */}
+      {filtered.length > 0 && (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <div className="text-muted">
+            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} - {Math.min(page * pageSize, filtered.length)} de {filtered.length}
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+              ← Prev
+            </button>
+            <div>
+              Página {page} / {totalPages}
+            </div>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              Next →
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
 
 
 
