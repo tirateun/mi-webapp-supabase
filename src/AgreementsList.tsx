@@ -1,7 +1,9 @@
-// AgreementsList.tsx
+// src/AgreementsList.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 import FiltroAvanzado from "./FiltroAvanzado";
+import RenewalModal from "./RenewalModal";
+import RenewalHistory from "./RenewalHistory";
 
 /* ------------------ Tipos ------------------ */
 interface AgreementsListProps {
@@ -24,6 +26,7 @@ function parseLocalDate(dateString: string | null | undefined): Date | null {
 function computeEndDate(start: Date, years: number): Date {
   const end = new Date(start);
   end.setFullYear(end.getFullYear() + years);
+  // inclusive: restamos 1 día
   end.setDate(end.getDate() - 1);
   return end;
 }
@@ -82,14 +85,17 @@ export default function AgreementsList({
   // data
   const [agreements, setAgreements] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
+  const [renewalsMap, setRenewalsMap] = useState<Record<
+    string,
+    { count: number; latest_new_expiration_date: string | null }
+  >>({});
   const [loading, setLoading] = useState(true);
 
   // filtros UI
   const [search, setSearch] = useState("");
-  // NOTA: removimos los botones rápidos de "tipos" de la cabecera (va en filtro avanzado)
   const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido">("all");
 
-  // filtro avanzado (objeto devuelto por FiltroAvanzado)
+  // filtro avanzado
   const [showFiltroAvanzado, setShowFiltroAvanzado] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<any | null>(null);
 
@@ -97,18 +103,13 @@ export default function AgreementsList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // lista de tipos (se usa como fallback en FiltroAvanzado si no hay tabla)
-  const tiposFallback = [
-    "Docente Asistencial",
-    "Cooperación técnica",
-    "Movilidad académica",
-    "Investigación",
-    "Colaboración académica",
-    "Consultoría",
-    "Cotutela",
-  ];
+  // Modal renovaciones / historial
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalTarget, setRenewalTarget] = useState<{ id: string; name?: string; currentExpiration?: string | null } | null>(null);
+  const [showRenewalHistory, setShowRenewalHistory] = useState(false);
+  const [historyTargetAgreementId, setHistoryTargetAgreementId] = useState<string | null>(null);
 
-  /* ------------------ Fetch de areas (para filtro) ------------------ */
+  /* ------------------ Fetch Áreas ------------------ */
   const fetchAreas = useCallback(async () => {
     try {
       const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre").order("nombre", { ascending: true });
@@ -120,12 +121,12 @@ export default function AgreementsList({
     }
   }, []);
 
-  /* ------------------ Fetch de convenios según rol ------------------ */
-  const fetchAgreements = useCallback(async () => {
+  /* ------------------ Fetch convenios y renovaciones ------------------ */
+  const fetchAgreementsAndRenewals = useCallback(async () => {
     setLoading(true);
     try {
+      // 1) traer convenios según rol
       let visible: any[] = [];
-
       if (["admin", "Admin", "Administrador"].includes(role)) {
         const { data, error } = await supabase.from("agreements").select("*").order("created_at", { ascending: false });
         if (error) throw error;
@@ -153,10 +154,42 @@ export default function AgreementsList({
       }
 
       setAgreements(visible);
+
+      // 2) traer renovaciones para esos convenios (map)
+      const agreementIds = (visible || []).map((a: any) => a.id).filter(Boolean);
+      if (agreementIds.length === 0) {
+        setRenewalsMap({});
+        setLoading(false);
+        return;
+      }
+
+      const { data: renewalsData, error: rError } = await supabase
+        .from("agreement_renewals")
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
+        .in("agreement_id", agreementIds)
+        .order("changed_at", { ascending: false }); // más recientes primero
+
+      if (rError) throw rError;
+
+      // agrupar por agreement_id
+      const map: Record<string, { count: number; latest_new_expiration_date: string | null }> = {};
+      (renewalsData || []).forEach((r: any) => {
+        const aid = r.agreement_id;
+        if (!map[aid]) {
+          map[aid] = { count: 0, latest_new_expiration_date: null };
+        }
+        map[aid].count += 1;
+        // tomamos el primero (más reciente por orden) como latest
+        if (r.new_expiration_date && !map[aid].latest_new_expiration_date) {
+          map[aid].latest_new_expiration_date = r.new_expiration_date;
+        }
+      });
+
+      setRenewalsMap(map);
     } catch (err) {
-      console.error("❌ Error al cargar convenios:", err);
-      alert("Error al cargar convenios. Revisa la consola.");
+      console.error("❌ Error al cargar convenios/renovaciones:", err);
       setAgreements([]);
+      setRenewalsMap({});
     } finally {
       setLoading(false);
     }
@@ -164,28 +197,17 @@ export default function AgreementsList({
 
   useEffect(() => {
     if (!user?.id || !role) return;
-    fetchAgreements();
+    fetchAgreementsAndRenewals();
     fetchAreas();
-  }, [user?.id, role, fetchAgreements, fetchAreas]);
+  }, [user?.id, role, fetchAgreementsAndRenewals, fetchAreas]);
 
-  /* ------------------ Acciones ------------------ */
-  const handleDelete = useCallback(async (id: string, name: string) => {
-    if (!window.confirm(`¿Eliminar el convenio "${name}"?`)) return;
-    try {
-      const { error } = await supabase.from("agreements").delete().eq("id", id);
-      if (error) throw error;
-      setAgreements((prev) => prev.filter((a) => a.id !== id));
-      alert("✅ Convenio eliminado correctamente");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error al eliminar convenio");
-    }
-  }, []);
-
-  /* ------------------ Vigencia y estado helpers (usa expiration_date si existe) ------------------ */
+  /* ------------------ Helpers vigencia ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
-    // preferimos expiration_date (columna generada en la base)
-    if (a?.expiration_date) return new Date(a.expiration_date);
+    // Manejo seguro de expiration_date que puede ser null/undefined
+    if (a?.expiration_date) {
+      const exp = a.expiration_date ? new Date(a.expiration_date) : null;
+      if (exp) return exp;
+    }
     if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
     if (!sig) return null;
@@ -226,15 +248,21 @@ export default function AgreementsList({
           {text}
         </div>
         <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
+        {/* mostrar renovaciones */}
+        {renewalsMap[a.id] && (
+          <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
+            Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
+            {renewalsMap[a.id].latest_new_expiration_date ? ` — último: ${new Date(String(renewalsMap[a.id].latest_new_expiration_date)).toLocaleDateString("es-PE")}` : ""}
+          </div>
+        )}
       </div>
     );
-  }, [getEndDate]);
+  }, [getEndDate, renewalsMap]);
 
-  /* ------------------ Filtrado (incluye advancedFilters) ------------------ */
+  /* ------------------ Filtros (simple + advanced) ------------------ */
   const filtered = useMemo(() => {
     let result = agreements.slice();
 
-    // búsqueda simple
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((a) => {
@@ -246,7 +274,6 @@ export default function AgreementsList({
       });
     }
 
-    // filtro por estado (select - usa expiration_date)
     if (estadoFilter !== "all") {
       result = result.filter((a) => {
         const st = getStatus(a);
@@ -257,8 +284,8 @@ export default function AgreementsList({
       });
     }
 
-    // filtro avanzado (client-side). Soportamos payloads con claves: areas | areaResponsable, tipos | tipoConvenio, estados | estado
     if (advancedFilters) {
+      // compatibilidad: support areas (ids) or areaResponsable (names) and tipos/tipoConvenio, estados/estado
       const areaIdsFromPayload: string[] = advancedFilters.areas || advancedFilters.areaResponsable || [];
       const tiposFromPayload: string[] = advancedFilters.tipos || advancedFilters.tipoConvenio || [];
       const estadosFromPayload: string[] = advancedFilters.estados || advancedFilters.estado || [];
@@ -266,17 +293,13 @@ export default function AgreementsList({
       const anioFin = advancedFilters.anioFin || advancedFilters.añoFin ? Number(advancedFilters.anioFin ?? advancedFilters.añoFin) : null;
       const operador = advancedFilters.operator || advancedFilters.operador || "AND";
 
-      // Si payload áreas contiene nombres en vez de ids (compatibilidad), convertimos nombres a ids
-      // (permitimos ambos: FiltroAvanzado actual devuelve ids en `areas`, pero versiones previas podían devolver nombres)
       let selectedAreaIds: string[] = [];
       if (areaIdsFromPayload.length > 0) {
-        // detectamos si it's array of ids (uuid-ish) by checking presence in areas list by id or by name
         const first = areaIdsFromPayload[0];
         const foundById = areas.some((ar) => ar.id === first);
         if (foundById) {
           selectedAreaIds = areaIdsFromPayload;
         } else {
-          // tratar como nombres -> mapear a ids
           selectedAreaIds = areas.filter((ar) => areaIdsFromPayload.includes(ar.nombre)).map((ar) => ar.id);
         }
       }
@@ -284,38 +307,22 @@ export default function AgreementsList({
       const matchesAdvanced = (item: any) => {
         const checks: boolean[] = [];
 
-        // AREA
         if (selectedAreaIds.length > 0) {
-          const matchArea = selectedAreaIds.includes(item.area_vinculada_id);
-          checks.push(matchArea);
+          checks.push(selectedAreaIds.includes(item.area_vinculada_id));
         }
 
-        // TIPO (tipo_convenio array)
         if (tiposFromPayload.length > 0) {
           const tiposField = item.tipo_convenio || [];
-          const tipoMatch = Array.isArray(tiposField)
-            ? tiposField.some((t: string) => tiposFromPayload.includes(t))
-            : tiposFromPayload.includes(tiposField);
+          const tipoMatch = Array.isArray(tiposField) ? tiposField.some((t: string) => tiposFromPayload.includes(t)) : tiposFromPayload.includes(tiposField);
           checks.push(tipoMatch);
         }
 
-        // CLASIFICACIÓN (convenio campo: 'específico' | 'marco')
-        if (advancedFilters.clasificacion) {
-          // soporte: clasificacion puede ser string or array
-          const cls = Array.isArray(advancedFilters.clasificacion) ? advancedFilters.clasificacion : [advancedFilters.clasificacion];
-          const convenioValue = (item.convenio || "").toString();
-          checks.push(cls.includes(convenioValue));
-        }
-
-        // ESTADO (por payload)
         if (estadosFromPayload.length > 0) {
           const st = getStatus(item);
           const keyLabel = st.key === "vigente" ? "Vigente" : st.key === "por_vencer" ? "Por vencer" : st.key === "vencido" ? "Vencido" : "Sin vigencia";
-          const estadoMatch = estadosFromPayload.includes(keyLabel);
-          checks.push(estadoMatch);
+          checks.push(estadosFromPayload.includes(keyLabel));
         }
 
-        // AÑOS (signature_date)
         if (anioInicio !== null) {
           const sig = parseLocalDate(item.signature_date);
           checks.push(sig ? sig.getFullYear() >= anioInicio : false);
@@ -325,10 +332,7 @@ export default function AgreementsList({
           checks.push(sig ? sig.getFullYear() <= anioFin : false);
         }
 
-        // Si no hay checks aplicados devolvemos true
         if (checks.length === 0) return true;
-
-        // operador
         if (operador === "OR") return checks.some(Boolean);
         return checks.every(Boolean);
       };
@@ -350,11 +354,9 @@ export default function AgreementsList({
     return filtered.slice(start, start + pageSize);
   }, [filtered, page, pageSize]);
 
-  /* ------------------ Handlers para FiltroAvanzado ------------------ */
+  /* ------------------ Handlers Filtro Avanzado ------------------ */
   const handleApplyAdvancedFilters = (filtros: any) => {
-    // Normalizamos claves antiguas (compatibilidad)
     const normalized = {
-      // áreas: permitimos que venga {areas: [ids]} o {areaResponsable: [names]}
       areas: filtros.areas ?? filtros.areaResponsable ?? [],
       tipos: filtros.tipos ?? filtros.tipoConvenio ?? [],
       estados: filtros.estados ?? filtros.estado ?? [],
@@ -372,6 +374,26 @@ export default function AgreementsList({
     setAdvancedFilters(null);
   };
 
+  /* ------------------ Renovaciones: abrir modal / historial ------------------ */
+  const openRenewalModal = (agreement: any) => {
+    // aseguramos que currentExpiration sea string | null (no undefined)
+    const expiration: string | null = agreement.expiration_date ?? null;
+    setRenewalTarget({ id: agreement.id, name: agreement.name, currentExpiration: expiration });
+    setShowRenewalModal(true);
+  };
+
+  const openRenewalHistory = (agreementId: string) => {
+    setHistoryTargetAgreementId(agreementId);
+    setShowRenewalHistory(true);
+  };
+
+  const handleAfterRenewal = async () => {
+    // refrescar datos
+    await fetchAgreementsAndRenewals();
+    setShowRenewalModal(false);
+    setRenewalTarget(null);
+  };
+
   /* ------------------ Render UI ------------------ */
   return (
     <div className="container mt-4">
@@ -385,10 +407,9 @@ export default function AgreementsList({
         )}
       </div>
 
-      {/* FILTROS REDISEÑADOS */}
+      {/* filtros */}
       <div className="card shadow-sm border-0 p-3 mb-4">
         <div className="row gy-2 align-items-center">
-          {/* búsqueda */}
           <div className="col-md-4">
             <input
               className="form-control"
@@ -401,7 +422,6 @@ export default function AgreementsList({
             />
           </div>
 
-          {/* estado select */}
           <div className="col-md-3 d-flex align-items-center">
             <label className="me-2 mb-0">Estado:</label>
             <select
@@ -419,7 +439,6 @@ export default function AgreementsList({
             </select>
           </div>
 
-          {/* mostrar y filtro avanzado */}
           <div className="col-md-5 d-flex align-items-center justify-content-end">
             <div className="me-2">Mostrar:</div>
             <select
@@ -442,7 +461,7 @@ export default function AgreementsList({
           </div>
         </div>
 
-        {/* indicadores de filtros avanzados aplicados */}
+        {/* filtros avanzados aplicados */}
         <div className="mt-2">
           {advancedFilters ? (
             <div>
@@ -456,7 +475,9 @@ export default function AgreementsList({
                 {advancedFilters.clasificacion && `Clasificación: ${Array.isArray(advancedFilters.clasificacion) ? advancedFilters.clasificacion.join(", ") : advancedFilters.clasificacion}. `}
                 (Operador: {advancedFilters.operator})
               </small>
-              <button className="btn btn-sm btn-link ms-2" onClick={handleClearAdvancedFilters}>Limpiar filtros avanzados</button>
+              <button className="btn btn-sm btn-link ms-2" onClick={handleClearAdvancedFilters}>
+                Limpiar filtros avanzados
+              </button>
             </div>
           ) : (
             <small className="text-muted">No hay filtros avanzados aplicados.</small>
@@ -481,7 +502,7 @@ export default function AgreementsList({
                 <th>Fecha Firma</th>
                 <th style={{ minWidth: 240 }}>Vigencia restante</th>
                 <th style={{ minWidth: 260 }}>Estado</th>
-                <th style={{ width: 260 }}>Acciones</th>
+                <th style={{ width: 320 }}>Acciones</th>
               </tr>
             </thead>
 
@@ -494,22 +515,26 @@ export default function AgreementsList({
                   </td>
 
                   <td style={{ verticalAlign: "middle" }}>
-                    {Array.isArray(a.tipo_convenio)
-                      ? a.tipo_convenio.map((t: string, idx: number) => (
-                          <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>
-                            {t}
-                          </span>
-                        ))
-                      : a.convenio ? (
-                        <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>{a.convenio}</span>
-                      ) : (
-                        <span className="text-muted">-</span>
-                      )}
+                    {Array.isArray(a.tipo_convenio) ? (
+                      a.tipo_convenio.map((t: string, idx: number) => (
+                        <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>
+                          {t}
+                        </span>
+                      ))
+                    ) : a.convenio ? (
+                      <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>
+                        {a.convenio}
+                      </span>
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
                   </td>
 
                   <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>
 
-                  <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
+                  <td style={{ verticalAlign: "middle" }}>
+                    {a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}
+                  </td>
 
                   <td style={{ verticalAlign: "middle" }}>
                     {a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}
@@ -526,7 +551,18 @@ export default function AgreementsList({
                           <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio">
                             ✏️ Editar
                           </button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(a.id, a.name)} title="Eliminar convenio">
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => {
+                            if (confirm(`¿Eliminar el convenio "${a.name}"?`)) {
+                              supabase.from("agreements").delete().eq("id", a.id).then(({ error }) => {
+                                if (error) {
+                                  alert("Error al eliminar convenio: " + error.message);
+                                } else {
+                                  setAgreements(prev => prev.filter(x => x.id !== a.id));
+                                  alert("✅ Convenio eliminado correctamente");
+                                }
+                              });
+                            }
+                          }} title="Eliminar convenio">
                             🗑️ Eliminar
                           </button>
                         </>
@@ -536,20 +572,22 @@ export default function AgreementsList({
                         📋 Programar
                       </button>
 
-                      <button
-                        className="btn btn-sm btn-outline-warning"
-                        onClick={() => onOpenEvidencias(a.id)}
-                        title="Cumplimiento / Evidencias"
-                      >
+                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">
                         📂 Cumplimiento
                       </button>
 
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => onOpenInforme(a.id)}
-                        title="Informe semestral"
-                      >
+                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">
                         📝 Informe
+                      </button>
+
+                      {/* RENOVACIÓN: botón que abre modal */}
+                      <button className="btn btn-sm btn-outline-dark" onClick={() => openRenewalModal(a)} title="Renovar convenio">
+                        🔄 Renovar
+                      </button>
+
+                      {/* HISTORIAL DE RENOVACIONES */}
+                      <button className="btn btn-sm btn-outline-info" onClick={() => openRenewalHistory(a.id)} title="Ver historial de renovaciones">
+                        📜 Historial
                       </button>
                     </div>
                   </td>
@@ -564,25 +602,16 @@ export default function AgreementsList({
       {filtered.length > 0 && (
         <div className="d-flex justify-content-between align-items-center mt-3">
           <div className="text-muted">
-            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} -{" "}
-            {Math.min(page * pageSize, filtered.length)} de {filtered.length}
+            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} - {Math.min(page * pageSize, filtered.length)} de {filtered.length}
           </div>
           <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-            >
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
               ← Prev
             </button>
             <div>
               Página {page} / {totalPages}
             </div>
-            <button
-              className="btn btn-sm btn-outline-secondary"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-            >
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
               Next →
             </button>
           </div>
@@ -591,14 +620,57 @@ export default function AgreementsList({
 
       {/* Filtro Avanzado modal */}
       {showFiltroAvanzado && (
-        <FiltroAvanzado
-          onApply={handleApplyAdvancedFilters}
-          onClose={() => setShowFiltroAvanzado(false)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center align-items-start p-4" style={{ paddingTop: 40 }}>
+          <div className="bg-white rounded p-3" style={{ width: "min(980px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5>Filtro Avanzado</h5>
+              <button className="btn btn-sm btn-light" onClick={() => setShowFiltroAvanzado(false)}>Cerrar ✖</button>
+            </div>
+            <FiltroAvanzado onApply={handleApplyAdvancedFilters} onClose={() => setShowFiltroAvanzado(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* RenewalModal (si existe). Hacemos 'as any' para evitar mismatch de props tipadas localmente */}
+      {showRenewalModal && renewalTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center items-start p-4" style={{ paddingTop: 40 }}>
+          <div className="bg-white rounded p-3" style={{ width: "min(700px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5>Renovar convenio: {renewalTarget.name}</h5>
+              <button className="btn btn-sm btn-light" onClick={() => { setShowRenewalModal(false); setRenewalTarget(null); }}>Cerrar ✖</button>
+            </div>
+            {/* Si hay mismatch de tipos en tu RenewalModal, el 'as any' evita error TS.
+                En cuanto me compartas RenewalModal.tsx lo tipamos correctamente y quitamos 'as any'. */}
+            <RenewalModal
+              {...({
+                agreementId: renewalTarget.id,
+                currentExpiration: renewalTarget.currentExpiration,
+                onSaved: handleAfterRenewal,
+                onCancel: () => { setShowRenewalModal(false); setRenewalTarget(null); }
+              } as any)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* RenewalHistory modal (le pasamos onClose para evitar error de props faltante) */}
+      {showRenewalHistory && historyTargetAgreementId && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center items-start p-4" style={{ paddingTop: 40 }}>
+          <div className="bg-white rounded p-3" style={{ width: "min(800px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5>Historial de renovaciones</h5>
+              <button className="btn btn-sm btn-light" onClick={() => { setShowRenewalHistory(false); setHistoryTargetAgreementId(null); }}>Cerrar ✖</button>
+            </div>
+            <RenewalHistory agreementId={historyTargetAgreementId} onClose={() => { setShowRenewalHistory(false); setHistoryTargetAgreementId(null); }} />
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
+
+
 
 
 
