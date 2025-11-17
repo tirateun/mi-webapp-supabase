@@ -7,20 +7,35 @@ interface AreaVinculada {
 }
 
 interface FiltroAvanzadoProps {
-  onApply: (filtros: any) => void;
+  onApply: (filtros: {
+    areas: string[];
+    tipos: string[];
+    estados: string[];
+    anioInicio: string;
+    anioFin: string;
+    operator: "AND" | "OR";
+  }) => void;
   onClose: () => void;
 }
 
-export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps) {
+export default function FiltroAvanzado({
+  onApply,
+  onClose,
+}: FiltroAvanzadoProps) {
   const [areas, setAreas] = useState<AreaVinculada[]>([]);
+  const [tiposConvenio, setTiposConvenio] = useState<string[]>([]);
+
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
   const [selectedEstados, setSelectedEstados] = useState<string[]>([]);
+
   const [anioInicio, setAnioInicio] = useState<string>("");
   const [anioFin, setAnioFin] = useState<string>("");
   const [operator, setOperator] = useState<"AND" | "OR">("AND");
 
-  // Cargar áreas desde Supabase
+  // =====================
+  // CARGAR ÁREAS VINCULADAS
+  // =====================
   useEffect(() => {
     async function loadAreas() {
       const { data, error } = await supabase
@@ -35,7 +50,37 @@ export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps
     loadAreas();
   }, []);
 
-  // Toggle selección de áreas
+  // =====================
+  // CARGAR TIPOS DE CONVENIO (SI EXISTE TABLA)
+  // =====================
+  useEffect(() => {
+    async function loadTipos() {
+      const { data, error } = await supabase
+        .from("tipos_convenio")
+        .select("nombre")
+        .order("nombre", { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setTiposConvenio(data.map((t) => t.nombre));
+      } else {
+        // Si no existe tabla, usamos lista local
+        setTiposConvenio([
+          "Docente Asistencial",
+          "Cooperación técnica",
+          "Movilidad académica",
+          "Investigación",
+          "Colaboración académica",
+          "Consultoría",
+          "Cotutela",
+        ]);
+      }
+    }
+    loadTipos();
+  }, []);
+
+  // =====================
+  // TOGGLES
+  // =====================
   const toggleArea = (id: string) => {
     setSelectedAreas((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
@@ -54,6 +99,9 @@ export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps
     );
   };
 
+  // =====================
+  // APLICAR FILTROS
+  // =====================
   const applyFilters = () => {
     onApply({
       areas: selectedAreas,
@@ -61,7 +109,7 @@ export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps
       estados: selectedEstados,
       anioInicio,
       anioFin,
-      operator
+      operator,
     });
   };
 
@@ -87,10 +135,10 @@ export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps
         ))}
       </div>
 
-      {/* Tipo de Convenio */}
+      {/* Tipos de convenio */}
       <h3 className="font-semibold mb-2">Tipo de Convenio</h3>
       <div className="flex flex-wrap gap-2 mb-4">
-        {["Investigación", "Específico", "Marco"].map((tipo) => (
+        {tiposConvenio.map((tipo) => (
           <button
             key={tipo}
             onClick={() => toggleTipo(tipo)}
@@ -172,12 +220,10 @@ export default function FiltroAvanzado({ onApply, onClose }: FiltroAvanzadoProps
         Aplicar filtros
       </button>
 
-      <button
-        onClick={onClose}
-        className="w-full bg-gray-300 py-2 rounded"
-      >
+      <button onClick={onClose} className="w-full bg-gray-300 py-2 rounded">
         Cerrar
       </button>
     </div>
   );
 }
+

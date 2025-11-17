@@ -86,7 +86,7 @@ export default function AgreementsList({
 
   // filtros UI
   const [search, setSearch] = useState("");
-  const [selectedTipos, setSelectedTipos] = useState<string[]>([]);
+  // NOTA: removimos los botones rápidos de "tipos" de la cabecera (va en filtro avanzado)
   const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido">("all");
 
   // filtro avanzado (objeto devuelto por FiltroAvanzado)
@@ -97,8 +97,8 @@ export default function AgreementsList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // lista de tipos
-  const tipos = [
+  // lista de tipos (se usa como fallback en FiltroAvanzado si no hay tabla)
+  const tiposFallback = [
     "Docente Asistencial",
     "Cooperación técnica",
     "Movilidad académica",
@@ -111,7 +111,7 @@ export default function AgreementsList({
   /* ------------------ Fetch de areas (para filtro) ------------------ */
   const fetchAreas = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
+      const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre").order("nombre", { ascending: true });
       if (error) throw error;
       setAreas(data || []);
     } catch (err) {
@@ -182,23 +182,17 @@ export default function AgreementsList({
     }
   }, []);
 
-  const toggleTipo = useCallback((tipo: string) => {
-    setSelectedTipos((prev) => (prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]));
-    setPage(1);
-  }, []);
-
-  /* ------------------ Vigencia y estado helpers ------------------ */
+  /* ------------------ Vigencia y estado helpers (usa expiration_date si existe) ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
-    if (!a?.signature_date || !a?.duration_years) return a?.expiration_date ? new Date(a.expiration_date) : null;
+    // preferimos expiration_date (columna generada en la base)
+    if (a?.expiration_date) return new Date(a.expiration_date);
+    if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
     if (!sig) return null;
     return computeEndDate(sig, Number(a.duration_years));
   }, []);
 
   const getStatus = useCallback((a: any) => {
-    const sig = parseLocalDate(a.signature_date);
-    if (!sig && !a?.expiration_date) return { key: "sin_info", label: "Sin vigencia", color: "secondary" };
-
     const end = getEndDate(a);
     if (!end) return { key: "sin_info", label: "Sin vigencia", color: "secondary" };
 
@@ -252,16 +246,7 @@ export default function AgreementsList({
       });
     }
 
-    // filtro por tipos (botones rápidos)
-    if (selectedTipos.length > 0) {
-      result = result.filter((a) => {
-        const tiposField = a.tipo_convenio || [];
-        if (Array.isArray(tiposField)) return tiposField.some((t: string) => selectedTipos.includes(t));
-        return selectedTipos.includes(tiposField);
-      });
-    }
-
-    // filtro por estado (select)
+    // filtro por estado (select - usa expiration_date)
     if (estadoFilter !== "all") {
       result = result.filter((a) => {
         const st = getStatus(a);
@@ -272,20 +257,30 @@ export default function AgreementsList({
       });
     }
 
-    // filtro avanzado (client-side)
+    // filtro avanzado (client-side). Soportamos payloads con claves: areas | areaResponsable, tipos | tipoConvenio, estados | estado
     if (advancedFilters) {
-      // pre-procesos
-      const areaNames: string[] = advancedFilters.areaResponsable || [];
-      const tipoSel: string[] = advancedFilters.tipoConvenio || [];
-      const estadosSel: string[] = advancedFilters.estado || [];
-      const anioInicio = advancedFilters.añoInicio ? Number(advancedFilters.añoInicio) : null;
-      const anioFin = advancedFilters.añoFin ? Number(advancedFilters.añoFin) : null;
-      const operador = advancedFilters.operador || "AND";
+      const areaIdsFromPayload: string[] = advancedFilters.areas || advancedFilters.areaResponsable || [];
+      const tiposFromPayload: string[] = advancedFilters.tipos || advancedFilters.tipoConvenio || [];
+      const estadosFromPayload: string[] = advancedFilters.estados || advancedFilters.estado || [];
+      const anioInicio = advancedFilters.anioInicio || advancedFilters.añoInicio ? Number(advancedFilters.anioInicio ?? advancedFilters.añoInicio) : null;
+      const anioFin = advancedFilters.anioFin || advancedFilters.añoFin ? Number(advancedFilters.anioFin ?? advancedFilters.añoFin) : null;
+      const operador = advancedFilters.operator || advancedFilters.operador || "AND";
 
-      // mapear nombres de áreas a ids (según tabla areas_vinculadas)
-      const selectedAreaIds = areaNames.length > 0 ? areas.filter((ar) => areaNames.includes(ar.nombre)).map((ar) => ar.id) : [];
+      // Si payload áreas contiene nombres en vez de ids (compatibilidad), convertimos nombres a ids
+      // (permitimos ambos: FiltroAvanzado actual devuelve ids en `areas`, pero versiones previas podían devolver nombres)
+      let selectedAreaIds: string[] = [];
+      if (areaIdsFromPayload.length > 0) {
+        // detectamos si it's array of ids (uuid-ish) by checking presence in areas list by id or by name
+        const first = areaIdsFromPayload[0];
+        const foundById = areas.some((ar) => ar.id === first);
+        if (foundById) {
+          selectedAreaIds = areaIdsFromPayload;
+        } else {
+          // tratar como nombres -> mapear a ids
+          selectedAreaIds = areas.filter((ar) => areaIdsFromPayload.includes(ar.nombre)).map((ar) => ar.id);
+        }
+      }
 
-      // función que evalúa un convenio frente a los filtros avanzados
       const matchesAdvanced = (item: any) => {
         const checks: boolean[] = [];
 
@@ -295,21 +290,28 @@ export default function AgreementsList({
           checks.push(matchArea);
         }
 
-        // TIPO
-        if (tipoSel.length > 0) {
+        // TIPO (tipo_convenio array)
+        if (tiposFromPayload.length > 0) {
           const tiposField = item.tipo_convenio || [];
           const tipoMatch = Array.isArray(tiposField)
-            ? tiposField.some((t: string) => tipoSel.includes(t))
-            : tipoSel.includes(tiposField);
+            ? tiposField.some((t: string) => tiposFromPayload.includes(t))
+            : tiposFromPayload.includes(tiposField);
           checks.push(tipoMatch);
         }
 
-        // ESTADO
-        if (estadosSel.length > 0) {
+        // CLASIFICACIÓN (convenio campo: 'específico' | 'marco')
+        if (advancedFilters.clasificacion) {
+          // soporte: clasificacion puede ser string or array
+          const cls = Array.isArray(advancedFilters.clasificacion) ? advancedFilters.clasificacion : [advancedFilters.clasificacion];
+          const convenioValue = (item.convenio || "").toString();
+          checks.push(cls.includes(convenioValue));
+        }
+
+        // ESTADO (por payload)
+        if (estadosFromPayload.length > 0) {
           const st = getStatus(item);
-          // convertir key a label comparable
           const keyLabel = st.key === "vigente" ? "Vigente" : st.key === "por_vencer" ? "Por vencer" : st.key === "vencido" ? "Vencido" : "Sin vigencia";
-          const estadoMatch = estadosSel.includes(keyLabel);
+          const estadoMatch = estadosFromPayload.includes(keyLabel);
           checks.push(estadoMatch);
         }
 
@@ -323,8 +325,10 @@ export default function AgreementsList({
           checks.push(sig ? sig.getFullYear() <= anioFin : false);
         }
 
-        // operador
+        // Si no hay checks aplicados devolvemos true
         if (checks.length === 0) return true;
+
+        // operador
         if (operador === "OR") return checks.some(Boolean);
         return checks.every(Boolean);
       };
@@ -333,7 +337,7 @@ export default function AgreementsList({
     }
 
     return result;
-  }, [agreements, search, selectedTipos, estadoFilter, advancedFilters, areas, getStatus]);
+  }, [agreements, search, estadoFilter, advancedFilters, areas, getStatus]);
 
   // paginación
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -348,7 +352,18 @@ export default function AgreementsList({
 
   /* ------------------ Handlers para FiltroAvanzado ------------------ */
   const handleApplyAdvancedFilters = (filtros: any) => {
-    setAdvancedFilters(filtros);
+    // Normalizamos claves antiguas (compatibilidad)
+    const normalized = {
+      // áreas: permitimos que venga {areas: [ids]} o {areaResponsable: [names]}
+      areas: filtros.areas ?? filtros.areaResponsable ?? [],
+      tipos: filtros.tipos ?? filtros.tipoConvenio ?? [],
+      estados: filtros.estados ?? filtros.estado ?? [],
+      anioInicio: filtros.anioInicio ?? filtros.añoInicio ?? "",
+      anioFin: filtros.anioFin ?? filtros.añoFin ?? "",
+      operator: filtros.operator ?? filtros.operador ?? "AND",
+      clasificacion: filtros.clasificacion ?? filtros.clasificación ?? undefined,
+    };
+    setAdvancedFilters(normalized);
     setShowFiltroAvanzado(false);
     setPage(1);
   };
@@ -386,28 +401,8 @@ export default function AgreementsList({
             />
           </div>
 
-          {/* botones tipos */}
-          <div className="col-md-4 d-flex align-items-center">
-            <div className="me-2">Tipo:</div>
-            <div className="d-flex flex-wrap">
-              {tipos.map((t) => {
-                const active = selectedTipos.includes(t);
-                return (
-                  <button
-                    key={t}
-                    className={`btn btn-sm me-2 mb-2 ${active ? "btn-primary" : "btn-outline-primary"}`}
-                    onClick={() => toggleTipo(t)}
-                    title={`Filtrar por ${t}`}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* estado select */}
-          <div className="col-md-2 d-flex align-items-center">
+          <div className="col-md-3 d-flex align-items-center">
             <label className="me-2 mb-0">Estado:</label>
             <select
               className="form-select"
@@ -425,7 +420,7 @@ export default function AgreementsList({
           </div>
 
           {/* mostrar y filtro avanzado */}
-          <div className="col-md-2 d-flex align-items-center justify-content-end">
+          <div className="col-md-5 d-flex align-items-center justify-content-end">
             <div className="me-2">Mostrar:</div>
             <select
               className="form-select me-2"
@@ -453,12 +448,13 @@ export default function AgreementsList({
             <div>
               <small className="text-muted">
                 <strong>Filtros avanzados:</strong>{" "}
-                {advancedFilters.tipoConvenio?.length > 0 && `Tipo: ${advancedFilters.tipoConvenio.join(", ")}. `}
-                {advancedFilters.areaResponsable?.length > 0 && `Área: ${advancedFilters.areaResponsable.join(", ")}. `}
-                {advancedFilters.estado?.length > 0 && `Estado: ${advancedFilters.estado.join(", ")}. `}
-                {advancedFilters.añoInicio && `Año desde ${advancedFilters.añoInicio}. `}
-                {advancedFilters.añoFin && `Año hasta ${advancedFilters.añoFin}. `}
-                (Operador: {advancedFilters.operador})
+                {advancedFilters.tipos?.length > 0 && `Tipo: ${advancedFilters.tipos.join(", ")}. `}
+                {advancedFilters.areas?.length > 0 && `Área: ${advancedFilters.areas.join(", ")}. `}
+                {advancedFilters.estados?.length > 0 && `Estado: ${advancedFilters.estados.join(", ")}. `}
+                {advancedFilters.anioInicio && `Año desde ${advancedFilters.anioInicio}. `}
+                {advancedFilters.anioFin && `Año hasta ${advancedFilters.anioFin}. `}
+                {advancedFilters.clasificacion && `Clasificación: ${Array.isArray(advancedFilters.clasificacion) ? advancedFilters.clasificacion.join(", ") : advancedFilters.clasificacion}. `}
+                (Operador: {advancedFilters.operator})
               </small>
               <button className="btn btn-sm btn-link ms-2" onClick={handleClearAdvancedFilters}>Limpiar filtros avanzados</button>
             </div>
@@ -540,11 +536,19 @@ export default function AgreementsList({
                         📋 Programar
                       </button>
 
-                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">
+                      <button
+                        className="btn btn-sm btn-outline-warning"
+                        onClick={() => onOpenEvidencias(a.id)}
+                        title="Cumplimiento / Evidencias"
+                      >
                         📂 Cumplimiento
                       </button>
 
-                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => onOpenInforme(a.id)}
+                        title="Informe semestral"
+                      >
                         📝 Informe
                       </button>
                     </div>
@@ -560,16 +564,25 @@ export default function AgreementsList({
       {filtered.length > 0 && (
         <div className="d-flex justify-content-between align-items-center mt-3">
           <div className="text-muted">
-            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} - {Math.min(page * pageSize, filtered.length)} de {filtered.length}
+            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} -{" "}
+            {Math.min(page * pageSize, filtered.length)} de {filtered.length}
           </div>
           <div className="d-flex align-items-center gap-2">
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
               ← Prev
             </button>
             <div>
               Página {page} / {totalPages}
             </div>
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
               Next →
             </button>
           </div>
@@ -578,11 +591,16 @@ export default function AgreementsList({
 
       {/* Filtro Avanzado modal */}
       {showFiltroAvanzado && (
-        <FiltroAvanzado onApply={handleApplyAdvancedFilters} onClose={() => setShowFiltroAvanzado(false)} />
+        <FiltroAvanzado
+          onApply={handleApplyAdvancedFilters}
+          onClose={() => setShowFiltroAvanzado(false)}
+        />
       )}
     </div>
   );
 }
+
+
 
 
 
