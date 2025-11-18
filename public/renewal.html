@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <title>Registrar Renovación</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        body { font-family: Arial; padding: 40px; background: #f5f5f5; }
+        .box {
+            max-width: 600px; margin: auto; background: white;
+            padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px #0002;
+        }
+        input, button {
+            width: 100%; padding: 10px; margin-top: 10px;
+            border-radius: 6px; border: 1px solid #ccc;
+        }
+        button { background: #1E88E5; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>Registrar Renovación</h2>
+
+    <label>Fecha nueva de vencimiento</label>
+    <input id="newDate" type="date" />
+
+    <button onclick="saveRenewal()">Guardar Renovación</button>
+
+    <p id="msg" style="margin-top: 20px; color: green;"></p>
+</div>
+
+<script>
+    // ======================
+    // Cargar variables Vite
+    // ======================
+    const supabaseUrl = window?.ENV_VITE_SUPABASE_URL || import.meta?.env?.VITE_SUPABASE_URL;
+    const supabaseAnon = window?.ENV_VITE_SUPABASE_ANON_KEY || import.meta?.env?.VITE_SUPABASE_ANON_KEY;
+
+    // fallback por seguridad
+    const sb = supabase.createClient(
+        supabaseUrl || "<?= VITE_SUPABASE_URL ?>",
+        supabaseAnon || "<?= VITE_SUPABASE_ANON_KEY ?>"
+    );
+
+    const agreementId = new URLSearchParams(window.location.search).get("agreementId");
+
+    async function saveRenewal() {
+        const newDate = document.getElementById("newDate").value;
+        const msg = document.getElementById("msg");
+
+        if (!newDate) {
+            msg.style.color = "red";
+            msg.textContent = "Debes seleccionar una fecha.";
+            return;
+        }
+
+        // Obtener fecha actual para old_expiration_date
+        const { data: ag } = await sb
+            .from("agreements")
+            .select("expiration_date")
+            .eq("id", agreementId)
+            .single();
+
+        const oldDate = ag?.expiration_date ?? null;
+
+        // Registrar renovación
+        const { error } = await sb.from("agreement_renewals").insert([
+            {
+                agreement_id: agreementId,
+                old_expiration_date: oldDate,
+                new_expiration_date: newDate
+            }
+        ]);
+
+        if (error) {
+            msg.style.color = "red";
+            msg.textContent = "❌ Error: " + error.message;
+            return;
+        }
+
+        // Actualizar fecha en agreements
+        await sb
+            .from("agreements")
+            .update({ expiration_date: newDate })
+            .eq("id", agreementId);
+
+        msg.style.color = "green";
+        msg.textContent = "Renovación guardada correctamente ✔";
+
+        setTimeout(() => window.close(), 2000);
+    }
+</script>
+</body>
+</html>
