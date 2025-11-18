@@ -89,6 +89,9 @@ export default function AgreementsList({
   const [renewalsMap, setRenewalsMap] = useState<Record<string, { count: number; latest_new_expiration_date: string | null }>>({});
   const [loading, setLoading] = useState(true);
 
+   // 🔹 NUEVO: Estado para almacenar TODAS las renovaciones del convenio activo
+   const [renewalsDataState, setRenewalsDataState] = useState<any[]>([]);
+
   // filtros UI
   const [search, setSearch] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido">("all");
@@ -163,6 +166,8 @@ export default function AgreementsList({
 
       if (rError) throw rError;
 
+      setRenewalsDataState(renewalsData || []);
+
       // agrupar por agreement_id
       const map: Record<string, { count: number; latest_new_expiration_date: string | null }> = {};
       (renewalsData || []).forEach((r: any) => {
@@ -203,6 +208,67 @@ export default function AgreementsList({
     return computeEndDate(sig, Number(a.duration_years));
   }, []);
 
+  const getActiveRenewalFor = (agreementId: string) => {
+    if (!renewalsDataState || renewalsDataState.length === 0) return null;
+  
+    // Buscamos la renovación más reciente de ese convenio
+    const r = renewalsDataState
+      .filter((x) => x.agreement_id === agreementId)
+      .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+  
+    return r.length > 0 ? r[0] : null; // la más reciente
+  };
+  
+  /* ------------------ Helpers renovaciones (vigencia + renovación activa) ------------------ */
+    const getRenewalInfo = useCallback(
+      (agreementId: string) => {
+        const r = renewalsMap[agreementId];
+        if (!r) return { latestExpiration: null, activeRenewalId: null };
+  
+        const latestExpiration = r.latest_new_expiration_date
+          ? new Date(r.latest_new_expiration_date)
+          : null;
+  
+        // Buscar en renewalsData cuál renovación tiene esa fecha (la más reciente)
+        // NOTA: fetchAgreementsAndRenewals ya las trae ordenadas desc
+        const renewalList = Object.values(renewalsMap);
+        let activeRenewalId: string | null = null;
+  
+        // Como renewalsMap no guarda IDs, necesitamos buscar en fetch
+        // Para eso añadimos renewalsData en state
+        // (lo agregaremos más arriba en tu archivo)
+  
+        if (renewalsDataState.length > 0) {
+          const found = renewalsDataState.find(
+            (r) =>
+              r.agreement_id === agreementId &&
+              r.new_expiration_date === renewalsMap[agreementId]?.latest_new_expiration_date
+          );
+          if (found) activeRenewalId = found.id;
+        }
+  
+        return {
+          latestExpiration,
+          activeRenewalId,
+        };
+      },
+      [renewalsMap, renewalsDataState]
+    );
+  
+    /* ------------------ Fecha final real del convenio ------------------ */
+    const getRealEndDate = useCallback(
+      (agreement: any): Date | null => {
+        const renewal = getRenewalInfo(agreement.id);
+  
+        // 1) Si hay renovación → usar la fecha de la última renovación
+        if (renewal.latestExpiration) return renewal.latestExpiration;
+  
+        // 2) Sino → usar la fecha normal del convenio
+        return getEndDate(agreement);
+      },
+      [getRenewalInfo, getEndDate]
+    );
+  
   const getStatus = useCallback((a: any) => {
     const end = getEndDate(a);
     if (!end) return { key: "sin_info", label: "Sin vigencia", color: "secondary" };
@@ -563,15 +629,36 @@ export default function AgreementsList({
                         </>
                       )}
 
-                      <button className="btn btn-sm btn-outline-success" onClick={() => onOpenContraprestaciones(a.id)} title="Programar contraprestaciones">
+                      <button className="btn btn-sm btn-outline-success"
+                        onClick={() => {
+                          const active = getActiveRenewalFor(a.id);
+                          const targetId = active ? active.id : a.id;
+                          onOpenContraprestaciones(targetId);
+                        }}
+                        title="Programar contraprestaciones"
+                      >
                         📋 Programar
                       </button>
 
-                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">
+                      <button className="btn btn-sm btn-outline-warning"
+                        onClick={() => {
+                          const active = getActiveRenewalFor(a.id);
+                          const targetId = active ? active.id : a.id;
+                          onOpenEvidencias(targetId);
+                        }}
+                        title="Cumplimiento / Evidencias"
+                      >
                         📂 Cumplimiento
                       </button>
 
-                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">
+                      <button className="btn btn-sm btn-outline-primary"
+                        onClick={() => {
+                          const active = getActiveRenewalFor(a.id);
+                          const targetId = active ? active.id : a.id;
+                          onOpenInforme(targetId);
+                        }}
+                        title="Informe semestral"
+                      >
                         📝 Informe
                       </button>
 
