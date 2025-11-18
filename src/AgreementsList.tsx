@@ -1,9 +1,8 @@
-// FILE: src/AgreementsList.tsx
+// src/AgreementsList.tsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import FiltroAvanzado from "./FiltroAvanzado";
-import RenewalModal from "./RenewalModal";
-import RenewalHistory from "./RenewalHistory";
 
 /* ------------------ Tipos ------------------ */
 interface AgreementsListProps {
@@ -82,6 +81,8 @@ export default function AgreementsList({
   onOpenEvidencias,
   onOpenInforme,
 }: AgreementsListProps) {
+  const navigate = useNavigate();
+
   // data
   const [agreements, setAgreements] = useState<any[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
@@ -99,12 +100,6 @@ export default function AgreementsList({
   // paginación simple
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  // Modal renovaciones / historial
-  const [showRenewalModal, setShowRenewalModal] = useState(false);
-  const [renewalTarget, setRenewalTarget] = useState<{ id: string; name?: string; currentExpiration?: string | null } | null>(null);
-  const [showRenewalHistory, setShowRenewalHistory] = useState(false);
-  const [historyTargetAgreementId, setHistoryTargetAgreementId] = useState<string | null>(null);
 
   /* ------------------ Fetch Áreas ------------------ */
   const fetchAreas = useCallback(async () => {
@@ -176,6 +171,7 @@ export default function AgreementsList({
           map[aid] = { count: 0, latest_new_expiration_date: null };
         }
         map[aid].count += 1;
+        // guardamos la más reciente (renewalsData ya está ordenado desc por changed_at)
         if (r.new_expiration_date && !map[aid].latest_new_expiration_date) {
           map[aid].latest_new_expiration_date = r.new_expiration_date;
         }
@@ -199,6 +195,7 @@ export default function AgreementsList({
 
   /* ------------------ Helpers vigencia ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
+    // el campo expiration_date puede venir como string|null
     if (a?.expiration_date) return new Date(String(a.expiration_date));
     if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
@@ -218,7 +215,14 @@ export default function AgreementsList({
 
   const renderStatusBadge = useCallback((a: any) => {
     const st = getStatus(a);
-    const colorClass = st.color === "success" ? "bg-success text-white" : st.color === "warning" ? "bg-warning text-dark" : st.color === "danger" ? "bg-danger text-white" : "bg-secondary text-white";
+    const colorClass =
+      st.color === "success"
+        ? "bg-success text-white"
+        : st.color === "warning"
+        ? "bg-warning text-dark"
+        : st.color === "danger"
+        ? "bg-danger text-white"
+        : "bg-secondary text-white";
     return (
       <span className={`badge ${colorClass}`} title={st.label} style={{ fontSize: "0.85rem" }}>
         {st.key === "vigente" ? "🟢 Vigente" : st.key === "por_vencer" ? "🟡 Por vencer" : st.key === "vencido" ? "🔴 Vencido" : "⚪ Sin vigencia"}
@@ -226,29 +230,42 @@ export default function AgreementsList({
     );
   }, [getStatus]);
 
-  const renderCountdown = useCallback((a: any) => {
-    const end = getEndDate(a);
-    if (!end) return <small className="text-muted">Sin vigencia</small>;
-    const today = new Date();
-    const diff = diffDates(today, end);
-    const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
-    const styleColor = diff.invert ? { color: "#6c757d" } : diff.totalDays <= 30 ? { color: "#b21f2d", fontWeight: 600 } : diff.totalDays <= 90 ? { color: "#8a6d1f", fontWeight: 600 } : { color: "#256029" };
-    return (
-      <div style={{ textAlign: "left" }}>
-        <div style={styleColor} title={a.signature_date ? `Termina: ${end.toLocaleDateString("es-PE")}` : undefined}>
-          {text}
-        </div>
-        <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
-        {/* mostrar renovaciones */}
-        {renewalsMap[a.id] && (
-          <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
-            Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
-            {renewalsMap[a.id].latest_new_expiration_date ? ` — último: ${new Date(String(renewalsMap[a.id].latest_new_expiration_date)).toLocaleDateString("es-PE")}` : ""}
+  const renderCountdown = useCallback(
+    (a: any) => {
+      const end = getEndDate(a);
+      if (!end) return <small className="text-muted">Sin vigencia</small>;
+      const today = new Date();
+      const diff = diffDates(today, end);
+      const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
+      const styleColor = diff.invert
+        ? { color: "#6c757d" }
+        : diff.totalDays <= 30
+        ? { color: "#b21f2d", fontWeight: 600 }
+        : diff.totalDays <= 90
+        ? { color: "#8a6d1f", fontWeight: 600 }
+        : { color: "#256029" };
+
+      return (
+        <div style={{ textAlign: "left" }}>
+          <div style={styleColor} title={a.signature_date ? `Termina: ${end.toLocaleDateString("es-PE")}` : undefined}>
+            {text}
           </div>
-        )}
-      </div>
-    );
-  }, [getEndDate, renewalsMap]);
+          <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
+
+          {/* mostrar renovaciones */}
+          {renewalsMap[a.id] && (
+            <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
+              Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
+              {renewalsMap[a.id].latest_new_expiration_date
+                ? ` — último: ${new Date(String(renewalsMap[a.id].latest_new_expiration_date)).toLocaleDateString("es-PE")}`
+                : ""}
+            </div>
+          )}
+        </div>
+      );
+    },
+    [getEndDate, renewalsMap]
+  );
 
   /* ------------------ Filtros (simple + advanced) ------------------ */
   const filtered = useMemo(() => {
@@ -364,23 +381,14 @@ export default function AgreementsList({
     setAdvancedFilters(null);
   };
 
-  /* ------------------ Renovaciones: abrir modal / historial ------------------ */
-  const openRenewalModal = (agreement: any) => {
-    const expiration = agreement.expiration_date ?? null;
-    setRenewalTarget({ id: agreement.id, name: agreement.name, currentExpiration: expiration });
-    setShowRenewalModal(true);
+  /* ------------------ Navegación para renovaciones (abre nueva página) ------------------ */
+  const navigateToRenewalPage = (agreementId: string) => {
+    // abre la página de renovación en la misma pestaña (usar target nuevo si quieres en otra pestaña)
+    navigate(`/renewals/${agreementId}`);
   };
 
-  const openRenewalHistory = (agreementId: string) => {
-    setHistoryTargetAgreementId(agreementId);
-    setShowRenewalHistory(true);
-  };
-
-  const handleAfterRenewal = async () => {
-    // refrescar datos
-    await fetchAgreementsAndRenewals();
-    setShowRenewalModal(false);
-    setRenewalTarget(null);
+  const navigateToRenewalHistory = (agreementId: string) => {
+    navigate(`/renewals/${agreementId}/history`);
   };
 
   /* ------------------ Render UI ------------------ */
@@ -389,14 +397,14 @@ export default function AgreementsList({
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h3 className="fw-bold text-primary">📄 Lista de Convenios</h3>
 
-        { ["admin", "Admin", "Administrador"].includes(role) && (
+        {["admin", "Admin", "Administrador"].includes(role) && (
           <button className="btn btn-success shadow-sm" onClick={onCreate}>
             ➕ Nuevo Convenio
           </button>
         )}
       </div>
 
-      {/* filtros */}
+      {/* FILTROS */}
       <div className="card shadow-sm border-0 p-3 mb-4">
         <div className="row gy-2 align-items-center">
           <div className="col-md-4">
@@ -404,7 +412,10 @@ export default function AgreementsList({
               className="form-control"
               placeholder="🔎 Buscar por nombre, objetivos, país o resolución..."
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
 
@@ -413,7 +424,10 @@ export default function AgreementsList({
             <select
               className="form-select"
               value={estadoFilter}
-              onChange={(e) => { setEstadoFilter(e.target.value as any); setPage(1); }}
+              onChange={(e) => {
+                setEstadoFilter(e.target.value as any);
+                setPage(1);
+              }}
             >
               <option value="all">Todos</option>
               <option value="vigente">Vigente</option>
@@ -424,23 +438,33 @@ export default function AgreementsList({
 
           <div className="col-md-5 d-flex align-items-center justify-content-end">
             <div className="me-2">Mostrar:</div>
-            <select className="form-select me-2" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+            <select
+              className="form-select me-2"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
               <option value={5}>5</option>
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </select>
 
-            <button className="btn btn-outline-secondary" onClick={() => setShowFiltroAvanzado(true)}>⚙️ Filtro Avanzado</button>
+            <button className="btn btn-outline-secondary" onClick={() => setShowFiltroAvanzado(true)}>
+              ⚙️ Filtro Avanzado
+            </button>
           </div>
         </div>
 
-        {/* filtros avanzados aplicados */}
+        {/* indicadores de filtros avanzados aplicados */}
         <div className="mt-2">
           {advancedFilters ? (
             <div>
               <small className="text-muted">
-                <strong>Filtros avanzados:</strong> {advancedFilters.tipos?.length > 0 && `Tipo: ${advancedFilters.tipos.join(", ")}. `}
+                <strong>Filtros avanzados:</strong>{" "}
+                {advancedFilters.tipos?.length > 0 && `Tipo: ${advancedFilters.tipos.join(", ")}. `}
                 {advancedFilters.areas?.length > 0 && `Área: ${advancedFilters.areas.join(", ")}. `}
                 {advancedFilters.estados?.length > 0 && `Estado: ${advancedFilters.estados.join(", ")}. `}
                 {advancedFilters.anioInicio && `Año desde ${advancedFilters.anioInicio}. `}
@@ -448,7 +472,9 @@ export default function AgreementsList({
                 {advancedFilters.clasificacion && `Clasificación: ${Array.isArray(advancedFilters.clasificacion) ? advancedFilters.clasificacion.join(", ") : advancedFilters.clasificacion}. `}
                 (Operador: {advancedFilters.operator})
               </small>
-              <button className="btn btn-sm btn-link ms-2" onClick={handleClearAdvancedFilters}>Limpiar filtros avanzados</button>
+              <button className="btn btn-sm btn-link ms-2" onClick={handleClearAdvancedFilters}>
+                Limpiar filtros avanzados
+              </button>
             </div>
           ) : (
             <small className="text-muted">No hay filtros avanzados aplicados.</small>
@@ -488,10 +514,14 @@ export default function AgreementsList({
                   <td style={{ verticalAlign: "middle" }}>
                     {Array.isArray(a.tipo_convenio) ? (
                       a.tipo_convenio.map((t: string, idx: number) => (
-                        <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>{t}</span>
+                        <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>
+                          {t}
+                        </span>
                       ))
                     ) : a.convenio ? (
-                      <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>{a.convenio}</span>
+                      <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>
+                        {a.convenio}
+                      </span>
                     ) : (
                       <span className="text-muted">-</span>
                     )}
@@ -509,28 +539,51 @@ export default function AgreementsList({
 
                   <td style={{ verticalAlign: "middle" }}>
                     <div className="d-flex flex-wrap gap-2">
-                      { ["admin", "Admin", "Administrador"].includes(role) && (
+                      {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio">✏️ Editar</button>
-                          <button className="btn btn-sm btn-outline-danger" onClick={async () => {
-                            if (confirm(`¿Eliminar el convenio "${a.name}"?`)) {
-                              const { error } = await supabase.from('agreements').delete().eq('id', a.id);
-                              if (error) alert('Error al eliminar: ' + error.message); else { setAgreements(prev => prev.filter(x => x.id !== a.id)); alert('✅ Convenio eliminado correctamente'); }
-                            }
-                          }} title="Eliminar convenio">🗑️ Eliminar</button>
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio">
+                            ✏️ Editar
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={async () => {
+                              if (confirm(`¿Eliminar el convenio "${a.name}"?`)) {
+                                const { error } = await supabase.from("agreements").delete().eq("id", a.id);
+                                if (error) alert("Error al eliminar: " + error.message);
+                                else {
+                                  setAgreements((prev) => prev.filter((x) => x.id !== a.id));
+                                  alert("✅ Convenio eliminado correctamente");
+                                }
+                              }
+                            }}
+                            title="Eliminar convenio"
+                          >
+                            🗑️ Eliminar
+                          </button>
                         </>
                       )}
 
-                      <button className="btn btn-sm btn-outline-success" onClick={() => onOpenContraprestaciones(a.id)} title="Programar contraprestaciones">📋 Programar</button>
+                      <button className="btn btn-sm btn-outline-success" onClick={() => onOpenContraprestaciones(a.id)} title="Programar contraprestaciones">
+                        📋 Programar
+                      </button>
 
-                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">📂 Cumplimiento</button>
+                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias">
+                        📂 Cumplimiento
+                      </button>
 
-                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">📝 Informe</button>
+                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informe semestral">
+                        📝 Informe
+                      </button>
 
-                      {/* RENOVACIÓN */}
-                      <button className="btn btn-sm btn-outline-dark" onClick={() => openRenewalModal(a)} title="Renovar convenio">🔄 Renovar</button>
+                      {/* RENOVACIÓN: ahora abre página /renewals/:id */}
+                      <button className="btn btn-sm btn-outline-dark" onClick={() => navigateToRenewalPage(a.id)} title="Renovar convenio">
+                        🔄 Renovar
+                      </button>
 
-                      <button className="btn btn-sm btn-outline-info" onClick={() => openRenewalHistory(a.id)} title="Ver historial de renovaciones">📜 Historial</button>
+                      {/* HISTORIAL: abre página /renewals/:id/history */}
+                      <button className="btn btn-sm btn-outline-info" onClick={() => navigateToRenewalHistory(a.id)} title="Ver historial de renovaciones">
+                        📜 Historial
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -543,61 +596,41 @@ export default function AgreementsList({
       {/* paginación */}
       {filtered.length > 0 && (
         <div className="d-flex justify-content-between align-items-center mt-3">
-          <div className="text-muted">Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} - {Math.min(page * pageSize, filtered.length)} de {filtered.length}</div>
+          <div className="text-muted">
+            Mostrando {Math.min((page - 1) * pageSize + 1, filtered.length)} - {Math.min(page * pageSize, filtered.length)} de {filtered.length}
+          </div>
           <div className="d-flex align-items-center gap-2">
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>← Prev</button>
-            <div> Página {page} / {totalPages} </div>
-            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next →</button>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+              ← Prev
+            </button>
+            <div>
+              Página {page} / {totalPages}
+            </div>
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              Next →
+            </button>
           </div>
         </div>
       )}
 
-      {/* Filtro Avanzado modal */}
+      {/* Filtro Avanzado modal (inline) */}
       {showFiltroAvanzado && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center align-items-start p-4" style={{ paddingTop: 40 }}>
           <div className="bg-white rounded p-3" style={{ width: "min(980px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h5>Filtro Avanzado</h5>
-              <button className="btn btn-sm btn-light" onClick={() => setShowFiltroAvanzado(false)}>Cerrar ✖</button>
+              <button className="btn btn-sm btn-light" onClick={() => setShowFiltroAvanzado(false)}>
+                Cerrar ✖
+              </button>
             </div>
             <FiltroAvanzado onApply={handleApplyAdvancedFilters} onClose={() => setShowFiltroAvanzado(false)} />
-          </div>
-        </div>
-      )}
-
-      {/* RenewalModal */}
-      {showRenewalModal && renewalTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center items-start p-4" style={{ paddingTop: 40 }}>
-          <div className="bg-white rounded p-3" style={{ width: "min(700px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5>Renovar convenio: {renewalTarget.name}</h5>
-              <button className="btn btn-sm btn-light" onClick={() => { setShowRenewalModal(false); setRenewalTarget(null); }}>Cerrar ✖</button>
-            </div>
-            <RenewalModal
-              agreementId={renewalTarget.id}
-              currentExpiration={renewalTarget.currentExpiration ?? null}
-              onSaved={handleAfterRenewal}
-              onCancel={() => { setShowRenewalModal(false); setRenewalTarget(null); }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* RenewalHistory modal */}
-      {showRenewalHistory && historyTargetAgreementId && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center items-start p-4" style={{ paddingTop: 40 }}>
-          <div className="bg-white rounded p-3" style={{ width: "min(800px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5>Historial de renovaciones</h5>
-              <button className="btn btn-sm btn-light" onClick={() => { setShowRenewalHistory(false); setHistoryTargetAgreementId(null); }}>Cerrar ✖</button>
-            </div>
-            <RenewalHistory agreementId={historyTargetAgreementId} onClose={() => { setShowRenewalHistory(false); setHistoryTargetAgreementId(null); }} />
           </div>
         </div>
       )}
     </div>
   );
 }
+
 
 
 

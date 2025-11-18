@@ -15,6 +15,7 @@ import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
 import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList"; // ✅ Nuevo módulo
+import AgreementRenewalsPage from "./AgreementRenewalsPage";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -118,9 +119,12 @@ export default function App() {
         {/* ✅ Página de informe semestral independiente */}
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
+        {/* ✅ Nueva ventana independiente para renovaciones */}
+        <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
+
         {/* ✅ Nueva página Áreas Vinculadas */}
         <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
-
+        
         {/* 🌐 Layout principal */}
         <Route
           path="*"
