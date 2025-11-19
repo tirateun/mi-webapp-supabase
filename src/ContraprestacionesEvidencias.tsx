@@ -126,14 +126,15 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
       if (rErr) throw rErr;
       setRenewals((rData || []) as Renewal[]);
 
-      // 3) traer contraprestaciones relacionadas al convenio
-      // (en tu esquema las contraprestaciones tienen agreement_id y optional renewal_id)
+      // 3) traer contraprestaciones del convenio y de todas las renovaciones
       const { data: cData, error: cErr } = await supabase
-        .from("contraprestaciones")
-        .select("*")
-        .eq("agreement_id", agreementId)
-        .order("created_at", { ascending: true });
+      .from("contraprestaciones")
+      .select("*")
+      .or(`agreement_id.eq.${agreementId},renewal_id.in.(${(rData || []).map(r => r.id).join(",")})`)
+      .order("created_at", { ascending: true });
+
       if (cErr) throw cErr;
+
       const cList = (cData || []) as Contraprestacion[];
       setContraprestaciones(cList);
 
