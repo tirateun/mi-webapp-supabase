@@ -158,7 +158,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     if (inserted && aniosConvenio.length > 0) {
       const seguimientoData = aniosConvenio.map((a, i) => ({
         contraprestacion_id: inserted.id,
-        año: i + 1,
+        anio: i + 1,
         estado: "pendiente",
         ejecutado: false,
       }));
