@@ -26,6 +26,10 @@ interface SeguimientoRaw {
   ejecutado: boolean | null;
   anio?: number | null;
   renewal_id?: string | null;
+
+  // 👇 ESTA ES LA NUEVA PROPIEDAD (NO va dentro de contraprestaciones)
+  periodo?: string;
+
   contraprestaciones?: {
     id: string;
     tipo: string;
@@ -45,6 +49,7 @@ interface Seguimiento {
   evidencia_url: string | null;
   ejecutado: boolean;
   renewal_id: string | null;
+  periodo?: string;
   contraprestacion?: {
     id: string;
     tipo: string;
@@ -184,110 +189,131 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
   };
 
   /* ------------------ Agrupar por periodo (vigencia original + renovaciones) ------------------ */
-  const grouped = useMemo(() => {
-    // periods: array of { key, title, start: Date, end: Date, renewalId|null }
-    const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
+const grouped = useMemo(() => {
+  // periods: array of { key, title, start: Date, end: Date, renewalId|null }
+  const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
 
-    // Original period from agreementInfo
-    if (agreementInfo) {
-      let start: Date | null = null;
-      let end: Date | null = null;
-      if (agreementInfo.signature_date) {
-        start = parseLocalDate(agreementInfo.signature_date);
+  /* ------------------ PERIODO ORIGINAL ------------------ */
+  if (agreementInfo) {
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (agreementInfo.signature_date) {
+      start = parseLocalDate(agreementInfo.signature_date);
+    }
+    if (agreementInfo.expiration_date) {
+      end = parseLocalDate(agreementInfo.expiration_date);
+    } else if (agreementInfo.signature_date && agreementInfo.duration_years) {
+      const sig = parseLocalDate(agreementInfo.signature_date);
+      if (sig) {
+        const compEnd = new Date(sig);
+        compEnd.setFullYear(compEnd.getFullYear() + Number(agreementInfo.duration_years));
+        compEnd.setDate(compEnd.getDate() - 1);
+        end = compEnd;
       }
-      if (agreementInfo.expiration_date) {
-        end = parseLocalDate(agreementInfo.expiration_date);
-      } else if (agreementInfo.signature_date && agreementInfo.duration_years) {
-        // compute via duration_years
-        const sig = parseLocalDate(agreementInfo.signature_date);
-        if (sig) {
-          const compEnd = new Date(sig);
-          compEnd.setFullYear(compEnd.getFullYear() + Number(agreementInfo.duration_years));
-          compEnd.setDate(compEnd.getDate() - 1);
-          end = compEnd;
-        }
-      }
-      const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : "Vigencia original";
-      periods.push({ key: "original", title, start, end, renewalId: null });
     }
 
-    // Renovations: each renewal record describes old_expiration_date -> new_expiration_date
-    // We'll treat each renewal's new period as (old_expiration_date + 1) .. new_expiration_date
-    (renewals || []).forEach((r) => {
-      const oldExp = parseLocalDate(r.old_expiration_date ?? null);
-      const newExp = parseLocalDate(r.new_expiration_date ?? null);
-      const start = oldExp ? addDays(oldExp, 1) : null;
-      const end = newExp ?? null;
-      const title =
-        start && end ? `${formatDate(start)} — ${formatDate(end)}` : `Renovación ${r.changed_at ? formatDate(r.changed_at) : ""}`;
-      periods.push({ key: r.id, title, start, end, renewalId: r.id });
+    const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : "Vigencia original";
+
+    periods.push({
+      key: "original",
+      title,
+      start,
+      end,
+      renewalId: null,
     });
+  }
 
-    // Build grouping: map periodKey => seguimientos[]
-    const map: Record<string, Seguimiento[]> = {};
+  /* ------------------ RENOVACIONES (cada una empieza vacía) ------------------ */
+  (renewals || []).forEach((r) => {
+    const oldExp = parseLocalDate(r.old_expiration_date ?? null);
+    const newExp = parseLocalDate(r.new_expiration_date ?? null);
 
-    // helper to choose period key for a seguimiento
-    const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
-      // If seguimiento.renewal_id set -> match that renewal
-      if (s.renewal_id) {
-        const rr = periods.find((p) => p.renewalId === s.renewal_id);
-        if (rr) return rr.key;
-      }
-      // Otherwise, try to find a period whose range contains fecha_verificacion or whose range year matches 'año'
-      const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
-      if (fv) {
-        // find first period where start<=fv<=end (if start/end available)
-        const found = periods.find((p) => {
-          if (!p.start && !p.end) return false;
-          const afterStart = p.start ? fv >= p.start : true;
-          const beforeEnd = p.end ? fv <= p.end : true;
-          return afterStart && beforeEnd;
-        });
-        if (found) return found.key;
-      }
-      // fallback by año: take period whose start.getFullYear() matches año or periodo contains that year
-      if (s.año && s.año > 0) {
-        const foundByYear = periods.find((p) => {
-          if (!p.start || !p.end) return false;
-          return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
-        });
-        if (foundByYear) return foundByYear.key;
-      }
-      // default to original
-      return "original";
-    };
+    const start = oldExp ? addDays(oldExp, 1) : null;
+    const end = newExp ?? null;
 
-    // initialize keys
-    periods.forEach((p) => {
-      map[p.key] = [];
+    const title =
+      start && end ? `${formatDate(start)} — ${formatDate(end)}` : `Renovación ${r.changed_at ? formatDate(r.changed_at) : ""}`;
+
+    periods.push({
+      key: r.id,
+      title,
+      start,
+      end,
+      renewalId: r.id,
     });
+  });
 
-    // assign seguimientos into groups
-    (seguimientos || []).forEach((s) => {
-      const key = findPeriodKeyForSeguimiento(s) ?? "original";
-      if (!map[key]) map[key] = [];
-      map[key].push(s);
-    });
+  /* ------------------ MAPEO periodoKey => array de seguimientos ------------------ */
+  const map: Record<string, Seguimiento[]> = {};
 
-    // order each group by año asc then tipo
-    Object.keys(map).forEach((k) => {
-      map[k].sort((x, y) => {
-        const yearDiff = (x.año || 0) - (y.año || 0);
-        if (yearDiff !== 0) return yearDiff;
-        const tx = x.contraprestacion?.tipo ?? "";
-        const ty = y.contraprestacion?.tipo ?? "";
-        return tx.localeCompare(ty);
+  const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
+    // Caso 1: si tiene renewal_id, pertenece estrictamente a esa renovación.
+    if (s.renewal_id) {
+      const rr = periods.find((p) => p.renewalId === s.renewal_id);
+      if (rr) return rr.key;
+    }
+
+    // Caso 2: intentar ubicar por fecha de verificación
+    const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
+    if (fv) {
+      const found = periods.find((p) => {
+        if (!p.start && !p.end) return false;
+        const afterStart = p.start ? fv >= p.start : true;
+        const beforeEnd = p.end ? fv <= p.end : true;
+        return afterStart && beforeEnd;
       });
+      if (found) return found.key;
+    }
+
+    // Caso 3: fallback por año
+    if (s.año && s.año > 0) {
+      const foundByYear = periods.find((p) => {
+        if (!p.start || !p.end) return false;
+        return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
+      });
+      if (foundByYear) return foundByYear.key;
+    }
+
+    // Por defecto, se va al periodo original
+    return "original";
+  };
+
+  // Inicializar grupos
+  periods.forEach((p) => {
+    map[p.key] = [];
+  });
+
+  // Asignar seguimiento a su grupo
+  (seguimientos || []).forEach((s) => {
+    const key = findPeriodKeyForSeguimiento(s) ?? "original";
+    if (!map[key]) map[key] = [];
+
+    // 🔥 AÑADIR COLUMNA "periodo" A CADA ELEMENTO
+    map[key].push({
+      ...s,
+      periodo: periods.find((p) => p.key === key)?.title ?? "",
     });
+  });
 
-    // produce an array of {period, items}
-    const groupedArr = periods.map((p) => ({
-      period: p,
-      items: map[p.key] || [],
-    }));
+  // Orden dentro de cada periodo
+  Object.keys(map).forEach((k) => {
+    map[k].sort((x, y) => {
+      const yearDiff = (x.año || 0) - (y.año || 0);
+      if (yearDiff !== 0) return yearDiff;
 
-    return groupedArr;
-  }, [agreementInfo, renewals, seguimientos]);
+      const tx = x.contraprestacion?.tipo ?? "";
+      const ty = y.contraprestacion?.tipo ?? "";
+      return tx.localeCompare(ty);
+    });
+  });
+
+  // Producción del array final
+  return periods.map((p) => ({
+    period: p,
+    items: map[p.key] || [],
+  }));
+}, [agreementInfo, renewals, seguimientos]);
 
   /* ------------------ Actions: toggle ejecutado (admins) ------------------ */
   const handleToggleEjecutado = async (s: Seguimiento) => {
