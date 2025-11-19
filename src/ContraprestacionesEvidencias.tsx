@@ -134,7 +134,7 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
       // 3) Traer TODAS las contraprestaciones históricas del convenio
       const { data: cData, error: cErr } = await supabase
       .from("contraprestaciones")
-      .select("id, tipo, descripcion, unidades, renewal_id, agreement_id")
+      .select("id, tipo, descripcion, renewal_id, agreement_id")
       .eq("agreement_id", agreementId)
       .order("tipo", { ascending: true });
 
