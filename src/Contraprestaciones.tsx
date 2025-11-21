@@ -6,8 +6,8 @@ interface Contraprestacion {
   tipo: string;
   descripcion: string;
   unidades_comprometidas: number;
-  periodo_inicio: string;
-  periodo_fin: string;
+  periodo_inicio: string | null;
+  periodo_fin: string | null;
   agreement_id: string;
 }
 
@@ -20,6 +20,15 @@ interface ContraprestacionCatalogo {
 interface Props {
   agreementId: string;
   onBack: () => void;
+}
+
+// Generador de ID con fallback (para evitar depender de .select() en insert y problemas con RLS)
+function generateId() {
+  if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
+    return (crypto as any).randomUUID();
+  }
+  // fallback simple
+  return `ctr_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 }
 
 export default function Contraprestaciones({ agreementId, onBack }: Props) {
@@ -38,89 +47,99 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     fetchCatalogo();
     fetchContraprestaciones();
     fetchDuracionConvenio();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agreementId]);
 
   // 🔹 Verifica si el usuario tiene acceso al convenio
   const verificarPermisos = async () => {
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
-    if (!userId) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+      if (!userId) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
 
-    if (!profile) return;
+      if (profileError) return;
 
-    if (["admin", "Admin", "Administrador"].includes(profile.role)) {
-      setPuedeEditar(true);
-      return;
-    }
+      // @ts-ignore
+      const role = profile?.role;
+      if (["admin", "Admin", "Administrador"].includes(role)) {
+        setPuedeEditar(true);
+        return;
+      }
 
-    // Verificar si es responsable interno del convenio
-    const { data: vinculo } = await supabase
-      .from("agreement_internal_responsibles")
-      .select("id")
-      .eq("agreement_id", agreementId)
-      .eq("internal_responsible_id", userId)
-      .maybeSingle();
+      const { data: vinculo, error: vinculoError } = await supabase
+        .from("agreement_internal_responsibles")
+        .select("id")
+        .eq("agreement_id", agreementId)
+        .eq("internal_responsible_id", userId)
+        .maybeSingle();
 
-    if (vinculo) {
-      setPuedeEditar(true);
+      if (!vinculoError && vinculo) setPuedeEditar(true);
+    } catch (err) {
+      console.error("Error verificando permisos:", err);
     }
   };
 
   // 🔹 Cargar catálogo desde tabla
   const fetchCatalogo = async () => {
-    const { data, error } = await supabase
-      .from("contraprestaciones_catalogo")
-      .select("id, nombre, unidad")
-      .order("nombre", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("contraprestaciones_catalogo")
+        .select("id, nombre, unidad")
+        .order("nombre", { ascending: true });
 
-    if (error) {
+      if (error) throw error;
+      setTipos(data || []);
+    } catch (error) {
       console.error("Error al cargar catálogo:", error);
       alert("Error al cargar el catálogo de contraprestaciones.");
-    } else {
-      setTipos(data || []);
     }
   };
 
   // 🔹 Obtener duración (en años) del convenio
   const fetchDuracionConvenio = async () => {
-    const { data, error } = await supabase
-      .from("agreements")
-      .select("duration_years")
-      .eq("id", agreementId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("agreements")
+        .select("duration_years")
+        .eq("id", agreementId)
+        .single();
 
-    if (error) {
-      console.error("Error al obtener duración del convenio:", error);
-    } else {
+      if (error) throw error;
       const years = data?.duration_years || 1;
       setAniosConvenio(Array.from({ length: years }, (_, i) => i + 1));
+    } catch (error) {
+      console.error("Error al obtener duración del convenio:", error);
+      // no hacemos alert pesado aquí para no molestar al usuario en cada render
     }
   };
 
   // 🔹 Cargar contraprestaciones ya registradas
   const fetchContraprestaciones = async () => {
-    const { data, error } = await supabase
-      .from("contraprestaciones")
-      .select("*")
-      .eq("agreement_id", agreementId)
-      .order("created_at", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion, unidades_comprometidas, periodo_inicio, periodo_fin, agreement_id")
+        .eq("agreement_id", agreementId)
+        .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("Error al cargar contraprestaciones:", error);
-    } else {
+      if (error) throw error;
       setContraprestaciones(data || []);
+    } catch (error) {
+      console.error("Error al cargar contraprestaciones:", error);
     }
   };
 
-  // 🔹 Registrar nueva contraprestación
+  // 🔹 Registrar nueva contraprestación (ahora con id generado cliente-lado y evitando .select("id"))
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!puedeEditar) return alert("No tienes permisos para realizar esta acción.");
+
     setLoading(true);
 
     if (!tipo) {
@@ -134,62 +153,88 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
       : tipo;
 
-    const { data: inserted, error } = await supabase
-      .from("contraprestaciones")
-      .insert([
+    // Generamos un id cliente-lado para evitar depender del retorno del insert (problemas RLS)
+    const newId = generateId();
+
+    // Si existe duración por años, podemos prellenar periodo_inicio/fin por año relativo
+    // NOTA: aquí asumimos que no tenemos la fecha exacta de inicio del convenio; por eso dejamos nulos
+    const periodo_inicio = null;
+    const periodo_fin = null;
+
+    try {
+      const { error: insertError } = await supabase.from("contraprestaciones").insert([
         {
+          id: newId,
           agreement_id: agreementId,
           tipo: tipoDescripcion,
           descripcion,
           unidades_comprometidas: unidades,
+          periodo_inicio,
+          periodo_fin,
         },
-      ])
-      .select("id")
-      .single();
+      ]);
 
-    if (error) {
-      console.error("Error al guardar:", error);
-      alert("❌ Error al guardar la contraprestación: " + error.message);
-      setLoading(false);
-      return;
-    }
+      if (insertError) throw insertError;
 
-    // Crear seguimiento automático por cada año del convenio
-    if (inserted && aniosConvenio.length > 0) {
-      const seguimientoData = aniosConvenio.map((a, i) => ({
-        contraprestacion_id: inserted.id,
-        anio: i + 1,
-        estado: "pendiente",
-        ejecutado: false,
-      }));
+      // Crear seguimiento automático por cada año del convenio
+      if (aniosConvenio.length > 0) {
+        // Primero ver qué años ya existen para evitar duplicados en renovaciones repetidas
+        const { data: existing, error: existingError } = await supabase
+          .from("contraprestaciones_seguimiento")
+          .select("anio")
+          .eq("contraprestacion_id", newId);
 
-      const { error: seguimientoError } = await supabase
-        .from("contraprestaciones_seguimiento")
-        .insert(seguimientoData);
+        if (existingError) {
+          console.warn("No se pudo comprobar seguimiento existente:", existingError);
+        }
 
-      if (seguimientoError) {
-        console.error("Error creando seguimiento:", seguimientoError);
-        alert("⚠️ Se registró la contraprestación pero no el seguimiento.");
+        const existingYears = Array.isArray(existing) ? existing.map((x: any) => x.anio) : [];
+
+        const seguimientoData = aniosConvenio
+          .map((a, i) => i + 1)
+          .filter((year) => !existingYears.includes(year))
+          .map((year) => ({
+            contraprestacion_id: newId,
+            anio: year,
+            estado: "pendiente",
+            ejecutado: false,
+          }));
+
+        if (seguimientoData.length > 0) {
+          const { error: seguimientoError } = await supabase
+            .from("contraprestaciones_seguimiento")
+            .insert(seguimientoData);
+
+          if (seguimientoError) {
+            console.error("Error creando seguimiento:", seguimientoError);
+            alert("⚠️ Se registró la contraprestación pero no el seguimiento.");
+          }
+        }
       }
-    }
 
-    alert("✅ Contraprestación registrada correctamente.");
-    setTipo("");
-    setDescripcion("");
-    setUnidades(1);
-    setLoading(false);
-    fetchContraprestaciones();
+      alert("✅ Contraprestación registrada correctamente.");
+      setTipo("");
+      setDescripcion("");
+      setUnidades(1);
+      fetchContraprestaciones();
+    } catch (error: any) {
+      console.error("Error al guardar contraprestación:", error);
+      alert("❌ Error al guardar la contraprestación: " + (error?.message || String(error)));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // 🔹 Eliminar contraprestación
   const handleDelete = async (id: string) => {
     if (!confirm("¿Deseas eliminar esta contraprestación?")) return;
 
-    const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
-    if (error) {
-      alert("❌ Error al eliminar: " + error.message);
-    } else {
+    try {
+      const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
+      if (error) throw error;
       setContraprestaciones((prev) => prev.filter((c) => c.id !== id));
+    } catch (err: any) {
+      alert("❌ Error al eliminar: " + (err?.message || String(err)));
     }
   };
 
