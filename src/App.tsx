@@ -148,7 +148,38 @@ export default function App() {
                 </h2>
 
                 {/* 📋 LISTA DE CONVENIOS */}
-                {activePage === "agreementsList" && <AgreementsList />}
+                {activePage === "agreementsList" && (
+                  <AgreementsList
+                    user={session.user}
+                    role={role}
+
+                    onEdit={(agreement) => {
+                      setSelectedAgreement(agreement);
+                      setActivePage("agreementsForm");
+                    }}
+
+                    onCreate={() => {
+                      setSelectedAgreement(null);
+                      setActivePage("agreementsForm");
+                    }}
+
+                    onOpenContraprestaciones={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestaciones");
+                    }}
+
+                    onOpenEvidencias={(id: string) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestacionesEvidencias");
+                    }}
+
+                    onOpenInforme={(id: string) => {
+                      setSelectedAgreementId(id);
+                      // Informe semestral ahora es página aparte
+                      navigate(`/informe/${id}`);
+                    }}
+                  />
+                )}
 
                 {/* Formulario de convenios */}
                 {activePage === "agreementsForm" && (
