@@ -1,7 +1,7 @@
 // src/AgreementRenewalsPage.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 interface Renewal {
   id: string;
@@ -15,6 +15,7 @@ interface Renewal {
 export default function AgreementRenewalsPage() {
   const params = useParams<{ agreementId: string }>();
   const agreementId = params.agreementId;
+  const navigate = useNavigate();
 
   // estado tipado correctamente
   const [renewals, setRenewals] = useState<Renewal[]>([]);
@@ -168,26 +169,52 @@ export default function AgreementRenewalsPage() {
     }
   }
 
+  // ✅ Función para ir a contraprestaciones con el agreementId correcto
+  const handleGoToContraprestaciones = () => {
+    if (agreementId) {
+      navigate(`/contraprestaciones/${agreementId}`);
+    }
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1 style={{ fontSize: 32, marginBottom: 20 }}>Renovaciones del Convenio</h1>
 
-      <button
-        onClick={() => setShowModal(true)}
-        style={{
-          backgroundColor: "#1e88e5",
-          color: "white",
-          padding: "10px 18px",
-          borderRadius: 8,
-          border: "none",
-          cursor: "pointer",
-          fontSize: 16,
-          display: "inline-flex",
-          alignItems: "center",
-        }}
-      >
-        ➕ Registrar nueva renovación
-      </button>
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        <button
+          onClick={() => setShowModal(true)}
+          style={{
+            backgroundColor: "#1e88e5",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            fontSize: 16,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          ➕ Registrar nueva renovación
+        </button>
+        
+        <button
+          onClick={handleGoToContraprestaciones}
+          style={{
+            backgroundColor: "#4caf50",
+            color: "white",
+            padding: "10px 18px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            fontSize: 16,
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          📋 Registrar contraprestaciones
+        </button>
+      </div>
 
       <h2 style={{ marginTop: 30 }}>Historial</h2>
 
