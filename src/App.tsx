@@ -1,3 +1,4 @@
+// src/App.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -14,7 +15,7 @@ import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
 import InstitucionesList from "./InstitucionesList";
 import InformeSemestralPage from "./InformeSemestralPage";
-import AreasVinculadasList from "./AreasVinculadasList"; // ✅ Nuevo módulo
+import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
 
 export default function App() {
@@ -26,19 +27,17 @@ export default function App() {
     | "agreementsList"
     | "agreementsForm"
     | "instituciones"
+    | "institucionesForm"
     | "users"
     | "reportes"
     | "contraprestaciones"
-    | "institucionesForm"
     | "contraprestacionesEvidencias"
-    | "areasVinculadas" // ✅ NUEVO
+    | "areasVinculadas"
   >("agreementsList");
 
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
-  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(
-    null
-  );
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // 🔹 Cargar sesión y perfil
@@ -61,11 +60,9 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
 
     return () => {
       listener.subscription.unsubscribe();
@@ -116,16 +113,16 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* ✅ Página de informe semestral independiente */}
+        {/* Página independiente de informe semestral */}
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
 
-        {/* ✅ Nueva ventana independiente para renovaciones */}
+        {/* Página independiente de renovaciones */}
         <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
 
-        {/* ✅ Nueva página Áreas Vinculadas */}
+        {/* Áreas vinculadas (ruta independiente si quieres) */}
         <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
-        
-        {/* 🌐 Layout principal */}
+
+        {/* Layout principal: manejamos navegación por activePage dentro del layout */}
         <Route
           path="*"
           element={
@@ -153,7 +150,31 @@ export default function App() {
 
                 {/* 📋 LISTA DE CONVENIOS */}
                 {activePage === "agreementsList" && (
-                  <AgreementsList />
+                  <AgreementsList
+                    user={session.user}
+                    role={role}
+                    onEdit={(agreement) => {
+                      setSelectedAgreement(agreement);
+                      setActivePage("agreementsForm");
+                    }}
+                    onCreate={() => {
+                      setSelectedAgreement(null);
+                      setActivePage("agreementsForm");
+                    }}
+                    onOpenContraprestaciones={(id) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestaciones");
+                    }}
+                    onOpenEvidencias={(id) => {
+                      setSelectedAgreementId(id);
+                      setActivePage("contraprestacionesEvidencias");
+                    }}
+                    onOpenInforme={(id) => {
+                      // opción A: abrir la página de informe en la ruta /informe/:id
+                      // esto carga InformeSemestralPage como página independiente
+                      window.location.href = `/informe/${id}`;
+                    }}
+                  />
                 )}
 
                 {/* 📝 FORMULARIO DE CONVENIOS */}
@@ -180,20 +201,17 @@ export default function App() {
                 )}
 
                 {/* 📂 EVIDENCIAS */}
-                {activePage === "contraprestacionesEvidencias" &&
-                  selectedAgreementId && (
-                    <ContraprestacionesEvidencias
-                      agreementId={selectedAgreementId}
-                      userId={session.user.id}
-                      role={role}
-                      onBack={() => setActivePage("agreementsList")}
-                    />
-                  )}
+                {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
+                  <ContraprestacionesEvidencias
+                    agreementId={selectedAgreementId}
+                    userId={session.user.id}
+                    role={role}
+                    onBack={() => setActivePage("agreementsList")}
+                  />
+                )}
 
                 {/* 🏢 INSTITUCIONES */}
-                {activePage === "instituciones" && (
-                  <InstitucionesList role={role} />
-                )}
+                {activePage === "instituciones" && <InstitucionesList role={role} />}
 
                 {/* 👥 USUARIOS */}
                 {activePage === "users" && <Users />}
@@ -211,6 +229,7 @@ export default function App() {
     </Router>
   );
 }
+
 
 
 
