@@ -1,6 +1,7 @@
 // src/ContraprestacionesEvidencias.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
+import { useParams } from "react-router-dom";
 
 /* ------------------ Tipos ------------------ */
 interface Contraprestacion {
@@ -26,10 +27,7 @@ interface SeguimientoRaw {
   ejecutado: boolean | null;
   anio?: number | null;
   renewal_id?: string | null;
-
-  // 👇 ESTA ES LA NUEVA PROPIEDAD (NO va dentro de contraprestaciones)
   periodo?: string;
-
   contraprestaciones?: {
     id: string;
     tipo: string;
@@ -69,7 +67,7 @@ interface Renewal {
 
 /* ------------------ Props ------------------ */
 interface Props {
-  agreementId: string;
+  agreementId?: string;
   onBack: () => void;
   role: string;
   userId: string;
@@ -78,7 +76,6 @@ interface Props {
 /* ------------------ Helpers fecha ------------------ */
 function parseLocalDate(dateString?: string | null): Date | null {
   if (!dateString) return null;
-  // Accept ISO yyyy-mm-dd or timestamp
   const d = new Date(dateString);
   if (isNaN(d.getTime())) return null;
   return d;
@@ -95,8 +92,10 @@ function addDays(date: Date, days: number) {
   return r;
 }
 
-/* ------------------ Componente ------------------ */
-export default function ContraprestacionesEvidencias({ agreementId, onBack, role, userId }: Props) {
+export default function ContraprestacionesEvidencias({ agreementId: propAgreementId, onBack, role, userId }: Props) {
+  const { agreementId: urlAgreementId } = useParams<{ agreementId: string }>();
+  const inputId = propAgreementId || urlAgreementId;
+
   const [loading, setLoading] = useState<boolean>(true);
   const [contraprestaciones, setContraprestaciones] = useState<Contraprestacion[]>([]);
   const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
@@ -104,40 +103,75 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
   const [agreementInfo, setAgreementInfo] = useState<any | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedAgreementId, setResolvedAgreementId] = useState<string | null>(null);
+
+  const resolveAgreementId = async (id: string) => {
+    try {
+      // Verificar si existe en agreements
+      const { data: agreementData, error: agreementError } = await supabase
+        .from('agreements')
+        .select('id')
+        .eq('id', id)
+        .single();
+
+      if (!agreementError && agreementData) {
+        return id;
+      }
+
+      // Verificar si es un id de renovación
+      const { data: renewalData, error: renewalError } = await supabase
+        .from('agreement_renewals')
+        .select('agreement_id')
+        .eq('id', id)
+        .single();
+
+      if (!renewalError && renewalData) {
+        return renewalData.agreement_id;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error resolviendo agreement_id:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
-    if (!agreementId) {
-      setError("ID de convenio no válido");
+    if (!inputId) {
+      setError("No se proporcionó ID de convenio");
       setLoading(false);
       return;
     }
-    loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agreementId]);
 
-  const loadAll = async () => {
-    setLoading(true);
-    setError(null);
+    const resolveAndLoad = async () => {
+      setLoading(true);
+      setError(null);
+      
+      const realAgreementId = await resolveAgreementId(inputId);
+      
+      if (!realAgreementId) {
+        setError("El ID proporcionado no corresponde a un convenio válido");
+        setLoading(false);
+        return;
+      }
+
+      setResolvedAgreementId(realAgreementId);
+      await loadAllData(realAgreementId);
+    };
+
+    resolveAndLoad();
+  }, [inputId]);
+
+  const loadAllData = async (agreementId: string) => {
     try {
-      // 1) Verificar que el convenio existe antes de continuar
       const { data: agData, error: agErr } = await supabase
         .from("agreements")
         .select("id, name, signature_date, duration_years, expiration_date")
         .eq("id", agreementId)
         .maybeSingle();
-      
-      if (agErr) {
-        console.error("Error loading agreement:", agErr);
-        throw new Error("No se pudo cargar la información del convenio");
-      }
-      
-      if (!agData) {
-        throw new Error("El convenio no existe o no se encontró");
-      }
-      
-      setAgreementInfo(agData);
+      if (agErr) throw agErr;
+      setAgreementInfo(agData || null);
 
-      // 2) traer renovaciones (agreement_renewals) ordenadas asc por changed_at (cronológico)
       const { data: rData, error: rErr } = await supabase
         .from("agreement_renewals")
         .select("*")
@@ -146,21 +180,13 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
       if (rErr) throw rErr;
       setRenewals((rData || []) as Renewal[]);
 
-      // 3) Traer TODAS las contraprestaciones históricas del convenio
       const { data: cData, error: cErr } = await supabase
         .from("contraprestaciones")
         .select("id, tipo, descripcion, renewal_id, agreement_id")
         .eq("agreement_id", agreementId)
         .order("tipo", { ascending: true });
 
-      if (cErr) {
-        console.error("Error loading contraprestaciones:", cErr);
-        // Si hay error en contraprestaciones, continuamos con arrays vacíos
-        setContraprestaciones([]);
-        setSeguimientos([]);
-        setLoading(false);
-        return;
-      }
+      if (cErr) throw cErr;
 
       const cList = (cData || []) as Contraprestacion[];
       setContraprestaciones(cList);
@@ -172,24 +198,15 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
         return;
       }
 
-      // 4) traer seguimientos para esas contraprestaciones (incluye relación contraprestaciones(...))
       const { data: sData, error: sErr } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("*, contraprestaciones(id, tipo, descripcion, renewal_id)")
         .in("contraprestacion_id", contraprestacionIds)
         .order("año", { ascending: true })
         .order("fecha_verificacion", { ascending: true });
-      
-      if (sErr) {
-        console.error("Error loading seguimientos:", sErr);
-        setSeguimientos([]);
-        setLoading(false);
-        return;
-      }
+      if (sErr) throw sErr;
 
       const raw: SeguimientoRaw[] = sData || [];
-
-      // normalizar y mapear
       const mapped: Seguimiento[] = raw.map((r) => ({
         id: r.id,
         contraprestacion_id: (r.contraprestacion_id as string) ?? (r as any).contraprestacion_id,
@@ -207,8 +224,7 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
       setSeguimientos(mapped);
     } catch (err: any) {
       console.error("Error cargando contraprestaciones/evidencias:", err);
-      const errorMessage = err.message || "Error al cargar datos. Por favor, inténtelo de nuevo.";
-      setError(errorMessage);
+      alert("Error al cargar datos. Revisa consola.");
       setContraprestaciones([]);
       setSeguimientos([]);
       setRenewals([]);
@@ -217,134 +233,93 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
     }
   };
 
-  /* ------------------ Agrupar por periodo (vigencia original + renovaciones) ------------------ */
-const grouped = useMemo(() => {
-  // periods: array of { key, title, start: Date, end: Date, renewalId|null }
-  const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
+  // ... resto del componente igual, pero usando las variables correctas
 
-  /* ------------------ PERIODO ORIGINAL ------------------ */
-  if (agreementInfo) {
-    let start: Date | null = null;
-    let end: Date | null = null;
+  const grouped = useMemo(() => {
+    const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
 
-    if (agreementInfo.signature_date) {
-      start = parseLocalDate(agreementInfo.signature_date);
-    }
-    if (agreementInfo.expiration_date) {
-      end = parseLocalDate(agreementInfo.expiration_date);
-    } else if (agreementInfo.signature_date && agreementInfo.duration_years) {
-      const sig = parseLocalDate(agreementInfo.signature_date);
-      if (sig) {
-        const compEnd = new Date(sig);
-        compEnd.setFullYear(compEnd.getFullYear() + Number(agreementInfo.duration_years));
-        compEnd.setDate(compEnd.getDate() - 1);
-        end = compEnd;
+    if (agreementInfo) {
+      let start: Date | null = null;
+      let end: Date | null = null;
+
+      if (agreementInfo.signature_date) {
+        start = parseLocalDate(agreementInfo.signature_date);
       }
+      if (agreementInfo.expiration_date) {
+        end = parseLocalDate(agreementInfo.expiration_date);
+      } else if (agreementInfo.signature_date && agreementInfo.duration_years) {
+        const sig = parseLocalDate(agreementInfo.signature_date);
+        if (sig) {
+          const compEnd = new Date(sig);
+          compEnd.setFullYear(compEnd.getFullYear() + Number(agreementInfo.duration_years));
+          compEnd.setDate(compEnd.getDate() - 1);
+          end = compEnd;
+        }
+      }
+
+      const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : "Vigencia original";
+      periods.push({ key: "original", title, start, end, renewalId: null });
     }
 
-    const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : "Vigencia original";
-
-    periods.push({
-      key: "original",
-      title,
-      start,
-      end,
-      renewalId: null,
+    (renewals || []).forEach((r) => {
+      const oldExp = parseLocalDate(r.old_expiration_date ?? null);
+      const newExp = parseLocalDate(r.new_expiration_date ?? null);
+      const start = oldExp ? addDays(oldExp, 1) : null;
+      const end = newExp ?? null;
+      const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : `Renovación ${r.changed_at ? formatDate(r.changed_at) : ""}`;
+      periods.push({ key: r.id, title, start, end, renewalId: r.id });
     });
-  }
 
-  /* ------------------ RENOVACIONES (cada una empieza vacía) ------------------ */
-  (renewals || []).forEach((r) => {
-    const oldExp = parseLocalDate(r.old_expiration_date ?? null);
-    const newExp = parseLocalDate(r.new_expiration_date ?? null);
+    const map: Record<string, Seguimiento[]> = {};
+    periods.forEach((p) => { map[p.key] = []; });
 
-    const start = oldExp ? addDays(oldExp, 1) : null;
-    const end = newExp ?? null;
+    const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
+      if (s.renewal_id) {
+        const rr = periods.find((p) => p.renewalId === s.renewal_id);
+        if (rr) return rr.key;
+      }
 
-    const title =
-      start && end ? `${formatDate(start)} — ${formatDate(end)}` : `Renovación ${r.changed_at ? formatDate(r.changed_at) : ""}`;
+      const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
+      if (fv) {
+        const found = periods.find((p) => {
+          if (!p.start && !p.end) return false;
+          const afterStart = p.start ? fv >= p.start : true;
+          const beforeEnd = p.end ? fv <= p.end : true;
+          return afterStart && beforeEnd;
+        });
+        if (found) return found.key;
+      }
 
-    periods.push({
-      key: r.id,
-      title,
-      start,
-      end,
-      renewalId: r.id,
+      if (s.año && s.año > 0) {
+        const foundByYear = periods.find((p) => {
+          if (!p.start || !p.end) return false;
+          return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
+        });
+        if (foundByYear) return foundByYear.key;
+      }
+
+      return "original";
+    };
+
+    (seguimientos || []).forEach((s) => {
+      const key = findPeriodKeyForSeguimiento(s) ?? "original";
+      if (!map[key]) map[key] = [];
+      map[key].push({ ...s, periodo: periods.find((p) => p.key === key)?.title ?? "" });
     });
-  });
 
-  /* ------------------ MAPEO periodoKey => array de seguimientos ------------------ */
-  const map: Record<string, Seguimiento[]> = {};
-
-  const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
-    // Caso 1: si tiene renewal_id, pertenece estrictamente a esa renovación.
-    if (s.renewal_id) {
-      const rr = periods.find((p) => p.renewalId === s.renewal_id);
-      if (rr) return rr.key;
-    }
-
-    // Caso 2: intentar ubicar por fecha de verificación
-    const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
-    if (fv) {
-      const found = periods.find((p) => {
-        if (!p.start && !p.end) return false;
-        const afterStart = p.start ? fv >= p.start : true;
-        const beforeEnd = p.end ? fv <= p.end : true;
-        return afterStart && beforeEnd;
+    Object.keys(map).forEach((k) => {
+      map[k].sort((x, y) => {
+        const yearDiff = (x.año || 0) - (y.año || 0);
+        if (yearDiff !== 0) return yearDiff;
+        const tx = x.contraprestacion?.tipo ?? "";
+        const ty = y.contraprestacion?.tipo ?? "";
+        return tx.localeCompare(ty);
       });
-      if (found) return found.key;
-    }
-
-    // Caso 3: fallback por año
-    if (s.año && s.año > 0) {
-      const foundByYear = periods.find((p) => {
-        if (!p.start || !p.end) return false;
-        return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
-      });
-      if (foundByYear) return foundByYear.key;
-    }
-
-    // Por defecto, se va al periodo original
-    return "original";
-  };
-
-  // Inicializar grupos
-  periods.forEach((p) => {
-    map[p.key] = [];
-  });
-
-  // Asignar seguimiento a su grupo
-  (seguimientos || []).forEach((s) => {
-    const key = findPeriodKeyForSeguimiento(s) ?? "original";
-    if (!map[key]) map[key] = [];
-
-    // 🔥 AÑADIR COLUMNA "periodo" A CADA ELEMENTO
-    map[key].push({
-      ...s,
-      periodo: periods.find((p) => p.key === key)?.title ?? "",
     });
-  });
 
-  // Orden dentro de cada periodo
-  Object.keys(map).forEach((k) => {
-    map[k].sort((x, y) => {
-      const yearDiff = (x.año || 0) - (y.año || 0);
-      if (yearDiff !== 0) return yearDiff;
+    return periods.map((p) => ({ period: p, items: map[p.key] || [] }));
+  }, [agreementInfo, renewals, seguimientos]);
 
-      const tx = x.contraprestacion?.tipo ?? "";
-      const ty = y.contraprestacion?.tipo ?? "";
-      return tx.localeCompare(ty);
-    });
-  });
-
-  // Producción del array final
-  return periods.map((p) => ({
-    period: p,
-    items: map[p.key] || [],
-  }));
-}, [agreementInfo, renewals, seguimientos]);
-
-  /* ------------------ Actions: toggle ejecutado (admins) ------------------ */
   const handleToggleEjecutado = async (s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
       alert("Solo los administradores pueden cambiar el estado de cumplimiento.");
@@ -353,15 +328,11 @@ const grouped = useMemo(() => {
 
     const nuevoEjecutado = !s.ejecutado;
     const nuevoEstado = nuevoEjecutado ? "Cumplido" : "Pendiente";
-
-    const payload: any = {
-      ejecutado: nuevoEjecutado,
-      estado: nuevoEstado,
-    };
+    const payload: any = { ejecutado: nuevoEjecutado, estado: nuevoEstado };
 
     if (nuevoEjecutado) {
       payload.responsable = userId || null;
-      payload.fecha_verificacion = new Date().toISOString().split("T")[0]; // date
+      payload.fecha_verificacion = new Date().toISOString().split("T")[0];
     } else {
       payload.responsable = null;
       payload.fecha_verificacion = null;
@@ -372,11 +343,10 @@ const grouped = useMemo(() => {
       console.error("Error actualizando seguimiento:", updateError);
       alert("Error al actualizar el estado: " + updateError.message);
     } else {
-      await loadAll();
+      await loadAllData(resolvedAgreementId!);
     }
   };
 
-  /* ------------------ Actions: upload evidence (admins) ------------------ */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
       alert("Solo los administradores pueden subir evidencias.");
@@ -392,8 +362,7 @@ const grouped = useMemo(() => {
 
     setUploadingId(s.id);
     try {
-      // Path: <agreementId>/<contraprestacionId>/<seguimientoId>_<timestamp>_<filename>
-      const filePath = `${agreementId}/${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
+      const filePath = `${resolvedAgreementId}/${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
@@ -410,8 +379,7 @@ const grouped = useMemo(() => {
         .eq("id", s.id);
 
       if (updateError) throw updateError;
-
-      await loadAll();
+      await loadAllData(resolvedAgreementId!);
     } catch (err: any) {
       console.error("Error subiendo evidencia:", err);
       alert("Error al subir la evidencia: " + (err.message || "Error desconocido"));
@@ -447,7 +415,6 @@ const grouped = useMemo(() => {
         </button>
       </div>
 
-      {/* Información del convenio y renovaciones */}
       <div className="mb-3">
         <strong>Convenio:</strong> {agreementInfo?.name ?? "-"} <br />
         <small className="text-muted">
@@ -456,7 +423,6 @@ const grouped = useMemo(() => {
         </small>
       </div>
 
-      {/* Grupos por periodo */}
       {grouped.length === 0 ? (
         <div className="alert alert-info">
           <p className="mb-0">No hay contraprestaciones registradas para este convenio.</p>
@@ -538,7 +504,6 @@ const grouped = useMemo(() => {
     </div>
   );
 }
-
 
 
 
