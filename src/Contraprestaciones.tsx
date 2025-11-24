@@ -124,7 +124,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     try {
       const { data, error } = await supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, unidades_comprometidas, periodo_inicio, periodo_fin, agreement_id")
+        .select("id, tipo, descripcion, unidades_comprometidas, periodo, periodo_inicio, periodo_fin, agreement_id")
         .eq("agreement_id", agreementId)
         .order("created_at", { ascending: true });
 
