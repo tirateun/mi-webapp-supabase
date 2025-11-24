@@ -629,34 +629,23 @@ export default function AgreementsList({
                         </>
                       )}
 
+                      {/* ✅ CORREGIDO: SIEMPRE usar a.id (agreement_id original) */}
                       <button className="btn btn-sm btn-outline-success"
-                        onClick={() => {
-                          const active = getActiveRenewalFor(a.id);
-                          const targetId = active ? active.id : a.id;
-                          onOpenContraprestaciones(targetId);
-                        }}
+                        onClick={() => onOpenContraprestaciones(a.id)}
                         title="Programar contraprestaciones"
                       >
                         📋 Programar
                       </button>
 
                       <button className="btn btn-sm btn-outline-warning"
-                        onClick={() => {
-                          const active = getActiveRenewalFor(a.id);
-                          const targetId = active ? active.id : a.id;
-                          onOpenEvidencias(targetId);
-                        }}
+                        onClick={() => onOpenEvidencias(a.id)}
                         title="Cumplimiento / Evidencias"
                       >
                         📂 Cumplimiento
                       </button>
 
                       <button className="btn btn-sm btn-outline-primary"
-                        onClick={() => {
-                          const active = getActiveRenewalFor(a.id);
-                          const targetId = active ? active.id : a.id;
-                          onOpenInforme(targetId);
-                        }}
+                        onClick={() => onOpenInforme(a.id)}
                         title="Informe semestral"
                       >
                         📝 Informe
