@@ -59,7 +59,7 @@ export default function AgreementRenewalsPage() {
 
     try {
       // 1) obtener expiration_date del convenio
-      const { data: agreement, error: agreementError } = await supabase
+      const { data: agreementData, error: agreementError } = await supabase
         .from("agreements")
         .select("expiration_date")
         .eq("id", agreementId)
@@ -84,13 +84,13 @@ export default function AgreementRenewalsPage() {
       }
 
       // tipar el resultado y guardarlo
-      setRenewals((renewalsData as Renewal[]) || []);
+      setRenewals((renewalsData || []) as Renewal[]);
 
       // 3) determinar la última fecha de vencimiento: si hay renovaciones usamos la más reciente (first), si no usamos agreement.expiration_date
       if (Array.isArray(renewalsData) && renewalsData.length > 0) {
         setOldExpiration(renewalsData[0].new_expiration_date ?? null);
       } else {
-        setOldExpiration((agreement && agreement.expiration_date) ? String(agreement.expiration_date) : null);
+        setOldExpiration((agreementData && agreementData.expiration_date) ? String(agreementData.expiration_date) : null);
       }
     } catch (err) {
       console.error("❌ Error en loadRenewals:", err);
@@ -145,8 +145,17 @@ export default function AgreementRenewalsPage() {
         return;
       }
 
-      // opcional: actualizar agreements.expiration_date con la nueva fecha (si quieres esto dime y lo agrego)
-      // await supabase.from("agreements").update({ expiration_date: newExpiration }).eq("id", agreementId);
+      // ✅ ACTUALIZAR LA FECHA DE VENCIMIENTO EN agreements
+      const { error: updateError } = await supabase
+        .from("agreements")
+        .update({ expiration_date: newExpiration })
+        .eq("id", agreementId);
+
+      if (updateError) {
+        console.error("Error actualizando fecha de vencimiento:", updateError);
+        alert("Error al actualizar la fecha de vencimiento del convenio.");
+        return;
+      }
 
       // refrescar lista y cerrar modal
       await loadRenewals();
@@ -255,7 +264,6 @@ export default function AgreementRenewalsPage() {
     </div>
   );
 }
-
 
 
 
