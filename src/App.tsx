@@ -147,8 +147,18 @@ export default function App() {
                   </span>
                 </h2>
 
-                {/* Lista de convenios — usamos la versión larga (sin props) */}
-                {activePage === "agreementsList" && <AgreementsList />}
+                {/* 📋 LISTA DE CONVENIOS */}
+                {activePage === "agreementsList" && <AgreementsList user={undefined} role={""} onEdit={function (agreement: any): void {
+                  throw new Error("Function not implemented.");
+                } } onCreate={function (): void {
+                  throw new Error("Function not implemented.");
+                } } onOpenContraprestaciones={function (agreementId: string): void {
+                  throw new Error("Function not implemented.");
+                } } onOpenEvidencias={function (agreementId: string): void {
+                  throw new Error("Function not implemented.");
+                } } onOpenInforme={function (agreementId: string): void {
+                  throw new Error("Function not implemented.");
+                } } />}
 
                 {/* Formulario de convenios */}
                 {activePage === "agreementsForm" && (
