@@ -103,24 +103,39 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
   const [renewals, setRenewals] = useState<Renewal[]>([]);
   const [agreementInfo, setAgreementInfo] = useState<any | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!agreementId) return;
+    if (!agreementId) {
+      setError("ID de convenio no válido");
+      setLoading(false);
+      return;
+    }
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
   const loadAll = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // 1) traer convenio básico (para vigencia original)
+      // 1) Verificar que el convenio existe antes de continuar
       const { data: agData, error: agErr } = await supabase
         .from("agreements")
         .select("id, name, signature_date, duration_years, expiration_date")
         .eq("id", agreementId)
         .maybeSingle();
-      if (agErr) throw agErr;
-      setAgreementInfo(agData || null);
+      
+      if (agErr) {
+        console.error("Error loading agreement:", agErr);
+        throw new Error("No se pudo cargar la información del convenio");
+      }
+      
+      if (!agData) {
+        throw new Error("El convenio no existe o no se encontró");
+      }
+      
+      setAgreementInfo(agData);
 
       // 2) traer renovaciones (agreement_renewals) ordenadas asc por changed_at (cronológico)
       const { data: rData, error: rErr } = await supabase
@@ -133,12 +148,19 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
 
       // 3) Traer TODAS las contraprestaciones históricas del convenio
       const { data: cData, error: cErr } = await supabase
-      .from("contraprestaciones")
-      .select("id, tipo, descripcion, renewal_id, agreement_id")
-      .eq("agreement_id", agreementId)
-      .order("tipo", { ascending: true });
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion, renewal_id, agreement_id")
+        .eq("agreement_id", agreementId)
+        .order("tipo", { ascending: true });
 
-      if (cErr) throw cErr;
+      if (cErr) {
+        console.error("Error loading contraprestaciones:", cErr);
+        // Si hay error en contraprestaciones, continuamos con arrays vacíos
+        setContraprestaciones([]);
+        setSeguimientos([]);
+        setLoading(false);
+        return;
+      }
 
       const cList = (cData || []) as Contraprestacion[];
       setContraprestaciones(cList);
@@ -157,7 +179,13 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
         .in("contraprestacion_id", contraprestacionIds)
         .order("año", { ascending: true })
         .order("fecha_verificacion", { ascending: true });
-      if (sErr) throw sErr;
+      
+      if (sErr) {
+        console.error("Error loading seguimientos:", sErr);
+        setSeguimientos([]);
+        setLoading(false);
+        return;
+      }
 
       const raw: SeguimientoRaw[] = sData || [];
 
@@ -179,7 +207,8 @@ export default function ContraprestacionesEvidencias({ agreementId, onBack, role
       setSeguimientos(mapped);
     } catch (err: any) {
       console.error("Error cargando contraprestaciones/evidencias:", err);
-      alert("Error al cargar datos. Revisa consola.");
+      const errorMessage = err.message || "Error al cargar datos. Por favor, inténtelo de nuevo.";
+      setError(errorMessage);
       setContraprestaciones([]);
       setSeguimientos([]);
       setRenewals([]);
@@ -338,10 +367,10 @@ const grouped = useMemo(() => {
       payload.fecha_verificacion = null;
     }
 
-    const { error } = await supabase.from("contraprestaciones_seguimiento").update(payload).eq("id", s.id);
-    if (error) {
-      console.error("Error actualizando seguimiento:", error);
-      alert("Error al actualizar el estado: " + error.message);
+    const { error: updateError } = await supabase.from("contraprestaciones_seguimiento").update(payload).eq("id", s.id);
+    if (updateError) {
+      console.error("Error actualizando seguimiento:", updateError);
+      alert("Error al actualizar el estado: " + updateError.message);
     } else {
       await loadAll();
     }
@@ -385,7 +414,7 @@ const grouped = useMemo(() => {
       await loadAll();
     } catch (err: any) {
       console.error("Error subiendo evidencia:", err);
-      alert("Error al subir la evidencia: " + (err.message || JSON.stringify(err)));
+      alert("Error al subir la evidencia: " + (err.message || "Error desconocido"));
     } finally {
       setUploadingId(null);
     }
@@ -394,6 +423,20 @@ const grouped = useMemo(() => {
   const formatAnio = (anio: number) => `${anio}° año`;
 
   if (loading) return <p className="text-center mt-4">Cargando contraprestaciones...</p>;
+  
+  if (error) {
+    return (
+      <div className="container mt-4" style={{ maxWidth: 1000 }}>
+        <div className="alert alert-danger">
+          <h4>Error al cargar los datos</h4>
+          <p>{error}</p>
+          <button className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+            🔙 Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-4" style={{ maxWidth: 1000 }}>
@@ -415,7 +458,10 @@ const grouped = useMemo(() => {
 
       {/* Grupos por periodo */}
       {grouped.length === 0 ? (
-        <p className="text-muted">No hay contraprestaciones registradas para este convenio.</p>
+        <div className="alert alert-info">
+          <p className="mb-0">No hay contraprestaciones registradas para este convenio.</p>
+          <p className="mb-0 small text-muted">Asegúrese de haber registrado las contraprestaciones anuales primero.</p>
+        </div>
       ) : (
         grouped.map(({ period, items }) => (
           <div key={period.key} className="card mb-3">
@@ -492,10 +538,6 @@ const grouped = useMemo(() => {
     </div>
   );
 }
-
-
-
-
 
 
 
