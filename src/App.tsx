@@ -1,4 +1,7 @@
-// src/App.tsx
+// src/App.tsx (corregido)
+// Compatible con la versión larga de AgreementsList que está en:
+// sandbox:/mnt/data/AgreementsList.tsx
+
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -8,12 +11,10 @@ import Login from "./Login";
 import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
-import Instituciones from "./Instituciones";
-import InstitucionesForm from "./InstitucionesForm";
+import InstitucionesList from "./InstitucionesList";
 import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
-import InstitucionesList from "./InstitucionesList";
 import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
@@ -40,7 +41,7 @@ export default function App() {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Cargar sesión y perfil
+  // Cargar sesión y perfil
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -65,7 +66,11 @@ export default function App() {
     });
 
     return () => {
-      listener.subscription.unsubscribe();
+      try {
+        listener.subscription.unsubscribe();
+      } catch (e) {
+        // noop
+      }
     };
   }, []);
 
@@ -113,16 +118,12 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        {/* Página independiente de informe semestral */}
+        {/* Rutas independientes que deben usar router */}
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
-
-        {/* Página independiente de renovaciones */}
         <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
-
-        {/* Áreas vinculadas (ruta independiente si quieres) */}
         <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
 
-        {/* Layout principal: manejamos navegación por activePage dentro del layout */}
+        {/* Layout principal: navegación por activePage dentro del layout */}
         <Route
           path="*"
           element={
@@ -138,46 +139,18 @@ export default function App() {
                 <h2 style={{ marginBottom: "20px" }}>
                   👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
                   <span style={{ color: "#555" }}>
-                    (
                     {role === "admin"
                       ? "Administrador interno"
                       : role === "internal"
                       ? "Usuario interno"
                       : "Usuario externo"}
-                    )
                   </span>
                 </h2>
 
-                {/* 📋 LISTA DE CONVENIOS */}
-                {activePage === "agreementsList" && (
-                  <AgreementsList
-                    user={session.user}
-                    role={role}
-                    onEdit={(agreement) => {
-                      setSelectedAgreement(agreement);
-                      setActivePage("agreementsForm");
-                    }}
-                    onCreate={() => {
-                      setSelectedAgreement(null);
-                      setActivePage("agreementsForm");
-                    }}
-                    onOpenContraprestaciones={(id) => {
-                      setSelectedAgreementId(id);
-                      setActivePage("contraprestaciones");
-                    }}
-                    onOpenEvidencias={(id) => {
-                      setSelectedAgreementId(id);
-                      setActivePage("contraprestacionesEvidencias");
-                    }}
-                    onOpenInforme={(id) => {
-                      // opción A: abrir la página de informe en la ruta /informe/:id
-                      // esto carga InformeSemestralPage como página independiente
-                      window.location.href = `/informe/${id}`;
-                    }}
-                  />
-                )}
+                {/* Lista de convenios — usamos la versión larga (sin props) */}
+                {activePage === "agreementsList" && <AgreementsList />}
 
-                {/* 📝 FORMULARIO DE CONVENIOS */}
+                {/* Formulario de convenios */}
                 {activePage === "agreementsForm" && (
                   <AgreementsForm
                     existingAgreement={selectedAgreement}
@@ -192,7 +165,7 @@ export default function App() {
                   />
                 )}
 
-                {/* 🔹 CONTRAPRESTACIONES */}
+                {/* Contraprestaciones: espera selectedAgreementId */}
                 {activePage === "contraprestaciones" && selectedAgreementId && (
                   <Contraprestaciones
                     agreementId={selectedAgreementId}
@@ -200,7 +173,7 @@ export default function App() {
                   />
                 )}
 
-                {/* 📂 EVIDENCIAS */}
+                {/* Evidencias */}
                 {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
                   <ContraprestacionesEvidencias
                     agreementId={selectedAgreementId}
@@ -210,16 +183,16 @@ export default function App() {
                   />
                 )}
 
-                {/* 🏢 INSTITUCIONES */}
+                {/* Instituciones */}
                 {activePage === "instituciones" && <InstitucionesList role={role} />}
 
-                {/* 👥 USUARIOS */}
+                {/* Usuarios */}
                 {activePage === "users" && <Users />}
 
-                {/* 📊 REPORTES */}
+                {/* Reportes */}
                 {activePage === "reportes" && <Reportes />}
 
-                {/* 🏫 ÁREAS VINCULADAS */}
+                {/* Areas vinculadas */}
                 {activePage === "areasVinculadas" && <AreasVinculadasList />}
               </div>
             </div>
@@ -229,6 +202,7 @@ export default function App() {
     </Router>
   );
 }
+
 
 
 
