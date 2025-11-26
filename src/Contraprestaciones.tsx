@@ -24,17 +24,25 @@ interface AgreementInfo {
   duration_years: number | null;
 }
 
+interface Renewal {
+  id: string;
+  agreement_id: string;
+  old_expiration_date: string | null;
+  new_expiration_date: string | null;
+  changed_at: string | null;
+  changed_by?: string | null;
+}
+
 interface Props {
   agreementId: string;
   onBack: () => void;
 }
 
-// Generador de ID con fallback (para evitar depender de .select() en insert y problemas con RLS)
+// Generador de ID con fallback
 function generateId() {
   if (typeof crypto !== "undefined" && (crypto as any).randomUUID) {
     return (crypto as any).randomUUID();
   }
-  // fallback simple
   return `ctr_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 }
 
@@ -48,6 +56,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [loading, setLoading] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
   const [agreementInfo, setAgreementInfo] = useState<AgreementInfo | null>(null);
+  const [renewals, setRenewals] = useState<Renewal[]>([]);
 
   // 🔹 Cargar permisos y datos iniciales
   useEffect(() => {
@@ -55,17 +64,18 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     fetchCatalogo();
     fetchContraprestaciones();
     fetchAgreementInfo();
+    fetchRenewals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
   // 🔹 Verifica si el usuario tiene acceso al convenio
   const verificarPermisos = async () => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
       if (!userId) return;
 
-      const { data: profile, error: profileError } = await supabase
+      const {  data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", userId)
@@ -74,20 +84,20 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       if (profileError) return;
 
       // @ts-ignore
-      const role = profile?.role;
+      const role = profileData?.role;
       if (["admin", "Admin", "Administrador"].includes(role)) {
         setPuedeEditar(true);
         return;
       }
 
-      const { data: vinculo, error: vinculoError } = await supabase
+      const {  data: vinculoData, error: vinculoError } = await supabase
         .from("agreement_internal_responsibles")
         .select("id")
         .eq("agreement_id", agreementId)
         .eq("internal_responsible_id", userId)
         .maybeSingle();
 
-      if (!vinculoError && vinculo) setPuedeEditar(true);
+      if (!vinculoError && vinculoData) setPuedeEditar(true);
     } catch (err) {
       console.error("Error verificando permisos:", err);
     }
@@ -96,7 +106,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   // 🔹 Cargar catálogo desde tabla
   const fetchCatalogo = async () => {
     try {
-      const { data, error } = await supabase
+      const {  data, error } = await supabase
         .from("contraprestaciones_catalogo")
         .select("id, nombre, unidad")
         .order("nombre", { ascending: true });
@@ -112,7 +122,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   // 🔹 Obtener información completa del convenio
   const fetchAgreementInfo = async () => {
     try {
-      const { data, error } = await supabase
+      const {  data, error } = await supabase
         .from("agreements")
         .select("signature_date, expiration_date, duration_years")
         .eq("id", agreementId)
@@ -129,12 +139,29 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
+  // 🔹 Obtener renovaciones
+  const fetchRenewals = async () => {
+    try {
+      const {  data, error } = await supabase
+        .from("agreement_renewals")
+        .select("*")
+        .eq("agreement_id", agreementId)
+        .order("changed_at", { ascending: false })
+        .limit(1); // Solo necesitamos la última renovación
+
+      if (error) throw error;
+      setRenewals(data || []);
+    } catch (error) {
+      console.error("Error al obtener renovaciones:", error);
+    }
+  };
+
   // 🔹 Cargar contraprestaciones ya registradas
   const fetchContraprestaciones = async () => {
     try {
-      const { data, error } = await supabase
+      const {  data, error } = await supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, unidades_comprometidas, periodo, periodo_inicio, periodo_fin, agreement_id")
+        .select("id, tipo, descripcion, unidades_comprometidas, periodo_inicio, periodo_fin, agreement_id")
         .eq("agreement_id", agreementId)
         .order("created_at", { ascending: true });
 
@@ -145,47 +172,62 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
-  // 🔹 Calcular fechas de período basadas en el convenio
+  // 🔹 Calcular fechas basadas en la renovación activa
   const calcularFechasPeriodo = (yearIndex: number = 0) => {
     if (!agreementInfo) {
       return { periodo_inicio: null, periodo_fin: null };
     }
 
+    // Si hay renovaciones, usar la más reciente
+    if (renewals.length > 0) {
+      const latestRenewal = renewals[0];
+      const startDateStr = latestRenewal.new_expiration_date || agreementInfo.signature_date;
+      if (!startDateStr) {
+        return { periodo_inicio: null, periodo_fin: null };
+      }
+      
+      // Calcular fecha de inicio (1 año después de la expiración anterior)
+      const startDate = new Date(startDateStr);
+      startDate.setFullYear(startDate.getFullYear() + 1);
+      startDate.setMonth(0); // Enero
+      startDate.setDate(1);
+      
+      const endDate = new Date(startDate);
+      endDate.setFullYear(endDate.getFullYear() + 1);
+      endDate.setMonth(11); // Diciembre
+      endDate.setDate(31);
+      
+      return {
+        periodo_inicio: startDate.toISOString().split('T')[0],
+        periodo_fin: endDate.toISOString().split('T')[0]
+      };
+    }
+
+    // Si no hay renovaciones, usar las fechas del convenio original
     const { signature_date, expiration_date, duration_years } = agreementInfo;
     
     if (!signature_date || !duration_years) {
       return { periodo_inicio: null, periodo_fin: null };
     }
 
-    // Si hay fecha de expiración específica, usarla
+    const startDate = new Date(signature_date);
+    let endDate: Date;
+    
     if (expiration_date) {
-      return { 
-        periodo_inicio: signature_date, 
-        periodo_fin: expiration_date 
-      };
+      endDate = new Date(expiration_date);
+    } else {
+      endDate = new Date(startDate);
+      endDate.setFullYear(endDate.getFullYear() + duration_years);
+      endDate.setDate(endDate.getDate() - 1);
     }
 
-    // Calcular fechas basadas en la duración
-    const startDate = new Date(signature_date);
-    const yearDuration = Math.floor(duration_years / aniosConvenio.length);
-    const yearsPerPeriod = yearDuration > 0 ? yearDuration : 1;
-    
-    // Calcular inicio del período
-    const periodStart = new Date(startDate);
-    periodStart.setFullYear(periodStart.getFullYear() + (yearIndex * yearsPerPeriod));
-    
-    // Calcular fin del período
-    const periodEnd = new Date(periodStart);
-    periodEnd.setFullYear(periodEnd.getFullYear() + yearsPerPeriod);
-    periodEnd.setDate(periodEnd.getDate() - 1); // Restar 1 día para inclusividad
-
     return {
-      periodo_inicio: periodStart.toISOString().split('T')[0],
-      periodo_fin: periodEnd.toISOString().split('T')[0]
+      periodo_inicio: startDate.toISOString().split('T')[0],
+      periodo_fin: endDate.toISOString().split('T')[0]
     };
   };
 
-  // 🔹 Registrar nueva contraprestación (ahora con fechas calculadas)
+  // 🔹 Registrar nueva contraprestación
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!puedeEditar) return alert("No tienes permisos para realizar esta acción.");
@@ -203,7 +245,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
       ? `${selectedTipo.nombre} (${selectedTipo.unidad})`
       : tipo;
 
-    // Generamos un id cliente-lado para evitar depender del retorno del insert (problemas RLS)
+    // Generamos un id cliente-lado
     const newId = generateId();
 
     // Calcular fechas del período
@@ -226,8 +268,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
 
       // Crear seguimiento automático por cada año del convenio
       if (aniosConvenio.length > 0) {
-        // Primero ver qué años ya existen para evitar duplicados en renovaciones repetidas
-        const { data: existing, error: existingError } = await supabase
+        // Primero ver qué años ya existen para evitar duplicados
+        const {   data: existingData, error: existingError } = await supabase
           .from("contraprestaciones_seguimiento")
           .select("anio")
           .eq("contraprestacion_id", newId);
@@ -236,7 +278,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
           console.warn("No se pudo comprobar seguimiento existente:", existingError);
         }
 
-        const existingYears = Array.isArray(existing) ? existing.map((x: any) => x.anio) : [];
+        const existingYears = Array.isArray(existingData) ? existingData.map((x: any) => x.anio) : [];
 
         const seguimientoData = aniosConvenio
           .map((a, i) => i + 1)
@@ -402,8 +444,3 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     </div>
   );
 }
-
-
-
-
-
