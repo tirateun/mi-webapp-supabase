@@ -1,3 +1,4 @@
+// src/Contraprestaciones.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -15,6 +16,12 @@ interface ContraprestacionCatalogo {
   id: string;
   nombre: string;
   unidad: string;
+}
+
+interface AgreementInfo {
+  signature_date: string | null;
+  expiration_date: string | null;
+  duration_years: number | null;
 }
 
 interface Props {
@@ -40,13 +47,14 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
   const [aniosConvenio, setAniosConvenio] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [puedeEditar, setPuedeEditar] = useState(false);
+  const [agreementInfo, setAgreementInfo] = useState<AgreementInfo | null>(null);
 
   // 🔹 Cargar permisos y datos iniciales
   useEffect(() => {
     verificarPermisos();
     fetchCatalogo();
     fetchContraprestaciones();
-    fetchDuracionConvenio();
+    fetchAgreementInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
@@ -101,21 +109,23 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
-  // 🔹 Obtener duración (en años) del convenio
-  const fetchDuracionConvenio = async () => {
+  // 🔹 Obtener información completa del convenio
+  const fetchAgreementInfo = async () => {
     try {
       const { data, error } = await supabase
         .from("agreements")
-        .select("duration_years")
+        .select("signature_date, expiration_date, duration_years")
         .eq("id", agreementId)
         .single();
 
       if (error) throw error;
+      
+      setAgreementInfo(data || null);
+      
       const years = data?.duration_years || 1;
       setAniosConvenio(Array.from({ length: years }, (_, i) => i + 1));
     } catch (error) {
-      console.error("Error al obtener duración del convenio:", error);
-      // no hacemos alert pesado aquí para no molestar al usuario en cada render
+      console.error("Error al obtener información del convenio:", error);
     }
   };
 
@@ -135,7 +145,47 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     }
   };
 
-  // 🔹 Registrar nueva contraprestación (ahora con id generado cliente-lado y evitando .select("id"))
+  // 🔹 Calcular fechas de período basadas en el convenio
+  const calcularFechasPeriodo = (yearIndex: number = 0) => {
+    if (!agreementInfo) {
+      return { periodo_inicio: null, periodo_fin: null };
+    }
+
+    const { signature_date, expiration_date, duration_years } = agreementInfo;
+    
+    if (!signature_date || !duration_years) {
+      return { periodo_inicio: null, periodo_fin: null };
+    }
+
+    // Si hay fecha de expiración específica, usarla
+    if (expiration_date) {
+      return { 
+        periodo_inicio: signature_date, 
+        periodo_fin: expiration_date 
+      };
+    }
+
+    // Calcular fechas basadas en la duración
+    const startDate = new Date(signature_date);
+    const yearDuration = Math.floor(duration_years / aniosConvenio.length);
+    const yearsPerPeriod = yearDuration > 0 ? yearDuration : 1;
+    
+    // Calcular inicio del período
+    const periodStart = new Date(startDate);
+    periodStart.setFullYear(periodStart.getFullYear() + (yearIndex * yearsPerPeriod));
+    
+    // Calcular fin del período
+    const periodEnd = new Date(periodStart);
+    periodEnd.setFullYear(periodEnd.getFullYear() + yearsPerPeriod);
+    periodEnd.setDate(periodEnd.getDate() - 1); // Restar 1 día para inclusividad
+
+    return {
+      periodo_inicio: periodStart.toISOString().split('T')[0],
+      periodo_fin: periodEnd.toISOString().split('T')[0]
+    };
+  };
+
+  // 🔹 Registrar nueva contraprestación (ahora con fechas calculadas)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!puedeEditar) return alert("No tienes permisos para realizar esta acción.");
@@ -156,10 +206,8 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     // Generamos un id cliente-lado para evitar depender del retorno del insert (problemas RLS)
     const newId = generateId();
 
-    // Si existe duración por años, podemos prellenar periodo_inicio/fin por año relativo
-    // NOTA: aquí asumimos que no tenemos la fecha exacta de inicio del convenio; por eso dejamos nulos
-    const periodo_inicio = null;
-    const periodo_fin = null;
+    // Calcular fechas del período
+    const { periodo_inicio, periodo_fin } = calcularFechasPeriodo();
 
     try {
       const { error: insertError } = await supabase.from("contraprestaciones").insert([
@@ -318,6 +366,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                   <th>Tipo</th>
                   <th>Descripción</th>
                   <th>Unidades</th>
+                  <th>Período</th>
                   {puedeEditar && <th>Acciones</th>}
                 </tr>
               </thead>
@@ -327,6 +376,12 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
                     <td>{c.tipo}</td>
                     <td style={{ maxWidth: "300px", whiteSpace: "pre-wrap" }}>{c.descripcion}</td>
                     <td>{c.unidades_comprometidas}</td>
+                    <td>
+                      {c.periodo_inicio && c.periodo_fin 
+                        ? `${c.periodo_inicio} - ${c.periodo_fin}`
+                        : "Sin período definido"
+                      }
+                    </td>
                     {puedeEditar && (
                       <td>
                         <button

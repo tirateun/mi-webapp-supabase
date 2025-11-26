@@ -182,7 +182,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
       const { data: cData, error: cErr } = await supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, renewal_id, agreement_id")
+        .select("id, tipo, descripcion, renewal_id, agreement_id, periodo_inicio, periodo_fin")
         .eq("agreement_id", agreementId)
         .order("tipo", { ascending: true });
 
@@ -233,8 +233,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     }
   };
 
-  // ... resto del componente igual, pero usando las variables correctas
-
   const grouped = useMemo(() => {
     const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
 
@@ -274,11 +272,22 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     periods.forEach((p) => { map[p.key] = []; });
 
     const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
+      // Caso 1: si tiene renewal_id, pertenece estrictamente a esa renovación.
       if (s.renewal_id) {
         const rr = periods.find((p) => p.renewalId === s.renewal_id);
         if (rr) return rr.key;
       }
 
+      // Caso 2: si la contraprestación tiene año, usarlo
+      if (s.año && s.año > 0) {
+        const foundByYear = periods.find((p) => {
+          if (!p.start || !p.end) return false;
+          return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
+        });
+        if (foundByYear) return foundByYear.key;
+      }
+
+      // Caso 3: intentar ubicar por fecha de verificación
       const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
       if (fv) {
         const found = periods.find((p) => {
@@ -290,21 +299,50 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         if (found) return found.key;
       }
 
-      if (s.año && s.año > 0) {
-        const foundByYear = periods.find((p) => {
-          if (!p.start || !p.end) return false;
-          return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
-        });
-        if (foundByYear) return foundByYear.key;
-      }
-
+      // Caso 4: fallback - asignar al periodo original
       return "original";
     };
+
+    // Crear un mapeo de contraprestaciones por ID para acceso rápido
+    const contraprestacionesMap = new Map(contraprestaciones.map(c => [c.id, c]));
 
     (seguimientos || []).forEach((s) => {
       const key = findPeriodKeyForSeguimiento(s) ?? "original";
       if (!map[key]) map[key] = [];
-      map[key].push({ ...s, periodo: periods.find((p) => p.key === key)?.title ?? "" });
+      
+      // Obtener la contraprestación completa para mostrar información adicional
+      const contraprestacionCompleta = contraprestacionesMap.get(s.contraprestacion_id) || s.contraprestacion;
+      
+      map[key].push({ 
+        ...s, 
+        contraprestacion: contraprestacionCompleta,
+        periodo: periods.find((p) => p.key === key)?.title ?? "" 
+      });
+    });
+
+    // También agregar contraprestaciones sin seguimientos al periodo correspondiente
+    contraprestaciones.forEach(c => {
+      if (!seguimientos.some(s => s.contraprestacion_id === c.id)) {
+        // Esta contraprestación no tiene seguimientos, agregar un registro vacío
+        const dummySeguimiento: Seguimiento = {
+          id: `dummy_${c.id}`,
+          contraprestacion_id: c.id,
+          año: 1, // Año por defecto
+          estado: null,
+          observaciones: null,
+          fecha_verificacion: null,
+          responsable: null,
+          evidencia_url: null,
+          ejecutado: false,
+          renewal_id: null,
+          contraprestacion: c,
+          periodo: ""
+        };
+        
+        const key = "original"; // Asignar al periodo original
+        if (!map[key]) map[key] = [];
+        map[key].push({ ...dummySeguimiento, periodo: periods.find((p) => p.key === key)?.title ?? "" });
+      }
     });
 
     Object.keys(map).forEach((k) => {
@@ -318,11 +356,33 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     });
 
     return periods.map((p) => ({ period: p, items: map[p.key] || [] }));
-  }, [agreementInfo, renewals, seguimientos]);
+  }, [agreementInfo, renewals, seguimientos, contraprestaciones]);
 
   const handleToggleEjecutado = async (s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
       alert("Solo los administradores pueden cambiar el estado de cumplimiento.");
+      return;
+    }
+
+    // Si es un seguimiento dummy (sin ID real), crear uno nuevo
+    if (s.id.startsWith('dummy_')) {
+      const { error: insertError } = await supabase
+        .from("contraprestaciones_seguimiento")
+        .insert({
+          contraprestacion_id: s.contraprestacion_id,
+          año: s.año,
+          estado: "Cumplido",
+          ejecutado: true,
+          responsable: userId,
+          fecha_verificacion: new Date().toISOString().split("T")[0]
+        });
+
+      if (insertError) {
+        console.error("Error creando seguimiento:", insertError);
+        alert("Error al crear el registro de cumplimiento: " + insertError.message);
+      } else {
+        await loadAllData(resolvedAgreementId!);
+      }
       return;
     }
 
@@ -373,13 +433,35 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       const { data: publicData } = supabase.storage.from("evidencias").getPublicUrl(filePath);
       const publicUrl = publicData.publicUrl;
 
-      const { error: updateError } = await supabase
-        .from("contraprestaciones_seguimiento")
-        .update({ evidencia_url: publicUrl })
-        .eq("id", s.id);
+      // Si es un seguimiento dummy, crear uno nuevo con la evidencia
+      if (s.id.startsWith('dummy_')) {
+        const { error: insertError } = await supabase
+          .from("contraprestaciones_seguimiento")
+          .insert({
+            contraprestacion_id: s.contraprestacion_id,
+            año: s.año,
+            estado: "Cumplido",
+            ejecutado: true,
+            responsable: userId,
+            fecha_verificacion: new Date().toISOString().split("T")[0],
+            evidencia_url: publicUrl
+          });
 
-      if (updateError) throw updateError;
-      await loadAllData(resolvedAgreementId!);
+        if (insertError) {
+          console.error("Error creando seguimiento con evidencia:", insertError);
+          alert("Error al crear el registro: " + insertError.message);
+        } else {
+          await loadAllData(resolvedAgreementId!);
+        }
+      } else {
+        const { error: updateError } = await supabase
+          .from("contraprestaciones_seguimiento")
+          .update({ evidencia_url: publicUrl })
+          .eq("id", s.id);
+
+        if (updateError) throw updateError;
+        await loadAllData(resolvedAgreementId!);
+      }
     } catch (err: any) {
       console.error("Error subiendo evidencia:", err);
       alert("Error al subir la evidencia: " + (err.message || "Error desconocido"));
@@ -486,7 +568,12 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                           {role === "admin" || role === "Admin" || role === "Administrador" ? (
                             <td>
                               <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={s.ejecutado} onChange={() => handleToggleEjecutado(s)} disabled={uploadingId === s.id} />
+                                <input 
+                                  type="checkbox" 
+                                  checked={s.ejecutado} 
+                                  onChange={() => handleToggleEjecutado(s)} 
+                                  disabled={uploadingId === s.id} 
+                                />
                                 {uploadingId === s.id && <small>Subiendo...</small>}
                               </label>
                             </td>
