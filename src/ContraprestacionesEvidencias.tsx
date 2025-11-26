@@ -561,7 +561,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                             ) : role === "admin" || role === "Admin" || role === "Administrador" ? (
                               <input type="file" accept="application/pdf" disabled={uploadingId === s.id} onChange={(e) => handleFileUpload(e, s)} />
                             ) : (
-                              <span className="text-muted">Sin evidencia</span>
+                              <span className="text-muted">Solo administradores</span>
                             )}
                           </td>
 
@@ -575,9 +575,13 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                                   disabled={uploadingId === s.id} 
                                 />
                                 {uploadingId === s.id && <small>Subiendo...</small>}
-                              </label>
-                            </td>
-                          ) : null}
+                                </label>
+                              </td>
+                            ) : (
+                              <td>
+                                <span className="text-muted">Solo administradores</span>
+                              </td>
+                            )}
                         </tr>
                       ))}
                     </tbody>
