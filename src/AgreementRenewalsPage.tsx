@@ -60,7 +60,7 @@ export default function AgreementRenewalsPage() {
 
     try {
       // 1) obtener expiration_date del convenio
-      const { data: agreementData, error: agreementError } = await supabase
+      const {  data: agreementData, error: agreementError } = await supabase
         .from("agreements")
         .select("expiration_date")
         .eq("id", agreementId)
@@ -71,7 +71,7 @@ export default function AgreementRenewalsPage() {
       }
 
       // 2) obtener renovaciones
-      const { data: renewalsData, error } = await supabase
+      const {  data: renewalsData, error } = await supabase
         .from("agreement_renewals")
         .select("*")
         .eq("agreement_id", agreementId)
@@ -110,8 +110,11 @@ export default function AgreementRenewalsPage() {
     }
     const d = new Date(renewalDate);
     d.setFullYear(d.getFullYear() + Number(years));
-    // almacenamos YYYY-MM-DD
-    setNewExpiration(d.toISOString().split("T")[0]);
+    // ✅ Corrección: Asegurar formato YYYY-MM-DD válido
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    setNewExpiration(`${year}-${month}-${day}`);
   }, [renewalDate, years]);
 
   async function saveRenewal() {
@@ -163,6 +166,9 @@ export default function AgreementRenewalsPage() {
       setShowModal(false);
       setRenewalDate("");
       setYears(1);
+      
+      // ✅ Mensaje de éxito
+      alert("✅ Renovación registrada exitosamente.");
     } catch (err) {
       console.error(err);
       alert("Error al guardar la renovación.");
