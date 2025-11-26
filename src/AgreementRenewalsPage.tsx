@@ -71,7 +71,7 @@ export default function AgreementRenewalsPage() {
       }
 
       // 2) obtener renovaciones
-      const {  data: renewalsData, error } = await supabase
+      const { data: renewalsData, error } = await supabase
         .from("agreement_renewals")
         .select("*")
         .eq("agreement_id", agreementId)
@@ -149,17 +149,9 @@ export default function AgreementRenewalsPage() {
         return;
       }
 
-      // ✅ ACTUALIZAR LA FECHA DE VENCIMIENTO EN agreements
-      const { error: updateError } = await supabase
-        .from("agreements")
-        .update({ expiration_date: newExpiration })
-        .eq("id", agreementId);
-
-      if (updateError) {
-        console.error("Error actualizando fecha de vencimiento:", updateError);
-        alert("Error al actualizar la fecha de vencimiento del convenio.");
-        return;
-      }
+      // ✅ ✅ ✅ ELIMINA ESTA PARTE - NO ACTUALIZAR agreements.expiration_date ✅ ✅ ✅
+      // La fecha de vencimiento original del convenio permanece igual
+      // Las renovaciones se guardan en agreement_renewals
 
       // refrescar lista y cerrar modal
       await loadRenewals();
