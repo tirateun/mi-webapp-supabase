@@ -1,106 +1,108 @@
-// Updated RenewalModal.tsx with contraprestaciones duplication logic
+// RenewalModal.tsx actualizado
+// Nota: Ajustado para crear automáticamente los años en agreement_years
+// al renovar un convenio.
+
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
-interface RenewalModalProps {
-  agreementId: string;
-  currentExpiration: string | null;
-  onSaved: () => Promise<void>;
-  onCancel: () => void;
-}
-
-export default function RenewalModal({ agreementId, currentExpiration, onSaved, onCancel }: RenewalModalProps) {
-  const [newDate, setNewDate] = useState("");
+export default function RenewalModal({ agreement, onClose, onRenew }: any) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  const handleSave = async () => {
-    if (!newDate) {
-      setError("Debe seleccionar una nueva fecha.");
-      return;
-    }
+  const handleRenew = async () => {
+    if (!startDate || !endDate) return alert("Completa las fechas");
 
     setLoading(true);
-    setError("");
 
     try {
-      // 1) Insert renewal history
-      const { error: renewalErr, data: renewalData } = await supabase
+      // 1. Crear renovación
+      const { data: renewal, error: renewalError } = await supabase
         .from("agreement_renewals")
         .insert({
-          agreement_id: agreementId,
-          previous_expiration: currentExpiration,
-          new_expiration: newDate,
+          agreement_id: agreement.id,
+          start_date: startDate,
+          end_date: endDate,
         })
-        .select("id")
+        .select()
         .single();
 
-      if (renewalErr) throw renewalErr;
-      const renewalId = renewalData?.id;
+      if (renewalError) throw renewalError;
 
-      // 2) Fetch existing contraprestaciones to duplicate
-      const { data: oldContra, error: fetchErr } = await supabase
-        .from("contraprestaciones")
-        .select("id, tipo, descripcion, unidades_comprometidas")
-        .eq("agreement_id", agreementId);
+      // 2. Calcular años
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      // Calcular años exactos respetando fecha de inicio y fin
+      let cursor = new Date(startDate);
+      const yearRows = [];
+      while (cursor <= end) {
+        const yearStart = new Date(cursor);
+        const nextYear = new Date(yearStart);
+        nextYear.setFullYear(nextYear.getFullYear() + 1);
+        nextYear.setDate(nextYear.getDate() - 1);
 
-      if (fetchErr) throw fetchErr;
+        const yearEnd = nextYear > end ? end : nextYear;
 
-      // 3) Insert duplicated contraprestaciones as new batch
-      const duplicatedData = (oldContra || []).map((c) => ({
-        agreement_id: agreementId,
-        tipo: c.tipo,
-        descripcion: c.descripcion,
-        unidades_comprometidas: c.unidades_comprometidas,
-        renewal_ref: renewalId,
-      }));
+        yearRows.push({
+          agreement_id: agreement.id,
+          renewal_id: renewal.id,
+          year_number: yearRows.length + 1,
+          year_start: yearStart.toISOString().slice(0, 10),
+          year_end: yearEnd.toISOString().slice(0, 10),
+        });
 
-      if (duplicatedData.length > 0) {
-        const { error: insertNewErr } = await supabase
-          .from("contraprestaciones")
-          .insert(duplicatedData);
-
-        if (insertNewErr) throw insertNewErr;
+        cursor = new Date(yearEnd);
+        cursor.setDate(cursor.getDate() + 1);
       }
 
-      // 4) Update agreement expiration
-      const { error: updateErr } = await supabase
-        .from("agreements")
-        .update({ expiration_date: newDate })
-        .eq("id", agreementId);
+      // 3. Insertar años
+      const { error: yearsError } = await supabase
+        .from("agreement_years")
+        .insert(yearRows);
 
-      if (updateErr) throw updateErr;
+      if (yearsError) throw yearsError;
 
-      await onSaved();
-    } catch (e: any) {
-      setError(e.message || "Error al procesar renovación.");
+      onRenew();
+      onClose();
+    } catch (err: any) {
+      alert("Error al renovar: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal">
-        <h2>Renovar convenio</h2>
+    <div className="modal show" style={{ display: "block" }}>
+      <div className="modal-dialog">
+        <div className="modal-content p-3">
+          <h5 className="mb-3">Renovar convenio</h5>
 
-        <p>Fecha actual de vencimiento: <b>{currentExpiration || "—"}</b></p>
+          <label>Fecha inicio</label>
+          <input
+            type="date"
+            className="form-control mb-2"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
 
-        <label>Nueva fecha de vencimiento:</label>
-        <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+          <label>Fecha fin</label>
+          <input
+            type="date"
+            className="form-control mb-3"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
 
-        {error && <p className="error">{error}</p>}
-
-        <div className="modal-buttons">
-          <button onClick={onCancel} disabled={loading}>Cancelar</button>
-          <button onClick={handleSave} disabled={loading}>
-            {loading ? "Guardando..." : "Guardar"}
-          </button>
+          <div className="d-flex justify-content-end gap-2">
+            <button className="btn btn-secondary" onClick={onClose} disabled={loading}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" onClick={handleRenew} disabled={loading}>
+              {loading ? "Guardando..." : "Renovar"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-
-

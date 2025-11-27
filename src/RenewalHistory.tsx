@@ -1,71 +1,78 @@
+// RenewalHistory.tsx (actualizado para integrarse con agreement_years)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-interface RenewalHistoryProps {
-  agreementId: string;
-  onClose: () => void;
-}
-
-interface RenewalRecord {
+interface Renewal {
   id: string;
-  old_expiration_date: string | null;
-  new_expiration_date: string | null;
-  changed_at: string;
+  agreement_id: string;
+  renewal_year: number;
+  start_date: string;
+  end_date: string;
+  created_at: string;
 }
 
-export default function RenewalHistory({ agreementId, onClose }: RenewalHistoryProps) {
-  const [records, setRecords] = useState<RenewalRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function RenewalHistory({ agreementId }: { agreementId: string }) {
+  const [history, setHistory] = useState<Renewal[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const loadHistory = async () => {
-      const { data, error } = await supabase
-        .from("agreement_renewals")
-        .select("id, old_expiration_date, new_expiration_date, changed_at")
-        .eq("agreement_id", agreementId)
-        .order("changed_at", { ascending: false });
-
-      if (!error && data) setRecords(data as RenewalRecord[]);
-      setLoading(false);
-    };
-
-    loadHistory();
+    if (agreementId) fetchRenewals();
   }, [agreementId]);
 
+  const fetchRenewals = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("agreement_renewals")
+        .select("id, agreement_id, renewal_year, start_date, end_date, created_at")
+        .eq("agreement_id", agreementId)
+        .order("renewal_year", { ascending: true });
+
+      if (error) throw error;
+      setHistory(data || []);
+    } catch (err) {
+      console.error("Error cargando historial de renovaciones:", err);
+      alert("Error al cargar historial de renovaciones.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center p-4">
-      <div className="bg-white p-6 rounded shadow-md w-[500px] max-h-[80vh] overflow-y-auto">
-        <h2 className="text-xl font-bold mb-4">Historial de Renovaciones</h2>
+    <div className="card mt-3 shadow-sm">
+      <div className="card-body">
+        <h5 className="card-title">📜 Historial de Renovaciones</h5>
 
         {loading ? (
           <div>Cargando...</div>
-        ) : records.length === 0 ? (
-          <div className="text-gray-600">No hay renovaciones registradas.</div>
+        ) : history.length === 0 ? (
+          <p className="text-muted">No hay renovaciones registradas.</p>
         ) : (
-          <table className="w-full text-sm border">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border p-2">Anterior</th>
-                <th className="border p-2">Nueva</th>
-                <th className="border p-2">Fecha de cambio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr key={r.id}>
-                  <td className="border p-2">{r.old_expiration_date || "—"}</td>
-                  <td className="border p-2 font-semibold">{r.new_expiration_date}</td>
-                  <td className="border p-2">{new Date(r.changed_at).toLocaleString()}</td>
+          <div className="table-responsive">
+            <table className="table table-striped table-hover">
+              <thead>
+                <tr>
+                  <th>Año de renovación</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Registrado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.renewal_year}</td>
+                    <td>{new Date(r.start_date).toLocaleDateString("es-PE")}</td>
+                    <td>{new Date(r.end_date).toLocaleDateString("es-PE")}</td>
+                    <td>{new Date(r.created_at).toLocaleDateString("es-PE")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-
-        <div className="flex justify-end mt-4">
-          <button className="px-4 py-2 bg-gray-300 rounded" onClick={onClose}>Cerrar</button>
-        </div>
       </div>
     </div>
   );
 }
+
