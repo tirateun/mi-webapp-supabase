@@ -295,6 +295,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
             anio: year,
             estado: "pendiente",
             ejecutado: false,
+            renewal_id: renewalId, //Asignar renewal_id a los seguimientos
           }));
 
         if (seguimientoData.length > 0) {
