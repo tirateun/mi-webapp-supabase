@@ -252,6 +252,12 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
     const { periodo_inicio, periodo_fin } = calcularFechasPeriodo();
 
     try {
+      // ✅ Obtener la última renovación activa para este agreement_id
+      let renewalId = null;
+      if (renewals.length > 0) {
+      renewalId = renewals[0].id; // La renovación más reciente
+      }
+
       const { error: insertError } = await supabase.from("contraprestaciones").insert([
         {
           id: newId,
@@ -261,6 +267,7 @@ export default function Contraprestaciones({ agreementId, onBack }: Props) {
           unidades_comprometidas: unidades,
           periodo_inicio,
           periodo_fin,
+          renewal_id: renewalId, // ✅ Asignar renewal_id
         },
       ]);
 
