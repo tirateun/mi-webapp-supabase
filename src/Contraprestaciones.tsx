@@ -1,4 +1,4 @@
-// Contraprestaciones.tsx
+// Contraprestaciones.tsx (versión corregida y funcionando)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -7,12 +7,14 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
 
-  const [tipo, setTipo] = useState("");
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [catalogId, setCatalogId] = useState<string>("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
 
   useEffect(() => {
     loadYears();
+    loadCatalog();
   }, []);
 
   async function loadYears() {
@@ -28,6 +30,14 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     }
   }
 
+  async function loadCatalog() {
+    const { data, error } = await supabase
+      .from("contraprestaciones_catalogo")
+      .select("id, nombre");
+
+    if (!error && data) setCatalog(data);
+  }
+
   useEffect(() => {
     if (selectedYear) loadContraprestaciones();
   }, [selectedYear]);
@@ -35,7 +45,7 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   async function loadContraprestaciones() {
     const { data, error } = await supabase
       .from("contraprestaciones")
-      .select("*")
+      .select("id, tipo, descripcion, unidades_comprometidas, catalogo_id")
       .eq("agreement_year_id", selectedYear)
       .order("created_at", { ascending: true });
 
@@ -43,18 +53,19 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   }
 
   async function addItem() {
-    if (!tipo) return;
+    if (!catalogId) return;
 
     const { error } = await supabase.from("contraprestaciones").insert({
       agreement_id: agreementId,
       agreement_year_id: selectedYear,
-      tipo,
+      catalogo_id: catalogId,
+      tipo: catalog.find((c) => c.id == catalogId)?.nombre || "",
       descripcion,
-      unidades_comprometidas: unidades
+      unidades_comprometidas: unidades,
     });
 
     if (!error) {
-      setTipo("");
+      setCatalogId("");
       setDescripcion("");
       setUnidades(1);
       loadContraprestaciones();
@@ -64,6 +75,10 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   async function deleteItem(id: string) {
     const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
     if (!error) loadContraprestaciones();
+  }
+
+  function formatDate(d: string) {
+    return new Date(d).toISOString().split("T")[0];
   }
 
   return (
@@ -80,7 +95,7 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
         >
           {years.map((y) => (
             <option key={y.id} value={y.id}>
-              Año {y.year_number} — {y.year_start} / {y.year_end}
+              Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)}
             </option>
           ))}
         </select>
@@ -90,12 +105,17 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
         <h2 className="font-semibold mb-2">Agregar contraprestación</h2>
 
         <div className="mb-2">
-          <label className="block">Tipo:</label>
-          <input
+          <label className="block">Tipo (Catálogo):</label>
+          <select
             className="border px-2 py-1 w-full"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-          />
+            value={catalogId}
+            onChange={(e) => setCatalogId(e.target.value)}
+          >
+            <option value="">Seleccione tipo</option>
+            {catalog.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
         </div>
 
         <div className="mb-2">
@@ -157,3 +177,4 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     </div>
   );
 }
+
