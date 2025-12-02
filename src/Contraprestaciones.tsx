@@ -4,7 +4,7 @@ import { supabase } from "./supabaseClient";
 
 export default function Contraprestaciones({ agreementId, onBack }: { agreementId: string; onBack: () => void }) {
   const [years, setYears] = useState<any[]>([]);
-  const [selectedYear, setSelectedYear] = useState<number | "">("");
+  const [selectedYear, setSelectedYear] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
 
   const [tipo, setTipo] = useState("");
@@ -29,7 +29,7 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
       setYears(data);
 
       if (data.length > 0) {
-        setSelectedYear(Number(data[0].id));
+        setSelectedYear(data[0].id);
       }
     }
   }
@@ -94,7 +94,7 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
         <select
           className="border px-2 py-1"
           value={selectedYear}
-          onChange={(e) => setSelectedYear(Number(e.target.value))}
+          onChange={(e) => setSelectedYear(e.target.value)}
         >
           <option value="">Seleccione un año</option>
           {years.map((y) => (
