@@ -1,20 +1,21 @@
-// Contraprestaciones.tsx (versión corregida y funcionando)
+// Contraprestaciones.tsx (versión corregida con selector de año funcional)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 export default function Contraprestaciones({ agreementId, onBack }: { agreementId: string; onBack: () => void }) {
   const [years, setYears] = useState<any[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedYear, setSelectedYear] = useState<number | "">("");
   const [items, setItems] = useState<any[]>([]);
 
-  const [catalog, setCatalog] = useState<any[]>([]);
-  const [catalogId, setCatalogId] = useState<string>("");
+  const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
 
+  const [catalogo, setCatalogo] = useState<any[]>([]);
+
   useEffect(() => {
     loadYears();
-    loadCatalog();
+    loadCatalogo();
   }, []);
 
   async function loadYears() {
@@ -26,16 +27,22 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
 
     if (!error && data) {
       setYears(data);
-      if (data.length > 0) setSelectedYear(data[0].id);
+
+      if (data.length > 0) {
+        setSelectedYear(Number(data[0].id));
+      }
     }
   }
 
-  async function loadCatalog() {
+  async function loadCatalogo() {
     const { data, error } = await supabase
       .from("contraprestaciones_catalogo")
-      .select("id, nombre");
+      .select("id, nombre")
+      .order("nombre", { ascending: true });
 
-    if (!error && data) setCatalog(data);
+    if (!error && data) {
+      setCatalogo(data);
+    }
   }
 
   useEffect(() => {
@@ -45,7 +52,7 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   async function loadContraprestaciones() {
     const { data, error } = await supabase
       .from("contraprestaciones")
-      .select("id, tipo, descripcion, unidades_comprometidas, catalogo_id")
+      .select("*")
       .eq("agreement_year_id", selectedYear)
       .order("created_at", { ascending: true });
 
@@ -53,19 +60,18 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   }
 
   async function addItem() {
-    if (!catalogId) return;
+    if (!tipo) return;
 
     const { error } = await supabase.from("contraprestaciones").insert({
       agreement_id: agreementId,
       agreement_year_id: selectedYear,
-      catalogo_id: catalogId,
-      tipo: catalog.find((c) => c.id == catalogId)?.nombre || "",
+      tipo,
       descripcion,
       unidades_comprometidas: unidades,
     });
 
     if (!error) {
-      setCatalogId("");
+      setTipo("");
       setDescripcion("");
       setUnidades(1);
       loadContraprestaciones();
@@ -77,25 +83,23 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     if (!error) loadContraprestaciones();
   }
 
-  function formatDate(d: string) {
-    return new Date(d).toISOString().split("T")[0];
-  }
-
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <button className="mb-4 px-3 py-1 bg-gray-300" onClick={onBack}>Volver</button>
       <h1 className="text-2xl font-bold mb-4">Contraprestaciones</h1>
 
+      {/* Selector de año corregido */}
       <div className="mb-4">
         <label className="font-semibold mr-2">Seleccionar año:</label>
         <select
           className="border px-2 py-1"
           value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
         >
+          <option value="">Seleccione un año</option>
           {years.map((y) => (
             <option key={y.id} value={y.id}>
-              Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)}
+              Año {y.year_number} — {y.year_start} / {y.year_end}
             </option>
           ))}
         </select>
@@ -105,15 +109,15 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
         <h2 className="font-semibold mb-2">Agregar contraprestación</h2>
 
         <div className="mb-2">
-          <label className="block">Tipo (Catálogo):</label>
+          <label className="block">Tipo:</label>
           <select
             className="border px-2 py-1 w-full"
-            value={catalogId}
-            onChange={(e) => setCatalogId(e.target.value)}
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
           >
             <option value="">Seleccione tipo</option>
-            {catalog.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+            {catalogo.map((c) => (
+              <option key={c.id} value={c.nombre}>{c.nombre}</option>
             ))}
           </select>
         </div>
