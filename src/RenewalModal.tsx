@@ -1,6 +1,4 @@
-// RenewalModal.tsx actualizado
-// Nota: Ajustado para crear automáticamente los años en agreement_years
-// al renovar un convenio.
+// RenewalModal.tsx - versión corregida y validada
 
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
@@ -29,33 +27,41 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
 
       if (renewalError) throw renewalError;
 
-      // 2. Calcular años
+      // 2. Generar años
       const start = new Date(startDate);
       const end = new Date(endDate);
-      // Calcular años exactos respetando fecha de inicio y fin
-      let cursor = new Date(startDate);
-      const yearRows = [];
-      while (cursor <= end) {
-        const yearStart = new Date(cursor);
-        const nextYear = new Date(yearStart);
-        nextYear.setFullYear(nextYear.getFullYear() + 1);
-        nextYear.setDate(nextYear.getDate() - 1);
 
-        const yearEnd = nextYear > end ? end : nextYear;
+      const yearRows: any[] = [];
+      let cursor = new Date(start);
+      let year = 1;
+
+      while (true) {
+        const yearStart = new Date(cursor);
+
+        const yearEnd = new Date(yearStart);
+        yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+        yearEnd.setDate(yearEnd.getDate() - 1);
+
+        if (yearEnd > end) {
+          yearEnd.setTime(end.getTime());
+        }
 
         yearRows.push({
           agreement_id: agreement.id,
           renewal_id: renewal.id,
-          year_number: yearRows.length + 1,
+          year_number: year,
           year_start: yearStart.toISOString().slice(0, 10),
           year_end: yearEnd.toISOString().slice(0, 10),
         });
 
+        if (yearEnd >= end) break;
+
         cursor = new Date(yearEnd);
         cursor.setDate(cursor.getDate() + 1);
+        year++;
       }
 
-      // 3. Insertar años
+      // 3. Insertar años en la BD
       const { error: yearsError } = await supabase
         .from("agreement_years")
         .insert(yearRows);
@@ -75,6 +81,7 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
     <div className="modal show" style={{ display: "block" }}>
       <div className="modal-dialog">
         <div className="modal-content p-3">
+
           <h5 className="mb-3">Renovar convenio</h5>
 
           <label>Fecha inicio</label>
@@ -94,13 +101,23 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
           />
 
           <div className="d-flex justify-content-end gap-2">
-            <button className="btn btn-secondary" onClick={onClose} disabled={loading}>
+            <button
+              className="btn btn-secondary"
+              onClick={onClose}
+              disabled={loading}
+            >
               Cancelar
             </button>
-            <button className="btn btn-primary" onClick={handleRenew} disabled={loading}>
+
+            <button
+              className="btn btn-primary"
+              onClick={handleRenew}
+              disabled={loading}
+            >
               {loading ? "Guardando..." : "Renovar"}
             </button>
           </div>
+
         </div>
       </div>
     </div>
