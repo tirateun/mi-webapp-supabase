@@ -1,4 +1,4 @@
-// Contraprestaciones.tsx (versión corregida con selector de año funcional)
+// src/Contraprestaciones.tsx (fix: carga años cuando cambia agreementId)
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -12,75 +12,140 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   const [unidades, setUnidades] = useState(1);
 
   const [catalogo, setCatalogo] = useState<any[]>([]);
+  const [loadingYears, setLoadingYears] = useState(false);
 
+  // --- IMPORTANTE: dependemos de agreementId; cargar cuando cambie ---
   useEffect(() => {
+    if (!agreementId) {
+      console.log("Contraprestaciones: waiting for agreementId...");
+      return;
+    }
     loadYears();
     loadCatalogo();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agreementId]);
 
   async function loadYears() {
-    const { data, error } = await supabase
-      .from("agreement_years")
-      .select("id, year_number, year_start, year_end")
-      .eq("agreement_id", agreementId)
-      .order("year_number", { ascending: true });
+    try {
+      if (!agreementId) return;
+      setLoadingYears(true);
+      const { data, error } = await supabase
+        .from("agreement_years")
+        .select("id, year_number, year_start, year_end")
+        .eq("agreement_id", agreementId)
+        .order("year_number", { ascending: true });
 
-    if (!error && data) {
-      setYears(data);
+      console.log("loadYears result:", { agreementId, data, error });
 
-      if (data.length > 0) {
-        setSelectedYear(data[0].id);
+      if (!error && Array.isArray(data)) {
+        setYears(data);
+        // si no hay selectedYear o el selectedYear dejó de existir, establecer el primero
+        if (!selectedYear && data.length > 0) {
+          setSelectedYear(String(data[0].id));
+        } else if (selectedYear) {
+          // si hay selectedYear, verificar que siga presente; si no, reasignar
+          const exists = data.find((y) => String(y.id) === String(selectedYear));
+          if (!exists && data.length > 0) setSelectedYear(String(data[0].id));
+        }
+      } else {
+        setYears([]);
+        setSelectedYear("");
       }
+    } catch (err) {
+      console.error("Error loadYears:", err);
+      setYears([]);
+      setSelectedYear("");
+    } finally {
+      setLoadingYears(false);
     }
   }
 
   async function loadCatalogo() {
-    const { data, error } = await supabase
-      .from("contraprestaciones_catalogo")
-      .select("id, nombre")
-      .order("nombre", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("contraprestaciones_catalogo")
+        .select("id, nombre")
+        .order("nombre", { ascending: true });
 
-    if (!error && data) {
-      setCatalogo(data);
+      if (!error && data) setCatalogo(data);
+    } catch (err) {
+      console.error("Error loadCatalogo:", err);
+      setCatalogo([]);
     }
   }
 
+  // cuando cambia el año seleccionado, recargar contraprestaciones
   useEffect(() => {
     if (selectedYear) loadContraprestaciones();
+    else setItems([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear]);
 
   async function loadContraprestaciones() {
-    const { data, error } = await supabase
-      .from("contraprestaciones")
-      .select("*")
-      .eq("agreement_year_id", selectedYear)
-      .order("created_at", { ascending: true });
+    if (!selectedYear) return;
+    try {
+      const { data, error } = await supabase
+        .from("contraprestaciones")
+        .select("id, tipo, descripcion, unidades_comprometidas, catalogo_id")
+        .eq("agreement_year_id", selectedYear)
+        .order("created_at", { ascending: true });
 
-    if (!error && data) setItems(data);
+      if (!error && data) setItems(data);
+      else setItems([]);
+    } catch (err) {
+      console.error("Error loadContraprestaciones:", err);
+      setItems([]);
+    }
   }
 
   async function addItem() {
-    if (!tipo) return;
+    if (!agreementId) return alert("Error: convenio desconocido.");
+    if (!selectedYear) return alert("Selecciona primero un año para registrar la contraprestación.");
+    if (!tipo) return alert("Selecciona un tipo.");
 
-    const { error } = await supabase.from("contraprestaciones").insert({
-      agreement_id: agreementId,
-      agreement_year_id: selectedYear,
-      tipo,
-      descripcion,
-      unidades_comprometidas: unidades,
-    });
+    try {
+      const payload = {
+        agreement_id: agreementId,
+        agreement_year_id: selectedYear,
+        catalogo_id: catalogo.find((c) => c.nombre === tipo)?.id ?? null,
+        tipo,
+        descripcion,
+        unidades_comprometidas: unidades,
+      };
 
-    if (!error) {
+      const { error } = await supabase.from("contraprestaciones").insert(payload);
+      if (error) throw error;
+
+      // limpiar y recargar
       setTipo("");
       setDescripcion("");
       setUnidades(1);
-      loadContraprestaciones();
+      await loadContraprestaciones();
+    } catch (err: any) {
+      console.error("Error addItem:", err);
+      alert("No se pudo agregar contraprestación: " + (err?.message || String(err)));
     }
   }
 
   async function deleteItem(id: string) {
-    const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
-    if (!error) loadContraprestaciones();
+    if (!confirm("¿Eliminar contraprestación?")) return;
+    try {
+      const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
+      if (error) throw error;
+      await loadContraprestaciones();
+    } catch (err) {
+      console.error("Error deleteItem:", err);
+      alert("No se pudo eliminar.");
+    }
+  }
+
+  function formatDate(d: string) {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleDateString("es-PE");
+    } catch {
+      return d;
+    }
   }
 
   return (
@@ -88,28 +153,34 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
       <button className="mb-4 px-3 py-1 bg-gray-300" onClick={onBack}>Volver</button>
       <h1 className="text-2xl font-bold mb-4">Contraprestaciones</h1>
 
-      {/* Selector de año corregido */}
+      {/* Selector de año */}
       <div className="mb-4">
         <label className="font-semibold mr-2">Seleccionar año:</label>
-        <select
-          className="border px-2 py-1"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-        >
-          <option value="">Seleccione un año</option>
-          {years.map((y) => (
-            <option key={y.id} value={y.id}>
-              Año {y.year_number} — {y.year_start} / {y.year_end}
-            </option>
-          ))}
-        </select>
+        {loadingYears ? (
+          <span className="ms-2 text-muted">Cargando años...</span>
+        ) : years.length === 0 ? (
+          <span className="ms-2 text-danger">No hay años definidos para este convenio.</span>
+        ) : (
+          <select
+            className="border px-2 py-1"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+          >
+            <option value="">Seleccione un año</option>
+            {years.map((y) => (
+              <option key={y.id} value={String(y.id)}>
+                Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="border p-4 rounded mb-6">
         <h2 className="font-semibold mb-2">Agregar contraprestación</h2>
 
         <div className="mb-2">
-          <label className="block">Tipo:</label>
+          <label className="block">Tipo (Catálogo):</label>
           <select
             className="border px-2 py-1 w-full"
             value={tipo}
@@ -181,4 +252,5 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     </div>
   );
 }
+
 
