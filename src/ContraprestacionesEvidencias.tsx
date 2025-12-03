@@ -324,10 +324,17 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     contraprestaciones.forEach(c => {
       if (!seguimientos.some(s => s.contraprestacion_id === c.id)) {
         // Esta contraprestación no tiene seguimientos, agregar un registro vacío
+        const calcularAnioReal = () => {
+          if (!c.periodo_inicio || !agreementInfo?.signature_date) return 1;
+          const inicio = new Date(c.periodo_inicio);
+          const firma = new Date(agreementInfo.signature_date);
+          return inicio.getFullYear() - firma.getFullYear() + 1;
+        };
+        
         const dummySeguimiento: Seguimiento = {
           id: `dummy_${c.id}`,
           contraprestacion_id: c.id,
-          año: 1, // Año por defecto
+          año: calcularAnioReal(),
           estado: null,
           observaciones: null,
           fecha_verificacion: null,
@@ -338,7 +345,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
           contraprestacion: c,
           periodo: ""
         };
-        
+            
         const key = "original"; // Asignar al periodo original
         if (!map[key]) map[key] = [];
         map[key].push({ ...dummySeguimiento, periodo: periods.find((p) => p.key === key)?.title ?? "" });
