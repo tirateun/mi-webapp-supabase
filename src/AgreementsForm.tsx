@@ -145,7 +145,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
         sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente || null : null,
-        updated_at: new Date().toISOString(),
       };
 
       let agreementId: string | undefined = existingAgreement?.id;
