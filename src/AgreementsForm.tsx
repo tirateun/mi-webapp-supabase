@@ -212,16 +212,26 @@ const subTiposDocente = useMemo(
           0
         );
 
+        // 🔥 Convertir fechas SIEMPRE a string YYYY-MM-DD o null
+        const signatureFinal = agreementRow.signature_date
+          ?? signatureDate
+          ?? null;
+
+        const expirationFinal = agreementRow.expiration_date
+          ?? null;
+
         await generateYearsIfNeeded(
-          agreementId!,
-          agreementRow.signature_date ?? signatureDate ?? null,
-          agreementRow.expiration_date ?? null,
-          durationFinal // <-- ahora SIEMPRE es number
+          agreementId!,      // string
+          signatureFinal,    // string | null  ← AHORA OK
+          expirationFinal,   // string | null  ← AHORA OK
+          durationFinal      // number
         );
         }
 
         alert("✅ Convenio guardado correctamente");
         onSave && onSave();
+
+
 
     } catch (err: any) {
       console.error("Error guardar convenio:", err);
