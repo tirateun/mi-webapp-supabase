@@ -208,11 +208,11 @@ const subTiposDocente = useMemo(
         // Llamada al helper que crea agreement_years sólo si falta/está truncado
         // -- IMPORTANTE: pasar valores con tipos adecuados (string/null para fechas, number/null para duration)
         await generateYearsIfNeeded(
-          agreementId!, // string UUID
+          agreementId!,
           agreementRow.signature_date ?? signatureDate ?? null,
           agreementRow.expiration_date ?? null,
-          agreementRow.duration_years ?? durationYears ?? null
-        );        
+          agreementRow.duration_years ?? (durationYears ? Number(durationYears) : null)
+        );       
       }
 
       alert("✅ Convenio guardado correctamente");
