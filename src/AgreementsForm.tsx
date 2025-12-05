@@ -14,67 +14,84 @@ interface Option {
 }
 
 export default function AgreementsForm({ existingAgreement, onSave, onCancel }: any) {
-  const [loading, setLoading] = useState(false);
+// ---------- Estados principales (único bloque; NO repetir) ----------
+const [loading, setLoading] = useState(false);
 
-  // ---- Estados principales ----
-  const [name, setName] = useState<string>(existingAgreement?.name || "");
-  const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
-  const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years || 1);
-  const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
-  const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
-  const [pais, setPais] = useState<string>(existingAgreement?.pais || "");
-  const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
-  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
-  const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
+const [name, setName] = useState<string>(existingAgreement?.name || "");
+const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
+const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years || 1);
+const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
+const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
+const [pais, setPais] = useState<string>(existingAgreement?.pais || "");
+const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
+const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
+const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
 
-  // Responsables / externos / áreas
-  const [internos, setInternos] = useState<any[]>([]);
-  const [externos, setExternos] = useState<any[]>([]);
-  const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
-    if (!existingAgreement) return [];
-    const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
-    if (!Array.isArray(list)) return [];
-    return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
-  });
-  const [externalResponsible, setExternalResponsible] = useState<string>(existingAgreement?.external_responsible || "");
-
-  const [areas, setAreas] = useState<any[]>([]);
-  const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
-
-  // Países (puedes cargar dinámicamente si quieres)
-  const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
-
-  const tipos = useMemo(
-    () => [
-      "Docente Asistencial",
-      "Cooperación técnica",
-      "Movilidad académica",
-      "Investigación",
-      "Colaboración académica",
-      "Consultoría",
-      "Cotutela",
-    ],
-    []
+// Responsables / extras / áreas (declarados una sola vez)
+const [internos, setInternos] = useState<any[]>([]);
+const [externos, setExternos] = useState<any[]>([]);
+const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
+  if (!existingAgreement) return [];
+  const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
+  if (!Array.isArray(list)) return [];
+  return list.map((i: any) =>
+    i?.id && i?.full_name ? { value: String(i.id), label: i.full_name } : { value: String(i), label: String(i) }
   );
+});
+const [externalResponsible, setExternalResponsible] = useState<string>(String(existingAgreement?.external_responsible || ""));
 
-  const subTiposDocente = useMemo(
-    () => [
-      "PREGRADO - NACIONALES",
-      "POSTGRADO RESIDENTADO EN ENFERMERÍA - NACIONALES CONAREN",
-      "POSTGRADO 2DA ESP. EN ENFERMERÍA NO RESIDENTADO - NACIONALES",
-      "POSTGRADO RESIDENTADO MÉDICO - CONAREME",
-      "POSTGRADO 2DA ESPECIALIDAD NUTRICIÓN PALIATIVA",
-    ],
-    []
-  );
+const [areas, setAreas] = useState<any[]>([]);
+const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
 
+// IDs auxiliares (decláralos aquí, UNA sola vez)
+const [areaId, setAreaId] = useState<number | null>(existingAgreement?.area_vinculada_id ?? null);
+const [convenioMaestroId, setConvenioMaestroId] = useState<number | null>(existingAgreement?.convenio_maestro_id ?? null);
+
+const [version, setVersion] = useState<number>(existingAgreement?.version ?? 1);
+const [estado, setEstado] = useState<string>(existingAgreement?.estado ?? "ACTIVO");
+// Países / constantes
+const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
+
+// -------------------------------------------------------
+// Tipos de convenio
+// -------------------------------------------------------
+const tipos = useMemo(
+  () => [
+    "Docente Asistencial",
+    "Cooperación técnica",
+    "Movilidad académica",
+    "Investigación",
+    "Colaboración académica",
+    "Consultoría",
+    "Cotutela",
+  ],
+  []
+);
+
+// Subtipos de Docente Asistencial
+const subTiposDocente = useMemo(
+  () => [
+    "PREGRADO - NACIONALES",
+    "POSTGRADO RESIDENTADO EN ENFERMERÍA - NACIONALES CONAREN",
+    "POSTGRADO 2DA ESP. EN ENFERMERÍA NO RESIDENTADO - NACIONALES",
+    "POSTGRADO RESIDENTADO MÉDICO - CONAREME",
+    "POSTGRADO 2DA ESPECIALIDAD NUTRICIÓN PALIATIVA",
+  ],
+  []
+);
   // ---- Cargas iniciales ----
   useEffect(() => {
     fetchEnumsAndLists();
     // si existe existingAgreement, sincronizar campos adicionales
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
+  
+  useEffect(() => {
+    if (existingAgreement?.version) {
+      setVersion(existingAgreement.version);
+    }
+  }, [existingAgreement]);
+  
   useEffect(() => {
     if (!existingAgreement?.id) return;
     // si la lista de internos ya llegó, sincronizamos los seleccionados
@@ -119,34 +136,31 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  // ---- Submit (crear / actualizar) ----
+    // ---- Submit (crear / actualizar) ----
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
+  
     try {
       // calcular expiration_date SIEMPRE
-      let expiration_date: string | null = null;
-      if (signatureDate && durationYears) {
-        const d = new Date(signatureDate);
-        d.setFullYear(d.getFullYear() + Number(durationYears));
-        d.setDate(d.getDate() - 1); // inclusive hasta día anterior
-        expiration_date = d.toISOString().slice(0, 10);
-      }
-
-      const payload: any = {
-        name,
-        signature_date: signatureDate || null,
-        duration_years: durationYears || null,
-        convenio: tipoConvenio,
-        pais: pais || null,
-        "Resolución Rectoral": resolucion || null,
-        tipo_convenio: tipoSeleccionados || null,
-        objetivos: objetivos || null,
-        sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial")
-          ? subTipoDocente || null
-          : null,
-      };    
+      // dentro de try en handleSubmit (antes de insertar / actualizar)
+  const payload: any = {
+    name,
+    signature_date: signatureDate || null,
+    duration_years: durationYears || null,
+    // NO enviar expiration_date si es generated column en la BD
+    convenio: tipoConvenio,
+    pais: pais || null,
+    "Resolución Rectoral": resolucion || null,
+    tipo_convenio: tipoSeleccionados || null,
+    objetivos: objetivos || null,
+    sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente || null : null,
+    area_vinculada_id: areaId ?? null,
+    convenio_maestro_id: convenioMaestroId ?? null,
+    // si quieres llevar version/estado debes declararlos antes y asignar aquí,
+    // ejemplo: version: versionVar, estado: estadoVar
+    updated_at: new Date().toISOString(),
+  };
 
       let agreementId: string | undefined = existingAgreement?.id;
 
@@ -161,10 +175,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
       if (!agreementId) throw new Error("No se obtuvo ID del convenio guardado.");
 
-      // ---- sincronizar responsables internos ----
-      const toInsert = (selectedInternals || []).map((s) => ({ agreement_id: agreementId, internal_responsible_id: s.value }));
+      // sincronizar responsables internos (usar selectedInternals)
+      const internalIds = (selectedInternals || []).map((s) => s.value);
       await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
-      if (toInsert.length > 0) {
+      if (internalIds.length > 0) {
+        const toInsert = internalIds.map((pid) => ({ agreement_id: agreementId, internal_responsible_id: pid }));
         const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
         if (error) throw error;
       }
@@ -193,11 +208,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         // Llamada al helper que crea agreement_years sólo si falta/está truncado
         // -- IMPORTANTE: pasar valores con tipos adecuados (string/null para fechas, number/null para duration)
         await generateYearsIfNeeded(
-          Number(agreementId), // 🔥 corregido: debe ser number
+          agreementId!, // string UUID
           agreementRow.signature_date ?? signatureDate ?? null,
           agreementRow.expiration_date ?? null,
           agreementRow.duration_years ?? durationYears ?? null
-        );
+        );        
       }
 
       alert("✅ Convenio guardado correctamente");
