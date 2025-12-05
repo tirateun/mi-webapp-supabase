@@ -211,8 +211,8 @@ const subTiposDocente = useMemo(
           agreementId!,
           agreementRow.signature_date ?? signatureDate ?? null,
           agreementRow.expiration_date ?? null,
-          agreementRow.duration_years ?? (durationYears ? Number(durationYears) : null)
-        );       
+          agreementRow.duration_years ?? durationYears ?? null
+        );      
       }
 
       alert("✅ Convenio guardado correctamente");
