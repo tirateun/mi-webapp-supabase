@@ -138,14 +138,15 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         name,
         signature_date: signatureDate || null,
         duration_years: durationYears || null,
-        expiration_date,
         convenio: tipoConvenio,
         pais: pais || null,
         "Resolución Rectoral": resolucion || null,
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
-        sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente || null : null,
-      };
+        sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial")
+          ? subTipoDocente || null
+          : null,
+      };    
 
       let agreementId: string | undefined = existingAgreement?.id;
 
