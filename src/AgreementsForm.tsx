@@ -196,27 +196,33 @@ const subTiposDocente = useMemo(
       await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
 
       // ---- Recuperar agreement row y generar años si hace falta ----
-      const { data: agreementRow, error: agreementRowErr } = await supabase
+        const { data: agreementRow, error: agreementRowErr } = await supabase
         .from("agreements")
         .select("id, signature_date, expiration_date, duration_years")
         .eq("id", agreementId)
         .single();
 
-      if (agreementRowErr) {
+        if (agreementRowErr) {
         console.error("No se pudo recuperar convenio para generar años:", agreementRowErr);
-      } else {
-        // Llamada al helper que crea agreement_years sólo si falta/está truncado
-        // -- IMPORTANTE: pasar valores con tipos adecuados (string/null para fechas, number/null para duration)
+        } else {
+        // Convertir duration_years SIEMPRE a number
+        const durationFinal = Number(
+          agreementRow.duration_years ??
+          durationYears ??
+          0
+        );
+
         await generateYearsIfNeeded(
           agreementId!,
           agreementRow.signature_date ?? signatureDate ?? null,
           agreementRow.expiration_date ?? null,
-          agreementRow.duration_years ?? durationYears ?? null
-        );      
-      }
+          durationFinal // <-- ahora SIEMPRE es number
+        );
+        }
 
-      alert("✅ Convenio guardado correctamente");
-      onSave && onSave();
+        alert("✅ Convenio guardado correctamente");
+        onSave && onSave();
+
     } catch (err: any) {
       console.error("Error guardar convenio:", err);
       alert("❌ Error al guardar el convenio: " + (err?.message || String(err)));
