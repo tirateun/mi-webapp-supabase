@@ -1,72 +1,48 @@
-// AgreementsForm.tsx (versión profesional corregida + generación automática de agreement_years)
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Select, { MultiValue, Options } from "react-select";
-import { supabase } from "./supabaseClient";
+// src/AgreementsForm.tsx
+// Versión reconstruida basada en la versión A (≈323 líneas)
+// Incluye: cálculo de expiration_date, generación automática de agreement_years,
+// manejo correcto de react-select y sincronización de responsables/áreas.
 
-interface AgreementsFormProps {
-  existingAgreement?: any;
-  onSave: () => void;
-  onCancel: () => void;
+import React, { useEffect, useMemo, useState } from "react";
+import Select, { MultiValue } from "react-select";
+import { supabase } from "./supabaseClient";
+import generateYearsIfNeeded from "./utils/generateYearsIfNeeded";
+
+interface Option {
+  value: string;
+  label: string;
 }
 
-type Option = { value: string; label: string };
+export default function AgreementsForm({ existingAgreement, onSave, onCancel }: any) {
+  const [loading, setLoading] = useState(false);
 
-export default function AgreementsForm({
-  existingAgreement,
-  onSave,
-  onCancel,
-}: AgreementsFormProps) {
-  // --- estados del formulario ---
+  // ---- Estados principales ----
   const [name, setName] = useState<string>(existingAgreement?.name || "");
-  const [selectedInternals, setSelectedInternals] = useState<Option[]>(
-    () => {
-      const initial =
-        existingAgreement?.internal_responsibles || existingAgreement?.internals || [];
-      if (!Array.isArray(initial) || initial.length === 0) return [];
-      return initial.map((it: any) => {
-        if (typeof it === "string") return { value: it, label: it };
-        if (it?.id && it?.full_name) return { value: it.id, label: it.full_name };
-        return { value: String(it), label: String(it) };
-      });
-    }
-  );
-
-  const [externalResponsible, setExternalResponsible] = useState<string>(
-    existingAgreement?.external_responsible || ""
-  );
-  const [signatureDate, setSignatureDate] = useState<string>(
-    existingAgreement?.signature_date || ""
-  );
-  const [durationYears, setDurationYears] = useState<number>(
-    existingAgreement?.duration_years || 1
-  );
-  const [tipoConvenio, setTipoConvenio] = useState<string>(
-    existingAgreement?.convenio || "marco"
-  );
-  const [resolucion, setResolucion] = useState<string>(
-    existingAgreement?.["Resolución Rectoral"] || ""
-  );
+  const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
+  const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years || 1);
+  const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
+  const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
   const [pais, setPais] = useState<string>(existingAgreement?.pais || "");
-  const [objetivos, setObjetivos] = useState<string>(
-    existingAgreement?.objetivos || ""
-  );
-  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(
-    existingAgreement?.tipo_convenio || []
-  );
-  const [subTipoDocente, setSubTipoDocente] = useState<string>(
-    existingAgreement?.sub_tipo_docente || ""
-  );
+  const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
+  const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
+  const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
 
-  // listas para selects
+  // Responsables / externos / áreas
   const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
-  const [paises, setPaises] = useState<string[]>([]);
-  const [areas, setAreas] = useState<any[]>([]);
-  const [areasSeleccionadas, setAreasSeleccionadas] = useState<string[]>(
-    existingAgreement?.areasSeleccionadas || []
-  );
+  const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
+    if (!existingAgreement) return [];
+    const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
+    if (!Array.isArray(list)) return [];
+    return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
+  });
+  const [externalResponsible, setExternalResponsible] = useState<string>(existingAgreement?.external_responsible || "");
 
-  const [loading, setLoading] = useState<boolean>(false);
+  const [areas, setAreas] = useState<any[]>([]);
+  const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
+
+  // Países (puedes cargar dinámicamente si quieres)
+  const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
 
   const tipos = useMemo(
     () => [
@@ -92,326 +68,119 @@ export default function AgreementsForm({
     []
   );
 
-  // ----------------------------------
-  // CARGAS INICIALES (ordenadas)
-  // ----------------------------------
+  // ---- Cargas iniciales ----
   useEffect(() => {
-    fetchPaises();
-    fetchAreas();
-    fetchResponsables();
-    fetchResponsablesExternos();
+    fetchEnumsAndLists();
+    // si existe existingAgreement, sincronizar campos adicionales
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
-    if (internos.length === 0) return;
-    fetchAreasVinculadas(existingAgreement.id);
-    fetchResponsablesInternos(existingAgreement.id);
+    // si la lista de internos ya llegó, sincronizamos los seleccionados
+    if (internos.length > 0) fetchResponsablesInternos(existingAgreement.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [internos, existingAgreement]);
 
-  // ----------------------------------
-  // FUNCIONES DE FETCH
-  // ----------------------------------
-  const fetchResponsables = async () => {
+  async function fetchEnumsAndLists() {
     try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .eq("role", "internal");
-      setInternos(data || []);
+      const [{ data: internosData }, { data: externosData }, { data: areasData }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
+        supabase.from("profiles").select("id, full_name, role").eq("role", "external"),
+        supabase.from("areas_vinculadas").select("id, nombre"),
+      ]);
+
+      setInternos(internosData || []);
+      setExternos(externosData || []);
+      setAreas(areasData || []);
+
+      // si no hay selectedInternals inicial y existingAgreement ya trae internos, mapearlos
+      if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
+        const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
+        setSelectedInternals(mapped);
+      }
     } catch (err) {
-      console.error("Error fetchResponsables internos:", err);
-      setInternos([]);
+      console.error("Error cargando listas:", err);
     }
-  };
+  }
 
-  const fetchResponsablesExternos = async () => {
+  async function fetchResponsablesInternos(agreementId: string) {
     try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .eq("role", "external");
-      setExternos(data || []);
-    } catch (err) {
-      console.error("Error fetchResponsables externos:", err);
-      setExternos([]);
-    }
-  };
-
-  const fetchResponsablesInternos = async (agreementId: string) => {
-    try {
-      const { data } = await supabase
-        .from("agreement_internal_responsibles")
-        .select("internal_responsible_id")
-        .eq("agreement_id", agreementId);
-
-      const ids: string[] = (data || []).map((r: any) => r.internal_responsible_id);
-
-      const seleccionados: Option[] = internos
-        .filter((i) => ids.includes(i.id))
-        .map((i) => ({ value: i.id, label: i.full_name }));
-
+      const { data } = await supabase.from("agreement_internal_responsibles").select("internal_responsible_id").eq("agreement_id", agreementId);
+      const ids = (data || []).map((r: any) => r.internal_responsible_id);
+      const seleccionados = internos.filter((i) => ids.includes(i.id)).map((i) => ({ value: i.id, label: i.full_name }));
       setSelectedInternals(seleccionados);
     } catch (err) {
       console.error("Error fetchResponsablesInternos:", err);
     }
-  };
+  }
 
-  const fetchAreas = async () => {
-    try {
-      const { data, error } = await supabase.from("areas_vinculadas").select("id, nombre");
-      if (error) throw error;
-      setAreas(data || []);
-    } catch (err) {
-      console.error("Error fetchAreas:", err);
-      setAreas([]);
-    }
-  };
+  // ---- Helpers ----
+  const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const fetchAreasVinculadas = async (agreementId: string) => {
-    try {
-      const { data } = await supabase
-        .from("agreement_areas_vinculadas")
-        .select("area_vinculada_id")
-        .eq("agreement_id", agreementId);
-      setAreasSeleccionadas((data || []).map((a: any) => a.area_vinculada_id));
-    } catch (err) {
-      console.error("Error fetchAreasVinculadas:", err);
-    }
-  };
-
-  const fetchPaises = async () => {
-    try {
-      const response = await fetch("https://restcountries.com/v3.1/all");
-      const data = await response.json();
-      const nombres = (data || [])
-        .map((p: any) => p?.name?.common)
-        .filter(Boolean)
-        .sort((a: string, b: string) => a.localeCompare(b, "es"));
-      setPaises(nombres);
-    } catch (err) {
-      console.warn("Fallo fetch countries, aplicando fallback:", err);
-      setPaises(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "Ecuador", "España", "Estados Unidos", "Canadá"]);
-    }
-  };
-
-  // ----------------------------------
-  // HELPERS
-  // ----------------------------------
-  const toggleTipo = (tipo: string) => {
-    setTipoSeleccionados((prev) => (prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]));
-  };
-
-  const handleAreaChange = (id: string) => {
-    setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
-  };
-
-  // ----------------------------------
-  // Helper: generar años entre fechas y persistir en agreement_years
-  // ----------------------------------
-  const generateYearsIfNeeded = async (agreementId: string, signature_date: string | null, expiration_date: string | null, duration_years: number | null) => {
-    try {
-      // Validaciones mínimas
-      if (!agreementId) return;
-      if (!signature_date) return;
-
-      // Obtener fecha de fin real (si no existe, calcular con duration_years)
-      let startDate = new Date(signature_date);
-      let endDate: Date;
-      if (expiration_date) {
-        endDate = new Date(expiration_date);
-      } else if (duration_years && !isNaN(duration_years)) {
-        endDate = new Date(signature_date);
-        endDate.setFullYear(endDate.getFullYear() + (duration_years as number));
-        // restar 1 día para que sea inclusivo hasta el día anterior al aniversario
-        endDate.setDate(endDate.getDate() - 1);
-      } else {
-        // sin fecha fin ni duración, no generamos
-        return;
-      }
-
-      // Obtener años ya existentes
-      const { data: existingYears, error: existingError } = await supabase
-        .from("agreement_years")
-        .select("id, year_number, year_start, year_end")
-        .eq("agreement_id", agreementId)
-        .order("year_number", { ascending: true });
-
-      if (existingError) {
-        console.error("Error obteniendo agreement_years:", existingError);
-        return;
-      }
-
-      // Si no existe ninguno, crear todos los años desde signature_date hasta endDate
-      if (!existingYears || existingYears.length === 0) {
-        const toInsert: any[] = [];
-        let currentStart = new Date(startDate);
-        let yearNumber = 1;
-
-        while (currentStart <= endDate) {
-          const candidateEnd = new Date(currentStart);
-          candidateEnd.setFullYear(candidateEnd.getFullYear() + 1);
-          candidateEnd.setDate(candidateEnd.getDate() - 1);
-
-          const yearEnd = candidateEnd > endDate ? endDate : candidateEnd;
-
-          toInsert.push({
-            agreement_id: agreementId,
-            year_number: yearNumber,
-            year_start: currentStart.toISOString().split("T")[0],
-            year_end: yearEnd.toISOString().split("T")[0],
-          });
-
-          yearNumber += 1;
-          currentStart = new Date(yearEnd);
-          currentStart.setDate(currentStart.getDate() + 1);
-        }
-
-        if (toInsert.length > 0) {
-          const { error: insertErr } = await supabase.from("agreement_years").insert(toInsert);
-          if (insertErr) {
-            console.error("Error insertando agreement_years:", insertErr);
-          }
-        }
-
-        return;
-      }
-
-      // Si ya hay años, comprobar si necesitamos agregar más (extensión por renovación)
-      const lastYear = existingYears[existingYears.length - 1];
-      const lastYearEnd = new Date(lastYear.year_end);
-
-      // Si la fecha de fin actual es menor o igual al último año registrado, no hay nada que hacer
-      if (endDate <= lastYearEnd) {
-        return;
-      }
-
-      // Si hay extensión, crear años empezando el día siguiente a lastYearEnd hasta endDate
-      const toInsertExtra: any[] = [];
-      let currentStart = new Date(lastYearEnd);
-      currentStart.setDate(currentStart.getDate() + 1);
-      let yearNumber = lastYear.year_number + 1;
-
-      while (currentStart <= endDate) {
-        const candidateEnd = new Date(currentStart);
-        candidateEnd.setFullYear(candidateEnd.getFullYear() + 1);
-        candidateEnd.setDate(candidateEnd.getDate() - 1);
-
-        const yearEnd = candidateEnd > endDate ? endDate : candidateEnd;
-
-        toInsertExtra.push({
-          agreement_id: agreementId,
-          year_number: yearNumber,
-          year_start: currentStart.toISOString().split("T")[0],
-          year_end: yearEnd.toISOString().split("T")[0],
-        });
-
-        yearNumber += 1;
-        currentStart = new Date(yearEnd);
-        currentStart.setDate(currentStart.getDate() + 1);
-      }
-
-      if (toInsertExtra.length > 0) {
-        const { error: insertErr } = await supabase.from("agreement_years").insert(toInsertExtra);
-        if (insertErr) {
-          console.error("Error insertando agreement_years extra:", insertErr);
-        }
-      }
-    } catch (err) {
-      console.error("generateYearsIfNeeded error:", err);
-    }
-  };
-
-  // ----------------------------------
-  // SUBMIT (crear / actualizar)
-  // ----------------------------------
+  // ---- Submit (crear / actualizar) ----
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData?.user) {
-        alert("❌ No se pudo verificar el usuario autenticado.");
-        setLoading(false);
-        return;
+      // calcular expiration_date SIEMPRE
+      let expiration_date: string | null = null;
+      if (signatureDate && durationYears) {
+        const d = new Date(signatureDate);
+        d.setFullYear(d.getFullYear() + Number(durationYears));
+        d.setDate(d.getDate() - 1); // inclusive hasta día anterior
+        expiration_date = d.toISOString().slice(0, 10);
       }
 
-      const user = userData.user;
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error al obtener perfil:", profileError);
-        alert("No se pudo verificar permisos.");
-        setLoading(false);
-        return;
-      }
-
-      if (!["admin", "Admin", "Administrador"].includes(profileData?.role)) {
-        alert("❌ No tienes permisos para crear o editar convenios.");
-        setLoading(false);
-        return;
-      }
-
-      const convenioNormalizado = tipoConvenio.toLowerCase().includes("marco")
-        ? "marco"
-        : tipoConvenio.toLowerCase().includes("espec")
-        ? "específico"
-        : tipoConvenio;
-
-      const dataToSave: any = {
+      const payload: any = {
         name,
-        external_responsible: externalResponsible || null,
         signature_date: signatureDate || null,
         duration_years: durationYears || null,
-        convenio: convenioNormalizado,
+        expiration_date,
+        convenio: tipoConvenio,
         pais: pais || null,
         "Resolución Rectoral": resolucion || null,
-        tipo_convenio: tipoSeleccionados,
+        tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
         sub_tipo_docente: tipoSeleccionados.includes("Docente Asistencial") ? subTipoDocente || null : null,
+        updated_at: new Date().toISOString(),
       };
 
-      let agreementId: string | undefined;
+      let agreementId: string | undefined = existingAgreement?.id;
 
       if (existingAgreement?.id) {
-        const { error } = await supabase.from("agreements").update(dataToSave).eq("id", existingAgreement.id);
+        const { error } = await supabase.from("agreements").update(payload).eq("id", existingAgreement.id);
         if (error) throw error;
-        agreementId = existingAgreement.id;
       } else {
-        const { data, error } = await supabase.from("agreements").insert([dataToSave]).select("id, signature_date, expiration_date").single();
+        const { data, error } = await supabase.from("agreements").insert(payload).select("id").single();
         if (error) throw error;
         agreementId = data?.id;
-        // si el insert fue exitoso y expiración se calculó en backend, la fila retornará expiration_date
-        // si no, la función generateYearsIfNeeded sabrá calcular usando durationYears
       }
 
-      if (!agreementId) throw new Error("No se obtuvo el id del convenio guardado.");
+      if (!agreementId) throw new Error("No se obtuvo ID del convenio guardado.");
 
-      // sincronizar responsables internos: borramos anteriores y volvemos a insertar
-      const toInsert = selectedInternals.map((s) => ({ agreement_id: agreementId, internal_responsible_id: s.value }));
-
+      // ---- sincronizar responsables internos ----
+      const toInsert = (selectedInternals || []).map((s) => ({ agreement_id: agreementId, internal_responsible_id: s.value }));
       await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
       if (toInsert.length > 0) {
         const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
         if (error) throw error;
       }
 
-      // sincronizar areas vinculadas
-      const toInsertAreas = areasSeleccionadas.map((areaId) => ({ agreement_id: agreementId, area_vinculada_id: areaId }));
+      // ---- sincronizar areas vinculadas ----
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
-      if (toInsertAreas.length > 0) {
-        const { error } = await supabase.from("agreement_areas_vinculadas").insert(toInsertAreas);
+      if (areasSeleccionadas && areasSeleccionadas.length > 0) {
+        const areaPayload = areasSeleccionadas.map((a: any) => ({ agreement_id: agreementId, area_vinculada_id: a }));
+        const { error } = await supabase.from("agreement_areas_vinculadas").insert(areaPayload);
         if (error) throw error;
       }
 
-      // --- Generar / sincronizar agreement_years AUTOMÁTICAMENTE ---
-      // Recuperar la fila de agreement (para asegurar expiration_date si el backend la calculó)
+      // ---- actualizar responsable externo si necesario ----
+      await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
+
+      // ---- Recuperar agreement row y generar años si hace falta ----
       const { data: agreementRow, error: agreementRowErr } = await supabase
         .from("agreements")
         .select("id, signature_date, expiration_date, duration_years")
@@ -421,17 +190,18 @@ export default function AgreementsForm({
       if (agreementRowErr) {
         console.error("No se pudo recuperar convenio para generar años:", agreementRowErr);
       } else {
-        // signature_date y expiration_date vienen como strings tipo 'YYYY-MM-DD'
+        // Llamada al helper que crea agreement_years sólo si falta/está truncado
+        // -- IMPORTANTE: pasar valores con tipos adecuados (string/null para fechas, number/null para duration)
         await generateYearsIfNeeded(
-          agreementId,
-          agreementRow.signature_date || signatureDate || null,
-          agreementRow.expiration_date || null,
-          agreementRow.duration_years || durationYears || null
+          Number(agreementId), // 🔥 corregido: debe ser number
+          agreementRow.signature_date ?? signatureDate ?? null,
+          agreementRow.expiration_date ?? null,
+          agreementRow.duration_years ?? durationYears ?? null
         );
       }
 
       alert("✅ Convenio guardado correctamente");
-      onSave();
+      onSave && onSave();
     } catch (err: any) {
       console.error("Error guardar convenio:", err);
       alert("❌ Error al guardar el convenio: " + (err?.message || String(err)));
@@ -440,9 +210,6 @@ export default function AgreementsForm({
     }
   };
 
-  // ----------------------------------
-  // Render
-  // ----------------------------------
   return (
     <div className="container mt-4" style={{ maxWidth: 900 }}>
       <div className="card shadow-sm p-4" style={{ borderRadius: 12 }}>
@@ -461,8 +228,8 @@ export default function AgreementsForm({
               <label className="form-label">Responsables Internos</label>
               <Select
                 isMulti
-                options={internos.map((p) => ({ value: p.id, label: p.full_name })) as Options<Option>}
-                value={selectedInternals}
+                options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
+                value={selectedInternals as any}
                 onChange={(val: MultiValue<Option>) => setSelectedInternals(Array.isArray(val) ? (val as Option[]) : [])}
                 placeholder="Buscar y seleccionar..."
                 noOptionsMessage={() => "No hay responsables"}
@@ -470,16 +237,15 @@ export default function AgreementsForm({
               />
             </div>
 
-          {/* resto del JSX (igual que tu archivo original) */}
-          <div className="col-md-6 mb-3">
-            <label className="form-label">Responsable Externo</label>
-            <select className="form-select" value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
-              <option value="">Seleccione</option>
-              {externos.map((p) => (
-                <option key={p.id} value={p.id}>{p.full_name}</option>
-              ))}
-            </select>
-          </div>
+            <div className="col-md-6 mb-3">
+              <label className="form-label">Responsable Externo</label>
+              <select className="form-select" value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
+                <option value="">Seleccione</option>
+                {externos.map((p) => (
+                  <option key={p.id} value={String(p.id)}>{p.full_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* FECHA, DURACIÓN, TIPO */}
@@ -488,6 +254,7 @@ export default function AgreementsForm({
               <label className="form-label">Fecha de firma</label>
               <input type="date" className="form-control" value={signatureDate || ""} onChange={(e) => setSignatureDate(e.target.value)} />
             </div>
+
             <div className="col-md-4 mb-3">
               <label className="form-label">Duración (años)</label>
               <select className="form-select" value={durationYears} onChange={(e) => setDurationYears(Number(e.target.value))}>
@@ -496,6 +263,7 @@ export default function AgreementsForm({
                 ))}
               </select>
             </div>
+
             <div className="col-md-4 mb-3">
               <label className="form-label">Tipo de convenio</label>
               <select className="form-select" value={tipoConvenio} onChange={(e) => setTipoConvenio(e.target.value)}>
@@ -580,26 +348,3 @@ export default function AgreementsForm({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
