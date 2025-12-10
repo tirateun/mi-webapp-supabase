@@ -234,136 +234,148 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
   };
 
   const grouped = useMemo(() => {
-    const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
-
+    /* =======================
+       1. Construir períodos
+       ======================= */
+    const periods: {
+      key: string;
+      title: string;
+      start: Date | null;
+      end: Date | null;
+      renewalId: string | null;
+    }[] = [];
+  
+    // Período original del convenio
     if (agreementInfo) {
-      let start: Date | null = null;
-      let end: Date | null = null;
-
-      if (agreementInfo.signature_date) {
-        start = parseLocalDate(agreementInfo.signature_date);
-      }
-      if (agreementInfo.expiration_date) {
-        end = parseLocalDate(agreementInfo.expiration_date);
-      } else if (agreementInfo.signature_date && agreementInfo.duration_years) {
-        const sig = parseLocalDate(agreementInfo.signature_date);
-        if (sig) {
-          const compEnd = new Date(sig);
-          compEnd.setFullYear(compEnd.getFullYear() + Number(agreementInfo.duration_years));
-          compEnd.setDate(compEnd.getDate() - 1);
-          end = compEnd;
-        }
-      }
-
-      const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : "Vigencia original";
-      periods.push({ key: "original", title, start, end, renewalId: null });
+      const start = agreementInfo.signature_date
+        ? parseLocalDate(agreementInfo.signature_date)
+        : null;
+  
+      const end = agreementInfo.expiration_date
+        ? parseLocalDate(agreementInfo.expiration_date)
+        : null;
+  
+      const title =
+        start && end
+          ? `${formatDate(start)} — ${formatDate(end)}`
+          : "Vigencia original";
+  
+      periods.push({
+        key: "original",
+        title,
+        start,
+        end,
+        renewalId: null,
+      });
     }
-
+  
+    // Períodos de renovaciones
     (renewals || []).forEach((r) => {
-      const oldExp = parseLocalDate(r.old_expiration_date ?? null);
-      const newExp = parseLocalDate(r.new_expiration_date ?? null);
+      const oldExp = parseLocalDate(r.old_expiration_date);
+      const newExp = parseLocalDate(r.new_expiration_date);
+  
       const start = oldExp ? addDays(oldExp, 1) : null;
       const end = newExp ?? null;
-      const title = start && end ? `${formatDate(start)} — ${formatDate(end)}` : `Renovación ${r.changed_at ? formatDate(r.changed_at) : ""}`;
-      periods.push({ key: r.id, title, start, end, renewalId: r.id });
+  
+      const title =
+        start && end
+          ? `${formatDate(start)} — ${formatDate(end)}`
+          : "Renovación";
+  
+      periods.push({
+        key: r.id,
+        title,
+        start,
+        end,
+        renewalId: r.id,
+      });
     });
-
+  
+    /* =======================
+       2. Inicializar mapa
+       ======================= */
     const map: Record<string, Seguimiento[]> = {};
-    periods.forEach((p) => { map[p.key] = []; });
-
-    const findPeriodKeyForSeguimiento = (s: Seguimiento) => {
-      // Caso 1: si tiene renewal_id, pertenece estrictamente a esa renovación.
+    periods.forEach((p) => {
+      map[p.key] = [];
+    });
+  
+    /* =======================
+       3. Función CORRECTA
+          de asignación
+       ======================= */
+    const findPeriodKeyForSeguimiento = (s: Seguimiento): string => {
+      // Si pertenece a una renovación → VA A ESA RENOVACIÓN
       if (s.renewal_id) {
-        const rr = periods.find((p) => p.renewalId === s.renewal_id);
-        if (rr) return rr.key;
+        const match = periods.find((p) => p.renewalId === s.renewal_id);
+        if (match) return match.key;
       }
-
-      // Caso 2: si la contraprestación tiene año, usarlo
-      if (s.año && s.año > 0) {
-        const foundByYear = periods.find((p) => {
-          if (!p.start || !p.end) return false;
-          return s.año >= p.start.getFullYear() && s.año <= p.end.getFullYear();
-        });
-        if (foundByYear) return foundByYear.key;
-      }
-
-      // Caso 3: intentar ubicar por fecha de verificación
-      const fv = s.fecha_verificacion ? parseLocalDate(s.fecha_verificacion) : null;
-      if (fv) {
-        const found = periods.find((p) => {
-          if (!p.start && !p.end) return false;
-          const afterStart = p.start ? fv >= p.start : true;
-          const beforeEnd = p.end ? fv <= p.end : true;
-          return afterStart && beforeEnd;
-        });
-        if (found) return found.key;
-      }
-
-      // Caso 4: fallback - asignar al periodo original
+  
+      // TODO lo demás va al período original
       return "original";
     };
-
-    // Crear un mapeo de contraprestaciones por ID para acceso rápido
-    const contraprestacionesMap = new Map(contraprestaciones.map(c => [c.id, c]));
-
-    (seguimientos || []).forEach((s) => {
-      const key = findPeriodKeyForSeguimiento(s) ?? "original";
-      if (!map[key]) map[key] = [];
-      
-      // Obtener la contraprestación completa para mostrar información adicional
-      const contraprestacionCompleta = contraprestacionesMap.get(s.contraprestacion_id) || s.contraprestacion;
-      
-      map[key].push({ 
-        ...s, 
-        contraprestacion: contraprestacionCompleta,
-        periodo: periods.find((p) => p.key === key)?.title ?? "" 
+  
+    /* =======================
+       4. Mapear seguimientos
+       ======================= */
+    const contraprestacionesMap = new Map(
+      contraprestaciones.map((c) => [c.id, c])
+    );
+  
+    seguimientos.forEach((s) => {
+      const key = findPeriodKeyForSeguimiento(s);
+  
+      const contraprestacion =
+        contraprestacionesMap.get(s.contraprestacion_id) ??
+        s.contraprestacion ??
+        null;
+  
+      map[key].push({
+        ...s,
+        contraprestacion,
+        periodo: periods.find((p) => p.key === key)?.title ?? "",
       });
     });
-
-    // También agregar contraprestaciones sin seguimientos al periodo correspondiente
-    contraprestaciones.forEach(c => {
-      if (!seguimientos.some(s => s.contraprestacion_id === c.id)) {
-        // Esta contraprestación no tiene seguimientos, agregar un registro vacío
-        const calcularAnioReal = () => {
-          if (!c.periodo_inicio || !agreementInfo?.signature_date) return 1;
-          const inicio = new Date(c.periodo_inicio);
-          const firma = new Date(agreementInfo.signature_date);
-          return inicio.getFullYear() - firma.getFullYear() + 1;
-        };
-        
-        const dummySeguimiento: Seguimiento = {
-          id: `dummy_${c.id}`,
-          contraprestacion_id: c.id,
-          año: calcularAnioReal(),
-          estado: null,
-          observaciones: null,
-          fecha_verificacion: null,
-          responsable: null,
-          evidencia_url: null,
-          ejecutado: false,
-          renewal_id: null,
-          contraprestacion: c,
-          periodo: ""
-        };
-            
-        const key = "original"; // Asignar al periodo original
-        if (!map[key]) map[key] = [];
-        map[key].push({ ...dummySeguimiento, periodo: periods.find((p) => p.key === key)?.title ?? "" });
-      }
+  
+    /* =======================
+       5. Agregar dummy
+          SI NO hay seguimiento
+       ======================= */
+    contraprestaciones.forEach((c) => {
+      const tieneSeguimiento = seguimientos.some(
+        (s) => s.contraprestacion_id === c.id
+      );
+      if (tieneSeguimiento) return;
+  
+      const dummy: Seguimiento = {
+        id: `dummy_${c.id}`,
+        contraprestacion_id: c.id,
+        año: (c as any).periodo ?? 1,
+        estado: null,
+        observaciones: null,
+        fecha_verificacion: null,
+        responsable: null,
+        evidencia_url: null,
+        ejecutado: false,
+        renewal_id: null,
+        contraprestacion: c,
+        periodo: periods[0]?.title ?? "",
+      };
+  
+      map["original"].push(dummy);
     });
-
+  
+    /* =======================
+       6. Ordenar por AÑO REAL
+       ======================= */
     Object.keys(map).forEach((k) => {
-      map[k].sort((x, y) => {
-        const yearDiff = (x.año || 0) - (y.año || 0);
-        if (yearDiff !== 0) return yearDiff;
-        const tx = x.contraprestacion?.tipo ?? "";
-        const ty = y.contraprestacion?.tipo ?? "";
-        return tx.localeCompare(ty);
-      });
+      map[k].sort((a, b) => (a.año || 0) - (b.año || 0));
     });
-
-    return periods.map((p) => ({ period: p, items: map[p.key] || [] }));
-  }, [agreementInfo, renewals, seguimientos, contraprestaciones]);
+  
+    return periods.map((p) => ({
+      period: p,
+      items: map[p.key] ?? [],
+    }));
+  }, [agreementInfo, renewals, seguimientos, contraprestaciones]);  
 
   const handleToggleEjecutado = async (s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
