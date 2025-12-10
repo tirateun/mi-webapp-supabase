@@ -200,7 +200,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
       const { data: sData, error: sErr } = await supabase
         .from("contraprestaciones_seguimiento")
-        .select("*, contraprestaciones(id, tipo, descripcion, renewal_id)")
+        .select("*, contraprestaciones(id, tipo, descripcion, periodo, renewal_id)")
         .in("contraprestacion_id", contraprestacionIds)
         .order("año", { ascending: true })
         .order("fecha_verificacion", { ascending: true });
@@ -210,7 +210,12 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       const mapped: Seguimiento[] = raw.map((r) => ({
         id: r.id,
         contraprestacion_id: (r.contraprestacion_id as string) ?? (r as any).contraprestacion_id,
-        año: Number(r.año ?? r.anio ?? 0),
+        año: Number(
+          r.año ??
+          r.anio ??
+          (r.contraprestaciones as any)?.periodo ??
+          1
+        ),        
         estado: r.estado ?? null,
         observaciones: r.observaciones ?? null,
         fecha_verificacion: r.fecha_verificacion ?? null,
