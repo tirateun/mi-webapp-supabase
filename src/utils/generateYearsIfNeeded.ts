@@ -1,71 +1,88 @@
-// /src/utils/generateYearsIfNeeded.ts
 import { supabase } from "../supabaseClient";
 
 /**
- * Genera automáticamente los años de vigencia de un convenio si no existen.
+ * Genera los años del convenio en agreement_years
+ * SOLO si no existen o están incompletos.
  *
- * @param agreementId        ID del convenio (puede ser number o string/UUID)
- * @param signatureDate      Fecha de firma (YYYY-MM-DD) o null
- * @param expirationDate     Fecha de expiración calculada (YYYY-MM-DD) o null
- * @param durationYears      Duración en años (number) o null
+ * TABLA: agreement_years
+ * COLUMNAS:
+ *  - agreement_id (uuid)
+ *  - year_number (int)
+ *  - year_start (date)
+ *  - year_end (date)
  */
 export default async function generateYearsIfNeeded(
-  agreementId: string | number,
+  agreementId: string,
   signatureDate: string | null,
   expirationDate: string | null,
   durationYears: number | null
 ) {
-  try {
-    if (agreementId === null || agreementId === undefined || agreementId === "") {
-      console.warn("generateYearsIfNeeded: no agreementId");
-      return;
-    }
+  // ---- Validaciones duras (evitan basura en BD) ----
+  if (!agreementId) {
+    console.warn("generateYearsIfNeeded: agreementId vacío");
+    return;
+  }
 
-    if (!signatureDate || !durationYears) {
-      console.warn("generateYearsIfNeeded: faltan datos para generar años");
-      return;
-    }
+  if (!signatureDate || !durationYears || durationYears <= 0) {
+    console.warn("generateYearsIfNeeded: datos insuficientes", {
+      signatureDate,
+      durationYears,
+    });
+    return;
+  }
 
-    const startYear = new Date(signatureDate).getFullYear();
-    const endYear =
-      expirationDate
-        ? new Date(expirationDate).getFullYear()
-        : startYear + Number(durationYears) - 1;
+  // ---- Verificar si ya existen años ----
+  const { data: existing, error: checkErr } = await supabase
+    .from("agreement_years")
+    .select("id")
+    .eq("agreement_id", agreementId);
 
-    if (!startYear || !endYear) {
-      console.warn("generateYearsIfNeeded: fechas inválidas");
-      return;
-    }
+  if (checkErr) {
+    console.error("Error verificando agreement_years:", checkErr);
+    return;
+  }
 
-    // Obtener años existentes (agregamos cast seguro para agreement_id)
-    const { data: existingYears, error: fetchError } = await supabase
-      .from("agreement_years")
-      .select("year")
-      .eq("agreement_id", agreementId as any);
+  // Si ya existen TODOS los años, no hacer nada
+  if (existing && existing.length === durationYears) {
+    console.log("agreement_years ya completos, no se generan nuevamente");
+    return;
+  }
 
-    if (fetchError) throw fetchError;
+  // ---- Borrar los años existentes (si están truncados o inconsistentes) ----
+  await supabase
+    .from("agreement_years")
+    .delete()
+    .eq("agreement_id", agreementId);
 
-    const yearsToCreate: Array<{ agreement_id: string | number; year: number }> = [];
-    for (let y = startYear; y <= endYear; y++) {
-      if (!existingYears?.some((row: any) => row.year === y)) {
-        yearsToCreate.push({ agreement_id: agreementId, year: y });
-      }
-    }
+  // ---- Calcular años ----
+  const baseDate = new Date(signatureDate);
+  const rows: any[] = [];
 
-    if (yearsToCreate.length === 0) {
-      console.log("generateYearsIfNeeded: todos los años ya existen");
-      return;
-    }
+  for (let i = 0; i < durationYears; i++) {
+    const start = new Date(baseDate);
+    start.setFullYear(baseDate.getFullYear() + i);
 
-    const { error: insertError } = await supabase
-      .from("agreement_years")
-      .insert(yearsToCreate);
+    const end = new Date(baseDate);
+    end.setFullYear(baseDate.getFullYear() + i + 1);
+    end.setDate(end.getDate() - 1); // inclusivo
 
-    if (insertError) throw insertError;
+    rows.push({
+      agreement_id: agreementId,
+      year_number: i + 1,
+      year_start: start.toISOString().slice(0, 10), // YYYY-MM-DD
+      year_end: end.toISOString().slice(0, 10),
+    });
+  }
 
-    console.log("Años generados:", yearsToCreate);
-  } catch (err) {
-    console.error("Error en generateYearsIfNeeded:", err);
+  // ---- Insertar ----
+  const { error: insertErr } = await supabase
+    .from("agreement_years")
+    .insert(rows);
+
+  if (insertErr) {
+    console.error("Error insertando agreement_years:", insertErr);
+  } else {
+    console.log("agreement_years generados correctamente:", rows.length);
   }
 }
 
