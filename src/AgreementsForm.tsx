@@ -213,12 +213,28 @@ const subTiposDocente = useMemo(
         );
 
         // 🔥 Convertir fechas SIEMPRE a string YYYY-MM-DD o null
-        const signatureFinal = agreementRow.signature_date
-          ?? signatureDate
-          ?? null;
+       // 🔥 Convertir SIEMPRE a string YYYY-MM-DD
+        // 👉 Función helper segura para fechas
+        const toYMD = (value: any): string | null => {
+          if (!value) return null;
 
-        const expirationFinal = agreementRow.expiration_date
-          ?? null;
+          // Si ya es string y tiene formato de fecha
+          if (typeof value === "string") return value;
+
+          // Si es Date -> convertir
+          if (value instanceof Date) return value.toISOString().slice(0, 10);
+
+          return null;
+        };
+
+        // Ahora sí:
+        const signatureFinal = toYMD(agreementRow.signature_date) ?? toYMD(signatureDate);
+        const expirationFinal = toYMD(agreementRow.expiration_date);
+
+                const expirationFinal =
+                agreementRow.expiration_date
+                  ? agreementRow.expiration_date
+                  : null;
 
         await generateYearsIfNeeded(
           agreementId!,      // string

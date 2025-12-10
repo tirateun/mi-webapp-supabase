@@ -4,19 +4,19 @@ import { supabase } from "../supabaseClient";
 /**
  * Genera automáticamente los años de vigencia de un convenio si no existen.
  *
- * @param agreementId        ID del convenio
- * @param signatureDate      Fecha de firma (YYYY-MM-DD)
- * @param durationYears      Duración en años
- * @param expirationDate     Fecha de expiración calculada (YYYY-MM-DD)
+ * @param agreementId        ID del convenio (puede ser number o string/UUID)
+ * @param signatureDate      Fecha de firma (YYYY-MM-DD) o null
+ * @param expirationDate     Fecha de expiración calculada (YYYY-MM-DD) o null
+ * @param durationYears      Duración en años (number) o null
  */
 export default async function generateYearsIfNeeded(
-  agreementId: number,
+  agreementId: string | number,
   signatureDate: string | null,
   expirationDate: string | null,
   durationYears: number | null
 ) {
   try {
-    if (!agreementId) {
+    if (agreementId === null || agreementId === undefined || agreementId === "") {
       console.warn("generateYearsIfNeeded: no agreementId");
       return;
     }
@@ -30,22 +30,22 @@ export default async function generateYearsIfNeeded(
     const endYear =
       expirationDate
         ? new Date(expirationDate).getFullYear()
-        : startYear + durationYears - 1;
+        : startYear + Number(durationYears) - 1;
 
     if (!startYear || !endYear) {
       console.warn("generateYearsIfNeeded: fechas inválidas");
       return;
     }
 
-    // Obtener años existentes
+    // Obtener años existentes (agregamos cast seguro para agreement_id)
     const { data: existingYears, error: fetchError } = await supabase
       .from("agreement_years")
       .select("year")
-      .eq("agreement_id", agreementId);
+      .eq("agreement_id", agreementId as any);
 
     if (fetchError) throw fetchError;
 
-    const yearsToCreate = [];
+    const yearsToCreate: Array<{ agreement_id: string | number; year: number }> = [];
     for (let y = startYear; y <= endYear; y++) {
       if (!existingYears?.some((row: any) => row.year === y)) {
         yearsToCreate.push({ agreement_id: agreementId, year: y });
@@ -68,4 +68,5 @@ export default async function generateYearsIfNeeded(
     console.error("Error en generateYearsIfNeeded:", err);
   }
 }
+
 
