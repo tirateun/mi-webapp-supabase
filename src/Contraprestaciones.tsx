@@ -1,65 +1,71 @@
-// src/Contraprestaciones.tsx (fix: carga años cuando cambia agreementId)
+// src/Contraprestaciones.tsx
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
-export default function Contraprestaciones({ agreementId, onBack }: { agreementId: string; onBack: () => void }) {
+export default function Contraprestaciones({
+  agreementId,
+  onBack,
+}: {
+  agreementId: string;
+  onBack: () => void;
+}) {
   const [years, setYears] = useState<any[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [items, setItems] = useState<any[]>([]);
+  const [loadingYears, setLoadingYears] = useState(false);
 
   const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
-
   const [catalogo, setCatalogo] = useState<any[]>([]);
-  const [loadingYears, setLoadingYears] = useState(false);
 
-  // --- IMPORTANTE: dependemos de agreementId; cargar cuando cambie ---
+  /* =========================
+     CARGA INICIAL
+     ========================= */
   useEffect(() => {
-    if (!agreementId) {
-      console.log("Contraprestaciones: waiting for agreementId...");
-      return;
-    }
+    if (!agreementId) return;
     loadYears();
     loadCatalogo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
+  /* =========================
+     AÑOS DEL CONVENIO
+     ========================= */
   async function loadYears() {
     try {
-      if (!agreementId) return;
       setLoadingYears(true);
+
       const { data, error } = await supabase
         .from("agreement_years")
         .select("id, year_number, year_start, year_end")
         .eq("agreement_id", agreementId)
         .order("year_number", { ascending: true });
 
-      console.log("loadYears result:", { agreementId, data, error });
+      if (error) throw error;
 
-      if (!error && Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         setYears(data);
-        // si no hay selectedYear o el selectedYear dejó de existir, establecer el primero
-        if (!selectedYear && data.length > 0) {
-          setSelectedYear(String(data[0].id));
-        } else if (selectedYear) {
-          // si hay selectedYear, verificar que siga presente; si no, reasignar
-          const exists = data.find((y) => String(y.id) === String(selectedYear));
-          if (!exists && data.length > 0) setSelectedYear(String(data[0].id));
-        }
+        // ✅ SIEMPRE forzar un year válido (nunca "")
+        setSelectedYear(String(data[0].id));
       } else {
         setYears([]);
         setSelectedYear("");
+        setItems([]);
       }
     } catch (err) {
       console.error("Error loadYears:", err);
       setYears([]);
       setSelectedYear("");
+      setItems([]);
     } finally {
       setLoadingYears(false);
     }
   }
 
+  /* =========================
+     CATÁLOGO
+     ========================= */
   async function loadCatalogo() {
     try {
       const { data, error } = await supabase
@@ -74,34 +80,48 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     }
   }
 
-  // cuando cambia el año seleccionado, recargar contraprestaciones
+  /* =========================
+     CONTRAPRESTACIONES POR AÑO
+     ========================= */
   useEffect(() => {
-    if (selectedYear) loadContraprestaciones();
-    else setItems([]);
+    if (!selectedYear || selectedYear.trim() === "") {
+      setItems([]);
+      return;
+    }
+    loadContraprestaciones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear]);
 
   async function loadContraprestaciones() {
-    if (!selectedYear) return;
+    // ✅ BLINDAJE FINAL UUID
+    if (!selectedYear || selectedYear.trim() === "") {
+      setItems([]);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, unidades_comprometidas, catalogo_id")
+        .select("id, tipo, descripcion, unidades_comprometidas")
         .eq("agreement_year_id", selectedYear)
         .order("created_at", { ascending: true });
 
-      if (!error && data) setItems(data);
-      else setItems([]);
+      if (error) throw error;
+      setItems(data ?? []);
     } catch (err) {
       console.error("Error loadContraprestaciones:", err);
       setItems([]);
     }
   }
 
+  /* =========================
+     AGREGAR
+     ========================= */
   async function addItem() {
-    if (!agreementId) return alert("Error: convenio desconocido.");
-    if (!selectedYear) return alert("Selecciona primero un año para registrar la contraprestación.");
-    if (!tipo) return alert("Selecciona un tipo.");
+    if (!agreementId) return alert("Convenio inválido.");
+    if (!selectedYear || selectedYear.trim() === "")
+      return alert("Seleccione un año válido.");
+    if (!tipo) return alert("Seleccione un tipo.");
 
     try {
       const payload = {
@@ -116,17 +136,19 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
       const { error } = await supabase.from("contraprestaciones").insert(payload);
       if (error) throw error;
 
-      // limpiar y recargar
       setTipo("");
       setDescripcion("");
       setUnidades(1);
       await loadContraprestaciones();
     } catch (err: any) {
       console.error("Error addItem:", err);
-      alert("No se pudo agregar contraprestación: " + (err?.message || String(err)));
+      alert("No se pudo agregar: " + err.message);
     }
   }
 
+  /* =========================
+     ELIMINAR
+     ========================= */
   async function deleteItem(id: string) {
     if (!confirm("¿Eliminar contraprestación?")) return;
     try {
@@ -140,7 +162,6 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
   }
 
   function formatDate(d: string) {
-    if (!d) return "";
     try {
       return new Date(d).toLocaleDateString("es-PE");
     } catch {
@@ -148,83 +169,83 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     }
   }
 
+  /* =========================
+     UI
+     ========================= */
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <button className="mb-4 px-3 py-1 bg-gray-300" onClick={onBack}>Volver</button>
+      <button className="mb-4 px-3 py-1 bg-gray-300" onClick={onBack}>
+        Volver
+      </button>
+
       <h1 className="text-2xl font-bold mb-4">Contraprestaciones</h1>
 
       {/* Selector de año */}
       <div className="mb-4">
-        <label className="font-semibold mr-2">Seleccionar año:</label>
+        <label className="font-semibold mr-2">Año del convenio:</label>
         {loadingYears ? (
-          <span className="ms-2 text-muted">Cargando años...</span>
+          <span>Cargando años...</span>
         ) : years.length === 0 ? (
-          <span className="ms-2 text-danger">No hay años definidos para este convenio.</span>
+          <span className="text-red-600">No hay años definidos</span>
         ) : (
           <select
             className="border px-2 py-1"
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
           >
-            <option value="">Seleccione un año</option>
             {years.map((y) => (
               <option key={y.id} value={String(y.id)}>
-                Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)}
+                Año {y.year_number} — {formatDate(y.year_start)} /{" "}
+                {formatDate(y.year_end)}
               </option>
             ))}
           </select>
         )}
       </div>
 
+      {/* Agregar */}
       <div className="border p-4 rounded mb-6">
         <h2 className="font-semibold mb-2">Agregar contraprestación</h2>
 
-        <div className="mb-2">
-          <label className="block">Tipo (Catálogo):</label>
-          <select
-            className="border px-2 py-1 w-full"
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-          >
-            <option value="">Seleccione tipo</option>
-            {catalogo.map((c) => (
-              <option key={c.id} value={c.nombre}>{c.nombre}</option>
-            ))}
-          </select>
-        </div>
+        <select
+          className="border px-2 py-1 w-full mb-2"
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+        >
+          <option value="">Seleccione tipo</option>
+          {catalogo.map((c) => (
+            <option key={c.id} value={c.nombre}>
+              {c.nombre}
+            </option>
+          ))}
+        </select>
 
-        <div className="mb-2">
-          <label className="block">Descripción:</label>
-          <textarea
-            className="border px-2 py-1 w-full"
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-          />
-        </div>
+        <textarea
+          className="border px-2 py-1 w-full mb-2"
+          placeholder="Descripción"
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+        />
 
-        <div className="mb-2">
-          <label className="block">Unidades comprometidas:</label>
-          <input
-            type="number"
-            className="border px-2 py-1 w-full"
-            value={unidades}
-            onChange={(e) => setUnidades(Number(e.target.value))}
-          />
-        </div>
+        <input
+          type="number"
+          className="border px-2 py-1 w-full mb-2"
+          value={unidades}
+          onChange={(e) => setUnidades(Number(e.target.value))}
+        />
 
         <button
           onClick={addItem}
-          className="px-4 py-1 bg-blue-600 text-white rounded mt-2"
+          className="px-4 py-1 bg-blue-600 text-white rounded"
         >
           Agregar
         </button>
       </div>
 
-      <h2 className="font-semibold text-lg mb-2">Listado del año seleccionado</h2>
-
+      {/* Tabla */}
       <table className="w-full border-collapse border">
         <thead>
-          <tr className="bg-gray-200 text-left">
+          <tr className="bg-gray-200">
             <th className="border p-2">Tipo</th>
             <th className="border p-2">Descripción</th>
             <th className="border p-2">Unidades</th>
@@ -252,5 +273,6 @@ export default function Contraprestaciones({ agreementId, onBack }: { agreementI
     </div>
   );
 }
+
 
 
