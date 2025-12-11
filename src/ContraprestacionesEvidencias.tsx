@@ -640,7 +640,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                   <table className="table table-sm align-middle mb-0">
                     <thead className="table-light">
                       <tr>
-                        <th style={{ width: 100 }}>Año</th>
                         <th>Tipo</th>
                         <th>Descripción</th>
                         <th style={{ width: 120 }}>Estado</th>
@@ -651,7 +650,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                     <tbody>
                       {items.map((s) => (
                         <tr key={s.id}>
-                          <td>{s.anio ? formatAnio(s.anio) : "-"}</td>
                           <td>{s.contraprestacion?.tipo ?? "-"}</td>
                           <td style={{ maxWidth: 360, whiteSpace: 'pre-wrap' }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                           <td>
