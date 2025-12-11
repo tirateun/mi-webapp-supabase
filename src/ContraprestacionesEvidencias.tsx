@@ -14,14 +14,16 @@ interface Contraprestacion {
   periodo_fin?: string | null;
   renewal_id?: string | null;
   agreement_year_id?: string | null;
-  periodo?: number | null; // si existe en tu esquema
+  periodo?: number | null;
 }
 
 interface SeguimientoRaw {
   id: string;
   contraprestacion_id: string | null;
-  año?: number | null;
+  // la BD puede tener columna "año" — lo manejamos como any para leerlo con seguridad
   anio?: number | null;
+  // por si existe con tilde en la respuesta
+  ["año"]?: number | null;
   estado?: string | null;
   observaciones?: string | null;
   fecha_verificacion?: string | null;
@@ -35,7 +37,7 @@ interface SeguimientoRaw {
 interface Seguimiento {
   id: string;
   contraprestacion_id: string;
-  año: number;
+  anio: number;
   estado: string | null;
   observaciones: string | null;
   fecha_verificacion: string | null;
@@ -99,27 +101,19 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
   const resolveAgreementId = async (id: string) => {
     try {
-      // Verificar si existe en agreements
       const { data: agreementData, error: agreementError } = await supabase
         .from("agreements")
         .select("id")
         .eq("id", id)
         .single();
+      if (!agreementError && agreementData) return id;
 
-      if (!agreementError && agreementData) {
-        return id;
-      }
-
-      // Verificar si es un id de renovación
       const { data: renewalData, error: renewalError } = await supabase
         .from("agreement_renewals")
         .select("agreement_id")
         .eq("id", id)
         .single();
-
-      if (!renewalError && renewalData) {
-        return renewalData.agreement_id;
-      }
+      if (!renewalError && renewalData) return renewalData.agreement_id;
 
       return null;
     } catch (err) {
@@ -140,7 +134,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       setError(null);
 
       const realAgreementId = await resolveAgreementId(inputId);
-
       if (!realAgreementId) {
         setError("El ID proporcionado no corresponde a un convenio válido");
         setLoading(false);
@@ -181,8 +174,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       // 3) contraprestaciones
       const { data: cData, error: cErr } = await supabase
         .from("contraprestaciones")
-        // NO seleccionar campos inciertos — seleccionar los que usualmente existan
-        .select("id, tipo, descripcion, renewal_id, agreement_id, periodo_inicio, periodo_fin, agreement_year_id")
+        .select("id, tipo, descripcion, renewal_id, agreement_id, periodo_inicio, periodo_fin, agreement_year_id, periodo")
         .eq("agreement_id", agreementId)
         .order("tipo", { ascending: true });
       if (cErr) throw cErr;
@@ -198,21 +190,21 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
       // 4) seguimientos: traemos seguimientos que pertenezcan a esas contraprestaciones
       //    Traemos también la contraprestacion anidada (para poder calcular año si falta)
+      // NOTA: no ordenamos por 'año' en SQL para evitar problemas con nombres/encoding;
+      // ordenaremos cliente-side después.
       const { data: sData, error: sErr } = await supabase
         .from("contraprestaciones_seguimiento")
-        // no pedimos campos inexistentes de la contraprestacion; pedimos campos seguros
         .select("*, contraprestaciones(id, tipo, descripcion, periodo_inicio, periodo_fin, periodo, renewal_id, agreement_year_id)")
         .in("contraprestacion_id", contraprestacionIds)
-        .order("año", { ascending: true })
         .order("fecha_verificacion", { ascending: true });
       if (sErr) throw sErr;
 
-      const raw: SeguimientoRaw[] = sData || [];
+      const raw: SeguimientoRaw[] = (sData || []) as SeguimientoRaw[];
 
       // helper para determinar año de manera robusta
       const determineYear = (r: SeguimientoRaw, c?: Partial<Contraprestacion> | null): number => {
-        // 1) priorizar campo del seguimiento
-        const valFromSeg = r.año ?? r.anio;
+        // 1) priorizar campo del seguimiento (anio o "año")
+        const valFromSeg = r.anio ?? (r as any)["año"];
         if (valFromSeg !== undefined && valFromSeg !== null) {
           const n = Number(valFromSeg);
           if (!isNaN(n) && n > 0) return n;
@@ -247,11 +239,11 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
       const mapped: Seguimiento[] = raw.map((r) => {
         const c = r.contraprestaciones ?? null;
-        const añoCalculado = determineYear(r, c);
+        const anioCalculado = determineYear(r, c);
         return {
           id: r.id,
           contraprestacion_id: (r.contraprestacion_id as string) ?? (r as any).contraprestacion_id ?? "",
-          año: añoCalculado,
+          anio: anioCalculado,
           estado: r.estado ?? null,
           observaciones: r.observaciones ?? null,
           fecha_verificacion: r.fecha_verificacion ?? null,
@@ -261,6 +253,15 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
           renewal_id: r.renewal_id ?? null,
           contraprestacion: (c as any) ?? null,
         };
+      });
+
+      // Ordenar client-side por anio asc y luego por fecha_verificacion asc
+      mapped.sort((a, b) => {
+        const y = (a.anio || 0) - (b.anio || 0);
+        if (y !== 0) return y;
+        const ta = a.fecha_verificacion ? new Date(a.fecha_verificacion).getTime() : 0;
+        const tb = b.fecha_verificacion ? new Date(b.fecha_verificacion).getTime() : 0;
+        return ta - tb;
       });
 
       setSeguimientos(mapped);
@@ -358,7 +359,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         if (inicio || fin) {
           const found = periods.find((p) => {
             if (!p.start && !p.end) return false;
-            // consideramos overlap si inicio/fin del item cae dentro del periodo p
             const itemStart = inicio ?? new Date(0);
             const itemEnd = fin ?? new Date(8640000000000000);
             const afterStart = p.start ? itemEnd >= p.start : true;
@@ -404,7 +404,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       const dummySeguimiento: Seguimiento = {
         id: `dummy_${c.id}`,
         contraprestacion_id: c.id,
-        año: calcularAnioReal(),
+        anio: calcularAnioReal(),
         estado: null,
         observaciones: null,
         fecha_verificacion: null,
@@ -437,7 +437,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     // ordenar
     Object.keys(map).forEach((k) => {
       map[k].sort((x, y) => {
-        const yd = (x.año || 0) - (y.año || 0);
+        const yd = (x.anio || 0) - (y.anio || 0);
         if (yd !== 0) return yd;
         const tx = x.contraprestacion?.tipo ?? "";
         const ty = y.contraprestacion?.tipo ?? "";
@@ -459,20 +459,23 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
     // Si es un seguimiento dummy (sin ID real), crear uno nuevo
     if (s.id.startsWith("dummy_")) {
-      // Al crear, incluir renewal_id si la contraprestacion o el seguimiento dummy lo traen
       const renewal_to_set = s.renewal_id ?? s.contraprestacion?.renewal_id ?? null;
       try {
+        const insertObj: any = {
+          contraprestacion_id: s.contraprestacion_id,
+          estado: "Cumplido",
+          ejecutado: true,
+          responsable: userId,
+          fecha_verificacion: new Date().toISOString().split("T")[0],
+          renewal_id: renewal_to_set
+        };
+        // asignar año con la clave que tenga la BD (usamos 'año' por compatibilidad)
+        insertObj["año"] = s.anio;
+
         const { error: insertError } = await supabase
           .from("contraprestaciones_seguimiento")
-          .insert({
-            contraprestacion_id: s.contraprestacion_id,
-            año: s.año,
-            estado: "Cumplido",
-            ejecutado: true,
-            responsable: userId,
-            fecha_verificacion: new Date().toISOString().split("T")[0],
-            renewal_id: renewal_to_set
-          });
+          .insert(insertObj);
+
         if (insertError) {
           console.error("Error creando seguimiento:", insertError);
           alert("Error al crear el registro de cumplimiento: " + insertError.message);
@@ -545,18 +548,20 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       // si es dummy -> crear seguimiento con evidencia y renewal_id si aplica
       if (s.id.startsWith("dummy_")) {
         const renewal_to_set = s.renewal_id ?? s.contraprestacion?.renewal_id ?? null;
+        const insertObj: any = {
+          contraprestacion_id: s.contraprestacion_id,
+          estado: "Cumplido",
+          ejecutado: true,
+          responsable: userId,
+          fecha_verificacion: new Date().toISOString().split("T")[0],
+          evidencia_url: publicUrl,
+          renewal_id: renewal_to_set
+        };
+        insertObj["año"] = s.anio;
+
         const { error: insertError } = await supabase
           .from("contraprestaciones_seguimiento")
-          .insert({
-            contraprestacion_id: s.contraprestacion_id,
-            año: s.año,
-            estado: "Cumplido",
-            ejecutado: true,
-            responsable: userId,
-            fecha_verificacion: new Date().toISOString().split("T")[0],
-            evidencia_url: publicUrl,
-            renewal_id: renewal_to_set
-          });
+          .insert(insertObj);
 
         if (insertError) {
           console.error("Error creando seguimiento con evidencia:", insertError);
@@ -650,7 +655,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                     <tbody>
                       {items.map((s) => (
                         <tr key={s.id}>
-                          <td>{s.año ? formatAnio(s.año) : "-"}</td>
+                          <td>{s.anio ? formatAnio(s.anio) : "-"}</td>
                           <td>{s.contraprestacion?.tipo ?? "-"}</td>
                           <td style={{ maxWidth: 360, whiteSpace: "pre-wrap" }}>{s.contraprestacion?.descripcion ?? "-"}</td>
                           <td>
@@ -706,6 +711,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     </div>
   );
 }
+
 
 
 
