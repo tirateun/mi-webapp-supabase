@@ -1,13 +1,8 @@
 // src/App.tsx
 
 import { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useNavigate,
-} from "react-router-dom";
 
 import Sidebar from "./Sidebar";
 import Users from "./Users";
@@ -23,22 +18,22 @@ import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
 
-/* =========================================================
+/* =======================
    Layout principal
-========================================================= */
+======================= */
 function MainLayout({
   session,
   role,
   fullName,
-  mustChangePassword,
   onLogout,
 }: {
   session: any;
   role: string;
   fullName: string;
-  mustChangePassword: boolean;
   onLogout: () => void;
 }) {
+  const navigate = useNavigate();
+
   const [activePage, setActivePage] = useState<
     | "agreementsList"
     | "agreementsForm"
@@ -50,12 +45,8 @@ function MainLayout({
     | "areasVinculadas"
   >("agreementsList");
 
-  const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
-  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(
-    null
-  );
-
-  const navigate = useNavigate();
+  const [selectedAgreement, setSelectedAgreement] = useState<any>(null);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
 
   return (
     <div style={{ display: "flex" }}>
@@ -66,20 +57,18 @@ function MainLayout({
         userName={fullName || session.user.email}
       />
 
-      <div style={{ flex: 1, padding: "20px" }}>
-        <h2 style={{ marginBottom: "20px" }}>
-          👋 Bienvenido,{" "}
-          <strong>{fullName || session.user.email}</strong>{" "}
+      <div style={{ flex: 1, padding: 20 }}>
+        <h2 style={{ marginBottom: 20 }}>
+          👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
           <span style={{ color: "#555" }}>
             {role === "admin"
-              ? "Administrador interno"
+              ? "Administrador"
               : role === "internal"
               ? "Usuario interno"
               : "Usuario externo"}
           </span>
         </h2>
 
-        {/* LISTA DE CONVENIOS */}
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
@@ -106,22 +95,14 @@ function MainLayout({
           />
         )}
 
-        {/* FORMULARIO CONVENIOS */}
         {activePage === "agreementsForm" && (
           <AgreementsForm
             existingAgreement={selectedAgreement}
-            onSave={() => {
-              setActivePage("agreementsList");
-              setSelectedAgreement(null);
-            }}
-            onCancel={() => {
-              setActivePage("agreementsList");
-              setSelectedAgreement(null);
-            }}
+            onSave={() => setActivePage("agreementsList")}
+            onCancel={() => setActivePage("agreementsList")}
           />
         )}
 
-        {/* CONTRAPRESTACIONES */}
         {activePage === "contraprestaciones" && selectedAgreementId && (
           <Contraprestaciones
             agreementId={selectedAgreementId}
@@ -129,44 +110,34 @@ function MainLayout({
           />
         )}
 
-        {/* EVIDENCIAS */}
-        {activePage === "contraprestacionesEvidencias" &&
-          selectedAgreementId && (
-            <ContraprestacionesEvidencias
-              agreementId={selectedAgreementId}
-              userId={session.user.id}
-              role={role}
-              onBack={() => setActivePage("agreementsList")}
-            />
-          )}
-
-        {activePage === "instituciones" && (
-          <InstitucionesList role={role} />
+        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
+          <ContraprestacionesEvidencias
+            agreementId={selectedAgreementId}
+            userId={session.user.id}
+            role={role}
+            onBack={() => setActivePage("agreementsList")}
+          />
         )}
 
+        {activePage === "instituciones" && <InstitucionesList role={role} />}
         {activePage === "users" && <Users />}
-
         {activePage === "reportes" && <Reportes />}
-
         {activePage === "areasVinculadas" && <AreasVinculadasList />}
       </div>
     </div>
   );
 }
 
-/* =========================================================
+/* =======================
    App principal
-========================================================= */
+======================= */
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [role, setRole] = useState<string>("");
-  const [fullName, setFullName] = useState<string>("");
+  const [role, setRole] = useState("");
+  const [fullName, setFullName] = useState("");
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  /* =============================
-     CARGA SESIÓN INICIAL
-  ============================== */
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
@@ -175,80 +146,39 @@ export default function App() {
       if (currentSession?.user) {
         const { data: profile, error } = await supabase
           .from("profiles")
-          .select("role, must_change_password, full_name")
-          .eq("user_id", currentSession.user.id) // ✅ FIX CLAVE
+          .select("role, full_name, must_change_password")
+          .eq("user_id", currentSession.user.id) // 🔴 CLAVE
           .single();
 
-        if (error) {
-          console.error("Error cargando profile:", error);
+        if (!error && profile) {
+          setRole(profile.role);
+          setFullName(profile.full_name || "");
+          setMustChangePassword(!!profile.must_change_password);
         }
-
-        setRole(profile?.role || "");
-        setFullName(profile?.full_name || "");
-        setMustChangePassword(!!profile?.must_change_password);
       }
 
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSession(session);
+    });
 
     return () => {
-      listener?.subscription?.unsubscribe();
+      listener.subscription.unsubscribe();
     };
   }, []);
 
-  /* =============================
-     LOGIN
-  ============================== */
-  const handleLogin = async (user: any) => {
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, role, must_change_password, user_id")
-      .eq("user_id", user.id) // ✅ FIX CLAVE
-      .single();
-
-    if (error) {
-      console.error("Error en handleLogin:", error);
-      return;
-    }
-
-    setRole(profile.role || "");
-    setFullName(profile.full_name || "");
-    setMustChangePassword(!!profile.must_change_password);
-    setSession({ user });
-  };
-
-  /* =============================
-     LOGOUT
-  ============================== */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
-    setMustChangePassword(false);
   };
 
-  /* =============================
-     RENDER
-  ============================== */
   if (loading) return <p>Cargando...</p>;
 
-  if (!session)
-    return (
-      <Login
-        onLogin={handleLogin}
-        onRequirePasswordChange={(user: any) => {
-          setMustChangePassword(true);
-          setSession({ user });
-        }}
-      />
-    );
+  if (!session) return <Login />;
 
-  if (mustChangePassword && session?.user) {
+  if (mustChangePassword) {
     return (
       <ChangePassword
         user={session.user}
@@ -261,11 +191,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
-        <Route
-          path="/renewals/:agreementId"
-          element={<AgreementRenewalsPage />}
-        />
-        <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
+        <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
         <Route
           path="*"
           element={
@@ -273,7 +199,6 @@ export default function App() {
               session={session}
               role={role}
               fullName={fullName}
-              mustChangePassword={mustChangePassword}
               onLogout={handleLogout}
             />
           }
@@ -282,6 +207,7 @@ export default function App() {
     </Router>
   );
 }
+
 
 
 
