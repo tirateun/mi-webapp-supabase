@@ -31,9 +31,19 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
       const start = new Date(startDate);
       const end = new Date(endDate);
 
+      // 👉 obtener último año existente
+      const { data: lastYear } = await supabase
+        .from("agreement_years")
+        .select("year_number")
+        .eq("agreement_id", agreement.id)
+        .order("year_number", { ascending: false })
+        .limit(1)
+        .single();
+
+      let year = (lastYear?.year_number ?? 0) + 1;
+
       const yearRows: any[] = [];
       let cursor = new Date(start);
-      let year = 1;
 
       while (true) {
         const yearStart = new Date(cursor);
@@ -60,6 +70,7 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
         cursor.setDate(cursor.getDate() + 1);
         year++;
       }
+
 
       // 3. Insertar años en la BD
       const { error: yearsError } = await supabase

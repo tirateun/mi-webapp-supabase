@@ -30,7 +30,7 @@ export default function Contraprestaciones({
   }, [agreementId]);
 
   /* =========================
-     AÑOS DEL CONVENIO
+     AÑOS DEL CONVENIO (CLAVE)
      ========================= */
   async function loadYears() {
     try {
@@ -40,14 +40,14 @@ export default function Contraprestaciones({
         .from("agreement_years")
         .select("id, year_number, year_start, year_end")
         .eq("agreement_id", agreementId)
-        .order("year_number", { ascending: true });
+        .order("year_number", { ascending: false }); // 🔥 MÁS NUEVO PRIMERO
 
       if (error) throw error;
 
       if (Array.isArray(data) && data.length > 0) {
         setYears(data);
-        // ✅ SIEMPRE forzar un year válido (nunca "")
-        setSelectedYear(String(data[0].id));
+        // ✅ Seleccionar SIEMPRE el año MÁS NUEVO
+        setSelectedYear(data[0].id);
       } else {
         setYears([]);
         setSelectedYear("");
@@ -93,7 +93,6 @@ export default function Contraprestaciones({
   }, [selectedYear]);
 
   async function loadContraprestaciones() {
-    // ✅ BLINDAJE FINAL UUID
     if (!selectedYear || selectedYear.trim() === "") {
       setItems([]);
       return;
@@ -152,7 +151,11 @@ export default function Contraprestaciones({
   async function deleteItem(id: string) {
     if (!confirm("¿Eliminar contraprestación?")) return;
     try {
-      const { error } = await supabase.from("contraprestaciones").delete().eq("id", id);
+      const { error } = await supabase
+        .from("contraprestaciones")
+        .delete()
+        .eq("id", id);
+
       if (error) throw error;
       await loadContraprestaciones();
     } catch (err) {
@@ -194,7 +197,7 @@ export default function Contraprestaciones({
             onChange={(e) => setSelectedYear(e.target.value)}
           >
             {years.map((y) => (
-              <option key={y.id} value={String(y.id)}>
+              <option key={y.id} value={y.id}>
                 Año {y.year_number} — {formatDate(y.year_start)} /{" "}
                 {formatDate(y.year_end)}
               </option>
