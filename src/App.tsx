@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
+
 import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Login from "./Login";
@@ -17,7 +23,9 @@ import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
 
-// ✅ Nuevo componente: Layout principal dentro del Router
+/* =========================================================
+   Layout principal
+========================================================= */
 function MainLayout({
   session,
   role,
@@ -35,7 +43,6 @@ function MainLayout({
     | "agreementsList"
     | "agreementsForm"
     | "instituciones"
-    | "institucionesForm"
     | "users"
     | "reportes"
     | "contraprestaciones"
@@ -44,9 +51,10 @@ function MainLayout({
   >("agreementsList");
 
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
-  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(
+    null
+  );
 
-  // ✅ Ahora SÍ podemos usar useNavigate aquí
   const navigate = useNavigate();
 
   return (
@@ -60,7 +68,8 @@ function MainLayout({
 
       <div style={{ flex: 1, padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>
-          👋 Bienvenido, <strong>{fullName || session.user.email}</strong>{" "}
+          👋 Bienvenido,{" "}
+          <strong>{fullName || session.user.email}</strong>{" "}
           <span style={{ color: "#555" }}>
             {role === "admin"
               ? "Administrador interno"
@@ -70,7 +79,7 @@ function MainLayout({
           </span>
         </h2>
 
-        {/* 📋 LISTA DE CONVENIOS */}
+        {/* LISTA DE CONVENIOS */}
         {activePage === "agreementsList" && (
           <AgreementsList
             user={session.user}
@@ -92,13 +101,12 @@ function MainLayout({
               setActivePage("contraprestacionesEvidencias");
             }}
             onOpenInforme={(id: string) => {
-              setSelectedAgreementId(id);
-              navigate(`/informe/${id}`); // ✅ Ahora funciona
+              navigate(`/informe/${id}`);
             }}
           />
         )}
 
-        {/* Formulario de convenios */}
+        {/* FORMULARIO CONVENIOS */}
         {activePage === "agreementsForm" && (
           <AgreementsForm
             existingAgreement={selectedAgreement}
@@ -113,7 +121,7 @@ function MainLayout({
           />
         )}
 
-        {/* Contraprestaciones */}
+        {/* CONTRAPRESTACIONES */}
         {activePage === "contraprestaciones" && selectedAgreementId && (
           <Contraprestaciones
             agreementId={selectedAgreementId}
@@ -121,35 +129,34 @@ function MainLayout({
           />
         )}
 
-        {/* Evidencias */}
-        {activePage === "contraprestacionesEvidencias" && selectedAgreementId && (
-          <ContraprestacionesEvidencias
-            agreementId={selectedAgreementId}
-            userId={session.user.id}
-            role={role}
-            onBack={() => setActivePage("agreementsList")}
-          />
+        {/* EVIDENCIAS */}
+        {activePage === "contraprestacionesEvidencias" &&
+          selectedAgreementId && (
+            <ContraprestacionesEvidencias
+              agreementId={selectedAgreementId}
+              userId={session.user.id}
+              role={role}
+              onBack={() => setActivePage("agreementsList")}
+            />
+          )}
+
+        {activePage === "instituciones" && (
+          <InstitucionesList role={role} />
         )}
 
-        {/* Instituciones */}
-        {activePage === "instituciones" && <InstitucionesList role={role} />}
-
-        {/* Usuarios */}
         {activePage === "users" && <Users />}
 
-        {/* Reportes */}
         {activePage === "reportes" && <Reportes />}
 
-        {/* Areas vinculadas */}
         {activePage === "areasVinculadas" && <AreasVinculadasList />}
       </div>
     </div>
   );
 }
 
-// ✅ Importa useNavigate aquí solo si lo usas dentro de MainLayout
-import { useNavigate } from "react-router-dom";
-
+/* =========================================================
+   App principal
+========================================================= */
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [role, setRole] = useState<string>("");
@@ -157,57 +164,77 @@ export default function App() {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  /* =============================
+     CARGA SESIÓN INICIAL
+  ============================== */
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       const currentSession = data.session;
       setSession(currentSession);
 
       if (currentSession?.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
-          .eq("id", currentSession.user.id)
+          .eq("user_id", currentSession.user.id) // ✅ FIX CLAVE
           .single();
+
+        if (error) {
+          console.error("Error cargando profile:", error);
+        }
 
         setRole(profile?.role || "");
         setFullName(profile?.full_name || "");
-        if (profile?.must_change_password) setMustChangePassword(true);
+        setMustChangePassword(!!profile?.must_change_password);
       }
+
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+      }
+    );
 
     return () => {
-      try {
-        listener.subscription.unsubscribe();
-      } catch (e) {
-        // noop
-      }
+      listener?.subscription?.unsubscribe();
     };
   }, []);
 
+  /* =============================
+     LOGIN
+  ============================== */
   const handleLogin = async (user: any) => {
-    const { data: profile } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
-      .select("role, must_change_password, full_name")
-      .eq("id", user.id)
+      .select("id, full_name, email, role, must_change_password, user_id")
+      .eq("user_id", user.id) // ✅ FIX CLAVE
       .single();
 
-    setRole(profile?.role || "");
-    setFullName(profile?.full_name || "");
-    setMustChangePassword(profile?.must_change_password || false);
+    if (error) {
+      console.error("Error en handleLogin:", error);
+      return;
+    }
+
+    setRole(profile.role || "");
+    setFullName(profile.full_name || "");
+    setMustChangePassword(!!profile.must_change_password);
     setSession({ user });
   };
 
+  /* =============================
+     LOGOUT
+  ============================== */
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setMustChangePassword(false);
   };
 
+  /* =============================
+     RENDER
+  ============================== */
   if (loading) return <p>Cargando...</p>;
 
   if (!session)
@@ -234,7 +261,10 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
-        <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
+        <Route
+          path="/renewals/:agreementId"
+          element={<AgreementRenewalsPage />}
+        />
         <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
         <Route
           path="*"
@@ -252,6 +282,7 @@ export default function App() {
     </Router>
   );
 }
+
 
 
 
