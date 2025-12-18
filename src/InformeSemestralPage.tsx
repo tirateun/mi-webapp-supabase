@@ -74,13 +74,25 @@ export default function InformeSemestralPage() {
   // perfiles cache para mostrar nombres
   const [profilesCache, setProfilesCache] = useState<Record<string, string>>({});
 
-  // permisos
-  const isAdmin = useMemo(() => ["admin", "Admin", "Administrador"].includes(userRole), [userRole]);
-  const canEditGlobal = useMemo(() => ["admin", "Admin", "Administrador", "internal", "interno"].includes(userRole), [userRole]);
+// permisos (rol normalizado)
+const normalizedRole = useMemo(
+  () => (userRole || "").toLowerCase().trim(),
+  [userRole]
+);
 
-  // mensajes y errores UI
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+const isAdmin = useMemo(
+  () => normalizedRole === "admin",
+  [normalizedRole]
+);
+
+const canEditGlobal = useMemo(
+  () => ["admin", "internal"].includes(normalizedRole),
+  [normalizedRole]
+);
+
+// mensajes y errores UI
+const [message, setMessage] = useState<string | null>(null);
+const [error, setError] = useState<string | null>(null);
 
   /* ---------------------------
      CORREGIDO: Obtener usuario y rol con mejor manejo de errores
@@ -107,7 +119,7 @@ export default function InformeSemestralPage() {
         // Cargar perfil
         const { data: profileRows, error: profileErr } = await supabase
           .from("profiles")
-          .select("id, full_name, role")
+          .select("user_id, full_name, role")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -168,7 +180,7 @@ export default function InformeSemestralPage() {
     try {
       const { data: pData, error: pErr } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("user_id, full_name")
         .order("full_name", { ascending: true });
 
       if (pErr) {
@@ -177,7 +189,7 @@ export default function InformeSemestralPage() {
       } else {
         const map: Record<string, string> = {};
         (pData || []).forEach((r: any) => {
-          if (r.id) map[r.id] = r.full_name || r.email || "Usuario";
+          if (r.user_id) map[r.user_id] = r.full_name || r.email || "Usuario";
         });
         setProfilesCache(map);
       }
