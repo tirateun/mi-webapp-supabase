@@ -9,6 +9,9 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 
 interface Convenio {
@@ -19,7 +22,7 @@ interface Convenio {
   internal_responsible: string;
   duration_years: number;
   signature_date: string;
-  tipo_convenio: string[]; // array en base a tu base de datos
+  tipo_convenio: string[];
 }
 
 interface ConvenioPorTipo {
@@ -42,6 +45,9 @@ interface Responsable {
   full_name: string;
 }
 
+// Colores para gráficos
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+
 export default function Reportes() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
   const [conveniosPorTipo, setConveniosPorTipo] = useState<ConvenioPorTipo[]>([]);
@@ -50,17 +56,21 @@ export default function Reportes() {
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Filtros
+  // Filtros
   const [fechaInicio, setFechaInicio] = useState<string>("");
   const [fechaFin, setFechaFin] = useState<string>("");
   const [responsableSeleccionado, setResponsableSeleccionado] = useState<string>("");
+
+  // KPIs
+  const [totalConvenios, setTotalConvenios] = useState(0);
+  const [totalPaises, setTotalPaises] = useState(0);
+  const [promedioAnios, setPromedioAnios] = useState(0);
 
   useEffect(() => {
     cargarReportes();
     cargarResponsables();
   }, []);
 
-  // 📦 Cargar datos principales
   const cargarReportes = async () => {
     setLoading(true);
     try {
@@ -75,7 +85,14 @@ export default function Reportes() {
 
       setConvenios(conveniosData || []);
 
-      // 📊 1️⃣ Agrupar por tipo_convenio (categorías oficiales)
+      // Calcular KPIs
+      setTotalConvenios(conveniosData?.length || 0);
+      const paisesUnicos = new Set(conveniosData?.map(c => c.pais).filter(Boolean));
+      setTotalPaises(paisesUnicos.size);
+      const promedio = conveniosData?.reduce((acc, c) => acc + (c.duration_years || 0), 0) / (conveniosData?.length || 1);
+      setPromedioAnios(Math.round(promedio * 10) / 10);
+
+      // Agrupar por tipo
       const tiposOficiales = [
         "Docente Asistencial",
         "Cooperación Técnica",
@@ -97,21 +114,31 @@ export default function Reportes() {
         }
       });
 
-      const tiposProcesados = tiposOficiales.map((tipo) => ({
-        tipo,
-        cantidad: conteoTipos[tipo] || 0,
-      }));
+      const tiposProcesados = tiposOficiales
+        .map((tipo) => ({
+          tipo: tipo.length > 20 ? tipo.substring(0, 20) + "..." : tipo,
+          tipoCompleto: tipo,
+          cantidad: conteoTipos[tipo] || 0,
+        }))
+        .filter(t => t.cantidad > 0);
+      
       setConveniosPorTipo(tiposProcesados);
 
-      // 🌎 2️⃣ Agrupar por país
+      // Agrupar por país (top 10)
       const conteoPais: Record<string, number> = {};
       conveniosData?.forEach((c) => {
         const pais = c.pais || "No especificado";
         conteoPais[pais] = (conteoPais[pais] || 0) + 1;
       });
-      setConveniosPorPais(Object.entries(conteoPais).map(([pais, cantidad]) => ({ pais, cantidad })));
+      
+      const paisesProcesados = Object.entries(conteoPais)
+        .map(([pais, cantidad]) => ({ pais, cantidad }))
+        .sort((a, b) => b.cantidad - a.cantidad)
+        .slice(0, 10);
+      
+      setConveniosPorPais(paisesProcesados);
 
-      // ⚙️ 3️⃣ Estado de contraprestaciones
+      // Estado de contraprestaciones
       const { data: contraprestaciones } = await supabase
         .from("contraprestaciones_seguimiento")
         .select("estado");
@@ -132,7 +159,6 @@ export default function Reportes() {
     }
   };
 
-  // 📋 Cargar responsables internos
   const cargarResponsables = async () => {
     const { data } = await supabase
       .from("profiles")
@@ -142,141 +168,318 @@ export default function Reportes() {
     setResponsables(data || []);
   };
 
-  if (loading) return <p className="text-center mt-4">Cargando reportes...</p>;
+  const limpiarFiltros = () => {
+    setFechaInicio("");
+    setFechaFin("");
+    setResponsableSeleccionado("");
+  };
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+        <div className="text-center">
+          <div className="spinner-border text-primary" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Cargando...</span>
+          </div>
+          <p className="mt-3 text-muted">Cargando reportes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mt-4" style={{ maxWidth: "1100px" }}>
-      <h3 className="fw-bold text-primary mb-4">📊 Panel de Reportes</h3>
-
-      {/* 🔍 FILTROS */}
-      <div className="card shadow-sm p-3 mb-4 border-0">
-        <h5 className="fw-semibold text-secondary mb-3">Filtros</h5>
-        <div className="row">
-          <div className="col-md-4 mb-3">
-            <label>Desde</label>
-            <input
-              type="date"
-              className="form-control"
-              value={fechaInicio}
-              onChange={(e) => setFechaInicio(e.target.value)}
-            />
-          </div>
-          <div className="col-md-4 mb-3">
-            <label>Hasta</label>
-            <input
-              type="date"
-              className="form-control"
-              value={fechaFin}
-              onChange={(e) => setFechaFin(e.target.value)}
-            />
-          </div>
-          <div className="col-md-4 mb-3">
-            <label>Responsable Interno</label>
-            <select
-              className="form-select"
-              value={responsableSeleccionado}
-              onChange={(e) => setResponsableSeleccionado(e.target.value)}
-            >
-              <option value="">Todos</option>
-              {responsables.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.full_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="text-end">
-          <button className="btn btn-primary" onClick={cargarReportes}>
-            🔄 Aplicar Filtros
-          </button>
+    <div className="container-fluid py-4" style={{ maxWidth: "1400px", backgroundColor: '#f8f9fa' }}>
+      {/* HEADER */}
+      <div className="card border-0 shadow-sm mb-4" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div className="card-body p-4">
+          <h2 className="mb-1 fw-bold text-white">📊 Panel de Reportes y Análisis</h2>
+          <p className="mb-0 text-white opacity-75">Visualización de datos y estadísticas de convenios</p>
         </div>
       </div>
 
-      {/* 📈 GRÁFICO PRINCIPAL: tipos oficiales */}
-      <div className="card shadow-sm p-3 mb-4 border-0">
-        <h5 className="text-secondary fw-bold mb-3">Distribución por Tipo de Convenio</h5>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={conveniosPorTipo}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="tipo" angle={-20} textAnchor="end" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="cantidad" fill="#3b82f6" name="Convenios" />
-          </BarChart>
-        </ResponsiveContainer>
+      {/* KPIs */}
+      <div className="row g-3 mb-4">
+        <div className="col-md-4">
+          <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+            <div className="card-body text-white">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="mb-1 opacity-75">Total Convenios</h6>
+                  <h2 className="mb-0 fw-bold">{totalConvenios}</h2>
+                </div>
+                <div style={{ fontSize: '3rem', opacity: 0.3 }}>📋</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+            <div className="card-body text-white">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="mb-1 opacity-75">Países Alcanzados</h6>
+                  <h2 className="mb-0 fw-bold">{totalPaises}</h2>
+                </div>
+                <div style={{ fontSize: '3rem', opacity: 0.3 }}>🌍</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-4">
+          <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
+            <div className="card-body text-white">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="mb-1 opacity-75">Duración Promedio</h6>
+                  <h2 className="mb-0 fw-bold">{promedioAnios} años</h2>
+                </div>
+                <div style={{ fontSize: '3rem', opacity: 0.3 }}>⏱️</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 🌍 Convenios por país */}
-      <div className="card shadow-sm p-3 mb-4 border-0">
-        <h5 className="text-secondary fw-bold mb-3">Convenios por País</h5>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={conveniosPorPais.slice(0, 10)}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="pais" angle={-20} textAnchor="end" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="cantidad" fill="#10b981" name="Convenios" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* ⚙️ Estado de contraprestaciones */}
-      <div className="card shadow-sm p-3 border-0">
-        <h5 className="text-secondary fw-bold mb-3">Estado de Contraprestaciones</h5>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={ejecucionContraprestaciones}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="estado" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="cantidad" fill="#f59e0b" name="Contraprestaciones" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* 📋 Tabla de convenios */}
-      <div className="card shadow-sm p-3 border-0 mt-4">
-        <h5 className="fw-bold text-secondary mb-3">📄 Detalle de Convenios</h5>
-        {convenios.length === 0 ? (
-          <p className="text-muted">No se encontraron convenios con los filtros seleccionados.</p>
-        ) : (
-          <div className="table-responsive">
-            <table className="table table-hover align-middle">
-              <thead className="table-light">
-                <tr>
-                  <th>Nombre</th>
-                  <th>Tipo(s)</th>
-                  <th>País</th>
-                  <th>Responsable Interno</th>
-                  <th>Duración (años)</th>
-                  <th>Fecha Firma</th>
-                </tr>
-              </thead>
-              <tbody>
-                {convenios.map((c) => (
-                  <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{Array.isArray(c.tipo_convenio) ? c.tipo_convenio.join(", ") : "-"}</td>
-                    <td>{c.pais || "-"}</td>
-                    <td>{responsables.find((r) => r.id === c.internal_responsible)?.full_name || "-"}</td>
-                    <td>{c.duration_years}</td>
-                    <td>
-                      {c.signature_date
-                        ? new Date(c.signature_date).toLocaleDateString("es-PE")
-                        : "-"}
-                    </td>
-                  </tr>
+      {/* FILTROS */}
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-header bg-white border-0 p-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <h5 className="mb-0 fw-bold">🔍 Filtros de Búsqueda</h5>
+            {(fechaInicio || fechaFin || responsableSeleccionado) && (
+              <button className="btn btn-sm btn-outline-secondary" onClick={limpiarFiltros}>
+                ✕ Limpiar filtros
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="card-body p-4">
+          <div className="row g-3">
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">Fecha inicio</label>
+              <input
+                type="date"
+                className="form-control"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+              />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label fw-semibold">Fecha fin</label>
+              <input
+                type="date"
+                className="form-control"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label fw-semibold">Responsable Interno</label>
+              <select
+                className="form-select"
+                value={responsableSeleccionado}
+                onChange={(e) => setResponsableSeleccionado(e.target.value)}
+              >
+                <option value="">Todos los responsables</option>
+                {responsables.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.full_name}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </div>
+            <div className="col-md-2 d-flex align-items-end">
+              <button className="btn btn-primary w-100" onClick={cargarReportes}>
+                🔄 Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* GRÁFICOS */}
+      <div className="row g-4 mb-4">
+        {/* Distribución por Tipo */}
+        <div className="col-lg-6">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-header bg-white border-0 p-4">
+              <h5 className="mb-0 fw-bold">📈 Distribución por Tipo de Convenio</h5>
+            </div>
+            <div className="card-body p-4">
+              {conveniosPorTipo.length > 0 ? (
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={conveniosPorTipo}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="tipo" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={100}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                      labelFormatter={(value, payload) => {
+                        const item = payload[0]?.payload;
+                        return item?.tipoCompleto || value;
+                      }}
+                    />
+                    <Bar dataKey="cantidad" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-muted py-5">
+                  <div style={{ fontSize: '3rem', opacity: 0.3 }}>📊</div>
+                  <p className="mt-2">No hay datos para mostrar</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Convenios por País */}
+        <div className="col-lg-6">
+          <div className="card border-0 shadow-sm h-100">
+            <div className="card-header bg-white border-0 p-4">
+              <h5 className="mb-0 fw-bold">🌍 Top 10 Países con Convenios</h5>
+            </div>
+            <div className="card-body p-4">
+              {conveniosPorPais.length > 0 ? (
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={conveniosPorPais}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="pais" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={100}
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="cantidad" fill="#10b981" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center text-muted py-5">
+                  <div style={{ fontSize: '3rem', opacity: 0.3 }}>🌎</div>
+                  <p className="mt-2">No hay datos para mostrar</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Estado de Contraprestaciones */}
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-header bg-white border-0 p-4">
+          <h5 className="mb-0 fw-bold">⚙️ Estado de Contraprestaciones</h5>
+        </div>
+        <div className="card-body p-4">
+          {ejecucionContraprestaciones.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={ejecucionContraprestaciones}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="estado" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="cantidad" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="text-center text-muted py-5">
+              <div style={{ fontSize: '3rem', opacity: 0.3 }}>⚙️</div>
+              <p className="mt-2">No hay datos de contraprestaciones</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* TABLA DE CONVENIOS */}
+      <div className="card border-0 shadow-sm">
+        <div className="card-header bg-white border-0 p-4">
+          <h5 className="mb-0 fw-bold">📋 Detalle de Convenios</h5>
+        </div>
+        <div className="card-body p-0">
+          {convenios.length === 0 ? (
+            <div className="text-center text-muted py-5">
+              <div style={{ fontSize: '4rem', opacity: 0.3 }}>📄</div>
+              <p className="mt-3 mb-0">No se encontraron convenios con los filtros seleccionados</p>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead style={{ backgroundColor: '#f8f9fa' }}>
+                  <tr>
+                    <th className="px-4 py-3 fw-semibold">Nombre</th>
+                    <th className="px-4 py-3 fw-semibold">Tipo(s)</th>
+                    <th className="px-4 py-3 fw-semibold">País</th>
+                    <th className="px-4 py-3 fw-semibold">Responsable</th>
+                    <th className="px-4 py-3 fw-semibold text-center">Duración</th>
+                    <th className="px-4 py-3 fw-semibold">Fecha Firma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {convenios.map((c, idx) => (
+                    <tr key={c.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8f9fa' }}>
+                      <td className="px-4 py-3">
+                        <strong>{c.name}</strong>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div style={{ maxWidth: '250px' }}>
+                          {Array.isArray(c.tipo_convenio) ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {c.tipo_convenio.map((tipo, i) => (
+                                <span key={i} className="badge bg-primary-subtle text-primary">
+                                  {tipo}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="badge bg-success-subtle text-success">
+                          {c.pais || "No especificado"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <small className="text-muted">
+                          {responsables.find((r) => r.id === c.internal_responsible)?.full_name || "-"}
+                        </small>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="badge bg-info-subtle text-info">
+                          {c.duration_years} año{c.duration_years !== 1 ? 's' : ''}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <small>
+                          {c.signature_date
+                            ? new Date(c.signature_date).toLocaleDateString("es-PE")
+                            : "-"}
+                        </small>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        {convenios.length > 0 && (
+          <div className="card-footer bg-white border-0 p-3">
+            <small className="text-muted">
+              Mostrando {convenios.length} convenio{convenios.length !== 1 ? 's' : ''}
+            </small>
           </div>
         )}
       </div>
     </div>
   );
 }
-
 
 
