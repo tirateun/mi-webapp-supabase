@@ -36,20 +36,22 @@ export default function Contraprestaciones({
      ========================= */
   const getYearStatus = (yearStart: string, yearEnd: string): YearStatus => {
     const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0); // Normalizar a medianoche
+    // Normalizar todas las fechas a medianoche para comparación consistente
+    hoy.setHours(0, 0, 0, 0);
     
     const inicio = new Date(yearStart);
     inicio.setHours(0, 0, 0, 0);
     
     const fin = new Date(yearEnd);
-    fin.setHours(23, 59, 59, 999);
+    fin.setHours(0, 0, 0, 0);
     
-    if (hoy > fin) {
-      return 'pasado';
-    } else if (hoy >= inicio && hoy <= fin) {
-      return 'vigente';
-    } else {
+    // Un año está vigente si hoy está entre inicio (inclusive) y fin (inclusive)
+    if (hoy < inicio) {
       return 'futuro';
+    } else if (hoy > fin) {
+      return 'pasado';
+    } else {
+      return 'vigente';
     }
   };
 
