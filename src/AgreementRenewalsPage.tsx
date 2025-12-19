@@ -227,17 +227,34 @@ export default function AgreementRenewalsPage() {
         return;
       }
 
-      // 3️⃣ Actualizar el expiration_date del convenio principal
+      // 3️⃣ Actualizar el expiration_date Y el estado del convenio
+      // ⚠️ IMPORTANTE: Tu sistema usa "ACTIVO" no "Vigente"
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const fechaVencimiento = new Date(newExpiration);
+      fechaVencimiento.setHours(0, 0, 0, 0);
+      
+      const nuevoEstado = fechaVencimiento >= hoy ? 'ACTIVO' : 'VENCIDO';
+      
+      console.log(`📅 Actualizando convenio:`, {
+        expiration_date: newExpiration,
+        estado: nuevoEstado,
+        comparacion: `${fechaVencimiento.toISOString()} >= ${hoy.toISOString()} = ${fechaVencimiento >= hoy}`
+      });
+      
       const { error: updateError } = await supabase
         .from("agreements")
         .update({
           expiration_date: newExpiration,
+          estado: nuevoEstado,
           updated_at: new Date().toISOString(),
         })
         .eq("id", agreementId);
 
       if (updateError) {
-        console.error("Error actualizando fecha del convenio:", updateError);
+        console.error("❌ Error actualizando convenio:", updateError);
+      } else {
+        console.log(`✅ Convenio actualizado - Estado: ${nuevoEstado}, Vence: ${newExpiration}`);
       }
 
       // ✅ Éxito
