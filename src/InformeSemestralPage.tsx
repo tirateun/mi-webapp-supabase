@@ -5,10 +5,10 @@ import { useNavigate, useParams } from "react-router-dom";
 
 /**
  * VERSIÓN SIMPLIFICADA Y MEJORADA
- * - UN solo selector de año (eliminado campo "periodo texto libre")
- * - Formulario simplificado (3 campos en lugar de 6)
+ * - UN solo selector de año con estados visuales
+ * - Años bloqueados si aún no se puede informar (2 meses antes)
+ * - Formulario simplificado (2 campos)
  * - Vista diferenciada: Interno vs Admin
- * - Mejor UX con indicadores de estado
  */
 
 interface AgreementYear {
@@ -24,7 +24,7 @@ interface InformeSemestralRow {
   convenio_id?: string | null;
   user_id?: string | null;
   year_id?: string | null;
-  contenido?: string | null; // 🆕 Campo unificado
+  contenido?: string | null;
   dificultades?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -47,7 +47,6 @@ export default function InformeSemestralPage() {
   const [informes, setInformes] = useState<InformeSemestralRow[]>([]);
   const [selectedInforme, setSelectedInforme] = useState<InformeSemestralRow | null>(null);
 
-  // 🆕 Formulario simplificado (solo 2 campos)
   const [contenido, setContenido] = useState<string>("");
   const [dificultades, setDificultades] = useState<string>("");
 
@@ -63,11 +62,80 @@ export default function InformeSemestralPage() {
     return ["internal", "Internal", "interno", "Interno"].includes(userRole);
   }, [userRole]);
 
-  // 🆕 Obtener informe del usuario actual para el año seleccionado
+  /* ---------------------------
+     Determinar estado de cada año
+     --------------------------- */
+  const yearOptionsWithStatus = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    return agreementYears.map((y) => {
+      const inicio = new Date(y.year_start!);
+      const fin = new Date(y.year_end!);
+      
+      const fechaInformarDesde = new Date(fin);
+      fechaInformarDesde.setMonth(fechaInformarDesde.getMonth() - 2);
+
+      let estado: 'vencido' | 'vigente' | 'proximo' | 'futuro';
+      let puedeInformar = false;
+      let icono = '';
+      let razon = '';
+
+      if (hoy > fin) {
+        estado = 'vencido';
+        puedeInformar = true;
+        icono = '✅';
+        razon = 'Periodo finalizado';
+      } else if (hoy >= inicio && hoy <= fin) {
+        estado = 'vigente';
+        if (hoy >= fechaInformarDesde) {
+          puedeInformar = true;
+          icono = '📝';
+          razon = 'Ya puedes informar';
+        } else {
+          puedeInformar = false;
+          icono = '⏳';
+          razon = `Disponible desde ${fechaInformarDesde.toLocaleDateString('es-PE')}`;
+        }
+      } else if (hoy < inicio) {
+        const mesesHastaInicio = Math.ceil((inicio.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24 * 30));
+        if (mesesHastaInicio <= 2) {
+          estado = 'proximo';
+          puedeInformar = false;
+          icono = '🔜';
+          razon = `Inicia ${inicio.toLocaleDateString('es-PE')}`;
+        } else {
+          estado = 'futuro';
+          puedeInformar = false;
+          icono = '🔒';
+          razon = `No disponible hasta ${fechaInformarDesde.toLocaleDateString('es-PE')}`;
+        }
+      } else {
+        estado = 'futuro';
+        puedeInformar = false;
+        icono = '🔒';
+        razon = 'No disponible aún';
+      }
+
+      return {
+        ...y,
+        estado,
+        puedeInformar,
+        icono,
+        razon,
+        fechaInformarDesde,
+      };
+    });
+  }, [agreementYears]);
+
   const miInforme = useMemo(() => {
     if (!userId || !selectedYearId) return null;
     return informes.find(inf => inf.user_id === userId && inf.year_id === selectedYearId);
   }, [informes, userId, selectedYearId]);
+
+  const yearSeleccionado = useMemo(() => {
+    return yearOptionsWithStatus.find(y => y.id === selectedYearId);
+  }, [yearOptionsWithStatus, selectedYearId]);
 
   /* ---------------------------
      Autenticación
@@ -100,9 +168,6 @@ export default function InformeSemestralPage() {
     })();
   }, []);
 
-  /* ---------------------------
-     Cargar años
-     --------------------------- */
   useEffect(() => {
     if (!convenioId) return;
     loadAgreementYears();
@@ -156,9 +221,6 @@ export default function InformeSemestralPage() {
     }
   };
 
-  /* ---------------------------
-     Cargar informes
-     --------------------------- */
   useEffect(() => {
     if (!convenioId || !userId) return;
     loadInformes();
@@ -201,9 +263,6 @@ export default function InformeSemestralPage() {
     }
   };
 
-  /* ---------------------------
-     Guardar/Actualizar informe
-     --------------------------- */
   const handleSave = async () => {
     if (!convenioId || !userId || !selectedYearId) {
       alert("Faltan datos requeridos.");
@@ -220,7 +279,6 @@ export default function InformeSemestralPage() {
 
     try {
       if (selectedInforme) {
-        // Editar: solo autor o admin
         if (!isAdmin && selectedInforme.user_id !== userId) {
           alert("Solo puedes editar tu propio informe.");
           setSaving(false);
@@ -244,7 +302,6 @@ export default function InformeSemestralPage() {
           await loadInformes();
         }
       } else {
-        // Validar si ya existe
         const { data: existing } = await supabase
           .from("informes_semestrales")
           .select("id")
@@ -259,7 +316,6 @@ export default function InformeSemestralPage() {
           return;
         }
 
-        // Insertar nuevo
         const { error } = await supabase.from("informes_semestrales").insert({
           convenio_id: convenioId,
           user_id: userId,
@@ -291,9 +347,6 @@ export default function InformeSemestralPage() {
     setSelectedInforme(null);
   };
 
-  /* ---------------------------
-     Eliminar (solo admin)
-     --------------------------- */
   const handleDelete = async (id: string) => {
     if (!isAdmin) {
       alert("Solo administradores pueden eliminar.");
@@ -314,9 +367,6 @@ export default function InformeSemestralPage() {
     }
   };
 
-  /* ---------------------------
-     Ver/Editar
-     --------------------------- */
   const handleView = (inf: InformeSemestralRow) => {
     setSelectedInforme(inf);
     setContenido(inf.contenido ?? "");
@@ -335,12 +385,8 @@ export default function InformeSemestralPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* ---------------------------
-     RENDER
-     --------------------------- */
   return (
     <div className="container py-4" style={{ maxWidth: 1100 }}>
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3 className="mb-0">📝 Informes Anuales</h3>
         <div>
@@ -353,11 +399,9 @@ export default function InformeSemestralPage() {
         </div>
       </div>
 
-      {/* Mensajes */}
       {message && <div className="alert alert-success alert-dismissible fade show">{message}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {/* Selector de año */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <label className="form-label fw-bold">Año del convenio</label>
@@ -367,100 +411,125 @@ export default function InformeSemestralPage() {
             onChange={(e) => setSelectedYearId(e.target.value)}
           >
             <option value="">Seleccione un año</option>
-            {agreementYears.map((y) => (
-              <option key={y.id} value={y.id}>
-                Año {y.year_number} ({y.year_start ? new Date(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? new Date(y.year_end).toLocaleDateString("es-PE") : "—"})
+            {yearOptionsWithStatus.map((y) => (
+              <option 
+                key={y.id} 
+                value={y.id}
+                disabled={!y.puedeInformar}
+                style={{
+                  backgroundColor: y.estado === 'vencido' ? '#f8f9fa' : 
+                                 y.estado === 'vigente' && y.puedeInformar ? '#d4edda' :
+                                 y.estado === 'vigente' ? '#fff3cd' : '#e9ecef',
+                  color: y.puedeInformar ? '#000' : '#6c757d',
+                }}
+              >
+                {y.icono} Año {y.year_number} ({y.year_start ? new Date(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? new Date(y.year_end).toLocaleDateString("es-PE") : "—"}) - {y.razon}
               </option>
             ))}
           </select>
+          
+          {selectedYearId && yearSeleccionado && (
+            <div className={`alert mt-3 mb-0 ${
+              yearSeleccionado.estado === 'vencido' ? 'alert-secondary' :
+              yearSeleccionado.puedeInformar ? 'alert-success' : 'alert-warning'
+            }`}>
+              <strong>{yearSeleccionado.icono} Estado:</strong> {yearSeleccionado.razon}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 🆕 Vista para INTERNOS: Solo su informe */}
       {isInternal && selectedYearId && (
-        <div className="card shadow-sm mb-4">
-          <div className="card-body">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5 className="mb-0">Tu informe</h5>
-              {miInforme ? (
-                <span className="badge bg-success">✅ Completado</span>
-              ) : (
-                <span className="badge bg-warning text-dark">⚠️ Pendiente</span>
-              )}
+        <>
+          {yearSeleccionado && !yearSeleccionado.puedeInformar && (
+            <div className="alert alert-warning">
+              <strong>⏳ Este periodo aún no está disponible para informar.</strong>
+              <p className="mb-0">Podrás enviar tu informe a partir del: <strong>{yearSeleccionado.fechaInformarDesde.toLocaleDateString('es-PE')}</strong></p>
             </div>
+          )}
 
-            {miInforme ? (
-              // Ya tiene informe → modo lectura
-              <div>
-                <div className="alert alert-info">
-                  Ya enviaste tu informe para este año. Si necesitas editarlo, contacta al administrador.
+          {yearSeleccionado?.puedeInformar && (
+            <div className="card shadow-sm mb-4">
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">Tu informe</h5>
+                  {miInforme ? (
+                    <span className="badge bg-success">✅ Completado</span>
+                  ) : (
+                    <span className="badge bg-warning text-dark">⚠️ Pendiente</span>
+                  )}
                 </div>
-                <div className="mb-3">
-                  <strong>Contenido:</strong>
-                  <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                    {miInforme.contenido || "—"}
+
+                {miInforme ? (
+                  <div>
+                    <div className="alert alert-info">
+                      Ya enviaste tu informe para este año. Si necesitas editarlo, contacta al administrador.
+                    </div>
+                    <div className="mb-3">
+                      <strong>Contenido:</strong>
+                      <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
+                        {miInforme.contenido || "—"}
+                      </div>
+                    </div>
+                    {miInforme.dificultades && (
+                      <div className="mb-3">
+                        <strong>Dificultades/Observaciones:</strong>
+                        <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
+                          {miInforme.dificultades}
+                        </div>
+                      </div>
+                    )}
+                    <small className="text-muted">
+                      Enviado: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
+                    </small>
                   </div>
-                </div>
-                {miInforme.dificultades && (
-                  <div className="mb-3">
-                    <strong>Dificultades/Observaciones:</strong>
-                    <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                      {miInforme.dificultades}
+                ) : (
+                  <div>
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">
+                        Contenido del informe <span className="text-danger">*</span>
+                      </label>
+                      <small className="text-muted d-block mb-2">
+                        Incluye: resumen de actividades, logros alcanzados y resultados obtenidos durante el periodo.
+                      </small>
+                      <textarea
+                        className="form-control"
+                        rows={8}
+                        value={contenido}
+                        onChange={(e) => setContenido(e.target.value)}
+                        placeholder="Describe las actividades realizadas, logros y resultados..."
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label fw-bold">Dificultades/Observaciones (opcional)</label>
+                      <textarea
+                        className="form-control"
+                        rows={4}
+                        value={dificultades}
+                        onChange={(e) => setDificultades(e.target.value)}
+                        placeholder="Describe cualquier dificultad encontrada o comentarios adicionales..."
+                      />
+                    </div>
+
+                    <div className="d-flex gap-2 justify-content-end">
+                      <button className="btn btn-secondary" onClick={resetForm} disabled={saving}>
+                        Limpiar
+                      </button>
+                      <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                        {saving ? "Guardando..." : "📤 Enviar informe"}
+                      </button>
                     </div>
                   </div>
                 )}
-                <small className="text-muted">
-                  Enviado: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
-                </small>
               </div>
-            ) : (
-              // No tiene informe → formulario
-              <div>
-                <div className="mb-3">
-                  <label className="form-label fw-bold">
-                    Contenido del informe <span className="text-danger">*</span>
-                  </label>
-                  <small className="text-muted d-block mb-2">
-                    Incluye: resumen de actividades, logros alcanzados y resultados obtenidos durante el periodo.
-                  </small>
-                  <textarea
-                    className="form-control"
-                    rows={8}
-                    value={contenido}
-                    onChange={(e) => setContenido(e.target.value)}
-                    placeholder="Describe las actividades realizadas, logros y resultados..."
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label fw-bold">Dificultades/Observaciones (opcional)</label>
-                  <textarea
-                    className="form-control"
-                    rows={4}
-                    value={dificultades}
-                    onChange={(e) => setDificultades(e.target.value)}
-                    placeholder="Describe cualquier dificultad encontrada o comentarios adicionales..."
-                  />
-                </div>
-
-                <div className="d-flex gap-2 justify-content-end">
-                  <button className="btn btn-secondary" onClick={resetForm} disabled={saving}>
-                    Limpiar
-                  </button>
-                  <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                    {saving ? "Guardando..." : "📤 Enviar informe"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* 🆕 Vista para ADMIN: Todos los informes */}
       {isAdmin && (
         <>
-          {/* Formulario de edición/creación */}
           <div className="card shadow-sm mb-4">
             <div className="card-body">
               <h5>{selectedInforme ? "Editar informe" : "Nuevo informe"}</h5>
@@ -496,7 +565,6 @@ export default function InformeSemestralPage() {
             </div>
           </div>
 
-          {/* Tabla de todos los informes */}
           <div className="card shadow-sm">
             <div className="card-body">
               <h5 className="mb-3">Todos los informes</h5>
@@ -566,7 +634,6 @@ export default function InformeSemestralPage() {
         </>
       )}
 
-      {/* Panel de detalle (modal-like) */}
       {selectedInforme && (
         <div className="card shadow-sm mt-4">
           <div className="card-body">
