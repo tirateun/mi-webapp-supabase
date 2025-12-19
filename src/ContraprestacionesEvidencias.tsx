@@ -528,7 +528,30 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
     setUploadingId(s.id);
     try {
-      const filePath = `${resolvedAgreementId}/${s.contraprestacion_id}/${s.id}_${Date.now()}_${file.name}`;
+      // 🆕 Sanitizar nombre del archivo (remover caracteres especiales)
+      const sanitizeFilename = (filename: string): string => {
+        // Obtener la extensión
+        const ext = filename.substring(filename.lastIndexOf('.'));
+        // Obtener el nombre sin extensión
+        const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
+        
+        // Remover caracteres especiales, mantener solo letras, números, guiones y guiones bajos
+        const sanitized = nameWithoutExt
+          .normalize("NFD") // Descomponer caracteres acentuados
+          .replace(/[\u0300-\u036f]/g, "") // Remover diacríticos (tildes)
+          .replace(/[^a-zA-Z0-9_-]/g, "_") // Reemplazar caracteres especiales con guion bajo
+          .replace(/_+/g, "_") // Reemplazar múltiples guiones bajos con uno solo
+          .substring(0, 100); // Limitar longitud
+        
+        return `${sanitized}${ext}`;
+      };
+
+      const sanitizedFileName = sanitizeFilename(file.name);
+      const timestamp = Date.now();
+      const filePath = `${resolvedAgreementId}/${s.contraprestacion_id}/${s.id}_${timestamp}_${sanitizedFileName}`;
+      
+      console.log("📤 Subiendo archivo:", { original: file.name, sanitized: sanitizedFileName, path: filePath });
+      
       const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, { cacheControl: "3600", upsert: false });
       if (uploadError) throw uploadError;
 
