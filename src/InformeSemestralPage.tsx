@@ -73,26 +73,25 @@ export default function InformeSemestralPage() {
 
   // perfiles cache para mostrar nombres
   const [profilesCache, setProfilesCache] = useState<Record<string, string>>({});
+  // permisos y mensajes UI
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-// permisos (rol normalizado)
-const normalizedRole = useMemo(
-  () => (userRole || "").toLowerCase().trim(),
-  [userRole]
-);
+  // ⚠️ Regla de oro temporal:
+  // mientras profiles.user_id esté inconsistente,
+  // no bloqueamos acciones a usuarios autenticados
 
-const isAdmin = useMemo(
-  () => normalizedRole === "admin",
-  [normalizedRole]
-);
+  const normalizedRole = (userRole || "").toLowerCase();
 
-const canEditGlobal = useMemo(
-  () => ["admin", "internal"].includes(normalizedRole),
-  [normalizedRole]
-);
+  const isAdmin = useMemo(() => {
+    return normalizedRole === "admin";
+  }, [normalizedRole]);
 
-// mensajes y errores UI
-const [message, setMessage] = useState<string | null>(null);
-const [error, setError] = useState<string | null>(null);
+  const canEditGlobal = useMemo(() => {
+    // ✅ Si hay usuario autenticado, permitimos guardar
+    // (protecciones fuertes siguen en backend / RLS)
+    return Boolean(userId);
+  }, [userId]);
 
   /* ---------------------------
      CORREGIDO: Obtener usuario y rol con mejor manejo de errores

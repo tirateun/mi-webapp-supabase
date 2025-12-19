@@ -12,24 +12,33 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
     setError("");
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    setLoading(false);
-
-    if (error) {
+    if (authError) {
+      setLoading(false);
       setError("❌ Credenciales incorrectas o usuario no registrado.");
-    } else if (data?.user) {
-      // Verificar si el usuario debe cambiar su contraseña
-      const { data: profile } = await supabase
+      return;
+    }
+
+    if (data?.user) {
+      // 🔑 SIEMPRE usar profiles.user_id = auth.users.id
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("must_change_password")
-        .eq("id", data.user.id)
+        .eq("user_id", data.user.id)
         .single();
 
-      if (profile?.must_change_password) {
+      setLoading(false);
+
+      if (profileError || !profile) {
+        setError("❌ Error cargando perfil del usuario.");
+        return;
+      }
+
+      if (profile.must_change_password) {
         onRequirePasswordChange(data.user);
       } else {
         onLogin(data.user);
