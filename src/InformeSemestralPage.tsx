@@ -1,15 +1,7 @@
-// src/InformeSemestralPage.tsx
+// src/InformeSemestralPage.tsx - VERSIÓN PROFESIONAL MEJORADA
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { useNavigate, useParams } from "react-router-dom";
-
-/**
- * VERSIÓN SIMPLIFICADA Y MEJORADA
- * - UN solo selector de año con estados visuales
- * - Años bloqueados si aún no se puede informar (2 meses antes)
- * - Formulario simplificado (2 campos)
- * - Vista diferenciada: Interno vs Admin
- */
 
 interface AgreementYear {
   id: string;
@@ -62,9 +54,6 @@ export default function InformeSemestralPage() {
     return ["internal", "Internal", "interno", "Interno"].includes(userRole);
   }, [userRole]);
 
-  /* ---------------------------
-     Determinar estado de cada año
-     --------------------------- */
   const yearOptionsWithStatus = useMemo(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -137,9 +126,6 @@ export default function InformeSemestralPage() {
     return yearOptionsWithStatus.find(y => y.id === selectedYearId);
   }, [yearOptionsWithStatus, selectedYearId]);
 
-  /* ---------------------------
-     Autenticación
-     --------------------------- */
   useEffect(() => {
     (async () => {
       try {
@@ -386,141 +372,256 @@ export default function InformeSemestralPage() {
   };
 
   return (
-    <div className="container py-4" style={{ maxWidth: 1100 }}>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3 className="mb-0">📝 Informes Anuales</h3>
-        <div>
-          <button className="btn btn-outline-secondary btn-sm me-2" onClick={() => { loadAgreementYears(); loadInformes(); }}>
-            🔄 Refrescar
-          </button>
-          <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate(-1)}>
-            ← Volver
-          </button>
-        </div>
-      </div>
-
-      {message && <div className="alert alert-success alert-dismissible fade show">{message}</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      <div className="card mb-4 shadow-sm">
-        <div className="card-body">
-          <label className="form-label fw-bold">Año del convenio</label>
-          <select
-            className="form-select form-select-lg"
-            value={selectedYearId}
-            onChange={(e) => setSelectedYearId(e.target.value)}
-          >
-            <option value="">Seleccione un año</option>
-            {yearOptionsWithStatus.map((y) => (
-              <option 
-                key={y.id} 
-                value={y.id}
-                disabled={!y.puedeInformar}
-                style={{
-                  backgroundColor: y.estado === 'vencido' ? '#f8f9fa' : 
-                                 y.estado === 'vigente' && y.puedeInformar ? '#d4edda' :
-                                 y.estado === 'vigente' ? '#fff3cd' : '#e9ecef',
-                  color: y.puedeInformar ? '#000' : '#6c757d',
-                }}
-              >
-                {y.icono} Año {y.year_number} ({y.year_start ? new Date(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? new Date(y.year_end).toLocaleDateString("es-PE") : "—"}) - {y.razon}
-              </option>
-            ))}
-          </select>
-          
-          {selectedYearId && yearSeleccionado && (
-            <div className={`alert mt-3 mb-0 ${
-              yearSeleccionado.estado === 'vencido' ? 'alert-secondary' :
-              yearSeleccionado.puedeInformar ? 'alert-success' : 'alert-warning'
-            }`}>
-              <strong>{yearSeleccionado.icono} Estado:</strong> {yearSeleccionado.razon}
+    <div className="container-fluid py-4" style={{ maxWidth: 1400, backgroundColor: '#f8f9fa' }}>
+      {/* HEADER */}
+      <div className="card border-0 shadow-sm mb-4" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div className="card-body p-4">
+          <div className="d-flex justify-content-between align-items-center">
+            <div className="text-white">
+              <h2 className="mb-1 fw-bold">📋 Informes Anuales</h2>
+              <p className="mb-0 opacity-75">Gestión y seguimiento de informes del convenio</p>
             </div>
-          )}
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-light shadow-sm" 
+                onClick={() => { loadAgreementYears(); loadInformes(); }}
+                disabled={loading}
+              >
+                <i className="bi bi-arrow-clockwise me-2"></i>
+                {loading ? "Cargando..." : "Refrescar"}
+              </button>
+              <button className="btn btn-outline-light" onClick={() => navigate(-1)}>
+                <i className="bi bi-arrow-left me-2"></i>
+                Volver
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* MENSAJES */}
+      {message && (
+        <div className="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+          <i className="bi bi-check-circle-fill me-2"></i>
+          {message}
+          <button type="button" className="btn-close" onClick={() => setMessage(null)}></button>
+        </div>
+      )}
+      
+      {error && (
+        <div className="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+          <i className="bi bi-exclamation-triangle-fill me-2"></i>
+          {error}
+          <button type="button" className="btn-close" onClick={() => setError(null)}></button>
+        </div>
+      )}
+
+      {/* SELECTOR DE AÑO */}
+      <div className="card border-0 shadow-sm mb-4">
+        <div className="card-body p-4">
+          <div className="row align-items-center">
+            <div className="col-md-8">
+              <label className="form-label fw-bold mb-3">
+                <i className="bi bi-calendar-check me-2 text-primary"></i>
+                Selecciona el año del convenio
+              </label>
+              <select
+                className="form-select form-select-lg shadow-sm"
+                value={selectedYearId}
+                onChange={(e) => setSelectedYearId(e.target.value)}
+                style={{ fontSize: '1rem' }}
+              >
+                <option value="">-- Seleccione un año --</option>
+                {yearOptionsWithStatus.map((y) => (
+                  <option 
+                    key={y.id} 
+                    value={y.id}
+                    disabled={!y.puedeInformar}
+                  >
+                    {y.icono} Año {y.year_number} ({y.year_start ? new Date(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? new Date(y.year_end).toLocaleDateString("es-PE") : "—"}) - {y.razon}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {selectedYearId && yearSeleccionado && (
+              <div className="col-md-4 mt-3 mt-md-0">
+                <div className={`card border-0 h-100 ${
+                  yearSeleccionado.estado === 'vencido' ? 'bg-secondary bg-opacity-10' :
+                  yearSeleccionado.puedeInformar ? 'bg-success bg-opacity-10' : 'bg-warning bg-opacity-10'
+                }`}>
+                  <div className="card-body text-center">
+                    <div style={{ fontSize: '2rem' }}>{yearSeleccionado.icono}</div>
+                    <strong className="d-block mt-2">{yearSeleccionado.razon}</strong>
+                    {yearSeleccionado.estado === 'vigente' && !yearSeleccionado.puedeInformar && (
+                      <small className="text-muted d-block mt-1">
+                        Disponible: {yearSeleccionado.fechaInformarDesde.toLocaleDateString('es-PE')}
+                      </small>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* VISTA PARA USUARIOS INTERNOS */}
       {isInternal && selectedYearId && (
         <>
           {yearSeleccionado && !yearSeleccionado.puedeInformar && (
-            <div className="alert alert-warning">
-              <strong>⏳ Este periodo aún no está disponible para informar.</strong>
-              <p className="mb-0">Podrás enviar tu informe a partir del: <strong>{yearSeleccionado.fechaInformarDesde.toLocaleDateString('es-PE')}</strong></p>
+            <div className="card border-0 shadow-sm mb-4 border-start border-warning border-4">
+              <div className="card-body">
+                <div className="d-flex align-items-center">
+                  <div className="me-3" style={{ fontSize: '2.5rem' }}>⏳</div>
+                  <div>
+                    <h5 className="mb-1 fw-bold">Periodo no disponible</h5>
+                    <p className="mb-0">
+                      Podrás enviar tu informe a partir del: <strong>{yearSeleccionado.fechaInformarDesde.toLocaleDateString('es-PE')}</strong>
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {yearSeleccionado?.puedeInformar && (
-            <div className="card shadow-sm mb-4">
-              <div className="card-body">
+            <div className="card border-0 shadow-sm mb-4">
+              <div className="card-header bg-white border-0 p-4 pb-0">
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="mb-0">Tu informe</h5>
+                  <h4 className="mb-0 fw-bold">
+                    <i className="bi bi-file-earmark-text me-2 text-primary"></i>
+                    Tu Informe Anual
+                  </h4>
                   {miInforme ? (
-                    <span className="badge bg-success">✅ Completado</span>
+                    <span className="badge bg-success fs-6 px-3 py-2">
+                      <i className="bi bi-check-circle me-1"></i>
+                      Completado
+                    </span>
                   ) : (
-                    <span className="badge bg-warning text-dark">⚠️ Pendiente</span>
+                    <span className="badge bg-warning text-dark fs-6 px-3 py-2">
+                      <i className="bi bi-exclamation-circle me-1"></i>
+                      Pendiente
+                    </span>
                   )}
                 </div>
+              </div>
 
+              <div className="card-body p-4">
                 {miInforme ? (
-                  <div>
-                    <div className="alert alert-info">
-                      Ya enviaste tu informe para este año. Si necesitas editarlo, contacta al administrador.
+                  <>
+                    <div className="alert alert-info border-0 shadow-sm mb-4">
+                      <i className="bi bi-info-circle me-2"></i>
+                      Ya enviaste tu informe para este año. Si necesitas modificarlo, contacta al administrador.
                     </div>
-                    <div className="mb-3">
-                      <strong>Contenido:</strong>
-                      <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                        {miInforme.contenido || "—"}
+                    
+                    <div className="mb-4">
+                      <h6 className="text-primary fw-bold mb-3">
+                        <i className="bi bi-file-text me-2"></i>
+                        Contenido del Informe
+                      </h6>
+                      <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+                        {miInforme.contenido || "Sin contenido"}
                       </div>
                     </div>
+                    
                     {miInforme.dificultades && (
-                      <div className="mb-3">
-                        <strong>Dificultades/Observaciones:</strong>
-                        <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
+                      <div className="mb-4">
+                        <h6 className="text-warning fw-bold mb-3">
+                          <i className="bi bi-exclamation-triangle me-2"></i>
+                          Dificultades y Observaciones
+                        </h6>
+                        <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
                           {miInforme.dificultades}
                         </div>
                       </div>
                     )}
-                    <small className="text-muted">
-                      Enviado: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
-                    </small>
-                  </div>
+                    
+                    <div className="text-muted">
+                      <small>
+                        <i className="bi bi-calendar me-1"></i>
+                        Enviado el: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
+                      </small>
+                    </div>
+                  </>
                 ) : (
-                  <div>
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">
-                        Contenido del informe <span className="text-danger">*</span>
+                  <>
+                    <div className="alert alert-primary border-0 shadow-sm mb-4">
+                      <i className="bi bi-lightbulb me-2"></i>
+                      Completa los campos requeridos para enviar tu informe anual del convenio.
+                    </div>
+
+                    <div className="mb-4">
+                      <label className="form-label fw-bold fs-5 mb-3">
+                        <i className="bi bi-file-text me-2 text-primary"></i>
+                        Contenido del Informe <span className="text-danger">*</span>
                       </label>
-                      <small className="text-muted d-block mb-2">
-                        Incluye: resumen de actividades, logros alcanzados y resultados obtenidos durante el periodo.
+                      <small className="text-muted d-block mb-3">
+                        Incluye: resumen ejecutivo de actividades, logros principales alcanzados y resultados cuantitativos obtenidos durante el periodo.
                       </small>
                       <textarea
-                        className="form-control"
-                        rows={8}
+                        className="form-control form-control-lg shadow-sm"
+                        rows={10}
                         value={contenido}
                         onChange={(e) => setContenido(e.target.value)}
-                        placeholder="Describe las actividades realizadas, logros y resultados..."
+                        placeholder="Ejemplo:&#10;&#10;Durante el año se realizaron las siguientes actividades...&#10;&#10;Los logros principales incluyen...&#10;&#10;Los resultados obtenidos fueron..."
+                        style={{ 
+                          fontSize: '1rem',
+                          lineHeight: 1.8,
+                          resize: 'vertical',
+                          minHeight: '300px'
+                        }}
                       />
                     </div>
 
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">Dificultades/Observaciones (opcional)</label>
+                    <div className="mb-4">
+                      <label className="form-label fw-bold fs-5 mb-3">
+                        <i className="bi bi-exclamation-circle me-2 text-warning"></i>
+                        Dificultades y Observaciones <span className="text-muted">(opcional)</span>
+                      </label>
                       <textarea
-                        className="form-control"
-                        rows={4}
+                        className="form-control form-control-lg shadow-sm"
+                        rows={6}
                         value={dificultades}
                         onChange={(e) => setDificultades(e.target.value)}
-                        placeholder="Describe cualquier dificultad encontrada o comentarios adicionales..."
+                        placeholder="Describe los principales obstáculos encontrados, limitaciones, áreas de mejora o recomendaciones para el siguiente periodo..."
+                        style={{ 
+                          fontSize: '1rem',
+                          lineHeight: 1.8,
+                          resize: 'vertical',
+                          minHeight: '180px'
+                        }}
                       />
                     </div>
 
-                    <div className="d-flex gap-2 justify-content-end">
-                      <button className="btn btn-secondary" onClick={resetForm} disabled={saving}>
+                    <div className="d-flex gap-3 justify-content-end pt-3 border-top">
+                      <button 
+                        className="btn btn-outline-secondary btn-lg px-4" 
+                        onClick={resetForm} 
+                        disabled={saving}
+                      >
+                        <i className="bi bi-x-circle me-2"></i>
                         Limpiar
                       </button>
-                      <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                        {saving ? "Guardando..." : "📤 Enviar informe"}
+                      <button 
+                        className="btn btn-primary btn-lg px-5 shadow" 
+                        onClick={handleSave} 
+                        disabled={saving || !contenido.trim()}
+                      >
+                        {saving ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2"></span>
+                            Guardando...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-send me-2"></i>
+                            Enviar Informe
+                          </>
+                        )}
                       </button>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -528,98 +629,151 @@ export default function InformeSemestralPage() {
         </>
       )}
 
-      {isAdmin && (
+      {/* VISTA PARA ADMINISTRADORES */}
+      {isAdmin && selectedYearId && (
         <>
-          <div className="card shadow-sm mb-4">
-            <div className="card-body">
-              <h5>{selectedInforme ? "Editar informe" : "Nuevo informe"}</h5>
-
-              <div className="mb-3">
-                <label className="form-label fw-bold">Contenido <span className="text-danger">*</span></label>
+          {/* Formulario de edición */}
+          <div className="card border-0 shadow-sm mb-4">
+            <div className="card-header bg-white border-0 p-4">
+              <h4 className="mb-0 fw-bold">
+                <i className="bi bi-pencil-square me-2 text-primary"></i>
+                {selectedInforme ? "Editar Informe" : "Nuevo Informe"}
+              </h4>
+            </div>
+            <div className="card-body p-4">
+              <div className="mb-4">
+                <label className="form-label fw-bold">
+                  Contenido <span className="text-danger">*</span>
+                </label>
                 <textarea
-                  className="form-control"
-                  rows={6}
+                  className="form-control shadow-sm"
+                  rows={8}
                   value={contenido}
                   onChange={(e) => setContenido(e.target.value)}
+                  style={{ fontSize: '0.95rem', lineHeight: 1.6 }}
                 />
               </div>
 
-              <div className="mb-3">
+              <div className="mb-4">
                 <label className="form-label fw-bold">Dificultades/Observaciones</label>
                 <textarea
-                  className="form-control"
-                  rows={3}
+                  className="form-control shadow-sm"
+                  rows={5}
                   value={dificultades}
                   onChange={(e) => setDificultades(e.target.value)}
+                  style={{ fontSize: '0.95rem', lineHeight: 1.6 }}
                 />
               </div>
 
-              <div className="d-flex gap-2 justify-content-end">
-                <button className="btn btn-secondary" onClick={resetForm} disabled={saving}>
-                  Limpiar
+              <div className="d-flex gap-2 justify-content-end pt-3 border-top">
+                <button className="btn btn-outline-secondary px-4" onClick={resetForm} disabled={saving}>
+                  <i className="bi bi-x-circle me-2"></i>
+                  Cancelar
                 </button>
-                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                  {selectedInforme ? (saving ? "Actualizando..." : "Actualizar") : (saving ? "Guardando..." : "Guardar")}
+                <button className="btn btn-primary px-4 shadow-sm" onClick={handleSave} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      {selectedInforme ? "Actualizando..." : "Guardando..."}
+                    </>
+                  ) : (
+                    <>
+                      <i className="bi bi-check-circle me-2"></i>
+                      {selectedInforme ? "Actualizar" : "Guardar"}
+                    </>
+                  )}
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="card shadow-sm">
-            <div className="card-body">
-              <h5 className="mb-3">Todos los informes</h5>
-
+          {/* Lista de informes */}
+          <div className="card border-0 shadow-sm">
+            <div className="card-header bg-white border-0 p-4">
+              <h4 className="mb-0 fw-bold">
+                <i className="bi bi-list-ul me-2 text-primary"></i>
+                Todos los Informes
+              </h4>
+            </div>
+            <div className="card-body p-0">
               {loading ? (
-                <div>Cargando...</div>
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Cargando...</span>
+                  </div>
+                  <p className="text-muted mt-3">Cargando informes...</p>
+                </div>
               ) : informes.length === 0 ? (
-                <div className="text-muted text-center py-4">
-                  No hay informes registrados para este año.
+                <div className="text-center py-5">
+                  <div style={{ fontSize: '4rem', opacity: 0.3 }}>📋</div>
+                  <p className="text-muted mt-3 mb-0">No hay informes registrados para este año</p>
                 </div>
               ) : (
                 <div className="table-responsive">
-                  <table className="table table-hover align-middle">
-                    <thead className="table-light">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="bg-light">
                       <tr>
-                        <th>Responsable</th>
-                        <th>Año</th>
-                        <th>Contenido</th>
-                        <th style={{ width: 140 }}>Fecha</th>
-                        <th style={{ width: 200 }}>Acciones</th>
+                        <th className="px-4 py-3 fw-bold">Responsable</th>
+                        <th className="px-4 py-3 fw-bold">Año</th>
+                        <th className="px-4 py-3 fw-bold" style={{ width: '40%' }}>Contenido</th>
+                        <th className="px-4 py-3 fw-bold">Fecha</th>
+                        <th className="px-4 py-3 fw-bold text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {informes.map((inf) => (
-                        <tr key={inf.id}>
-                          <td>
-                            <strong>{inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario"}</strong>
+                      {informes.map((inf, idx) => (
+                        <tr key={inf.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8f9fa' }}>
+                          <td className="px-4 py-3">
+                            <strong>
+                              <i className="bi bi-person me-2 text-primary"></i>
+                              {inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario"}
+                            </strong>
                           </td>
-                          <td>
-                            Año {agreementYears.find((y) => y.id === inf.year_id)?.year_number ?? "?"}
+                          <td className="px-4 py-3">
+                            <span className="badge bg-primary">
+                              Año {agreementYears.find((y) => y.id === inf.year_id)?.year_number ?? "?"}
+                            </span>
                           </td>
-                          <td style={{ maxWidth: 400 }}>
+                          <td className="px-4 py-3" style={{ maxWidth: 500 }}>
                             <div style={{ 
                               overflow: "hidden", 
                               textOverflow: "ellipsis", 
                               display: "-webkit-box", 
                               WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical"
+                              WebkitBoxOrient: "vertical",
+                              lineHeight: 1.5
                             }}>
-                              {inf.contenido ?? "—"}
+                              {inf.contenido ?? "Sin contenido"}
                             </div>
                           </td>
-                          <td>
-                            <small>{inf.created_at ? new Date(inf.created_at).toLocaleDateString("es-PE") : "—"}</small>
+                          <td className="px-4 py-3">
+                            <small className="text-muted">
+                              <i className="bi bi-calendar me-1"></i>
+                              {inf.created_at ? new Date(inf.created_at).toLocaleDateString("es-PE") : "—"}
+                            </small>
                           </td>
-                          <td>
-                            <div className="d-flex gap-1">
-                              <button className="btn btn-sm btn-outline-info" onClick={() => handleView(inf)}>
-                                Ver
+                          <td className="px-4 py-3">
+                            <div className="d-flex gap-2 justify-content-center">
+                              <button 
+                                className="btn btn-sm btn-outline-info" 
+                                onClick={() => handleView(inf)}
+                                title="Ver detalles"
+                              >
+                                <i className="bi bi-eye"></i>
                               </button>
-                              <button className="btn btn-sm btn-outline-warning" onClick={() => handleEdit(inf)}>
-                                Editar
+                              <button 
+                                className="btn btn-sm btn-outline-warning" 
+                                onClick={() => handleEdit(inf)}
+                                title="Editar"
+                              >
+                                <i className="bi bi-pencil"></i>
                               </button>
-                              <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(inf.id)}>
-                                Eliminar
+                              <button 
+                                className="btn btn-sm btn-outline-danger" 
+                                onClick={() => handleDelete(inf.id)}
+                                title="Eliminar"
+                              >
+                                <i className="bi bi-trash"></i>
                               </button>
                             </div>
                           </td>
@@ -634,39 +788,74 @@ export default function InformeSemestralPage() {
         </>
       )}
 
+      {/* MODAL DE DETALLE (cuando se hace clic en Ver) */}
       {selectedInforme && (
-        <div className="card shadow-sm mt-4">
-          <div className="card-body">
-            <h5>Detalle del informe</h5>
-            <hr />
-            <div className="mb-3">
-              <strong>Responsable:</strong> {selectedInforme.user_full_name ?? profilesCache[selectedInforme.user_id ?? ""] ?? "Usuario"}
-            </div>
-            <div className="mb-3">
-              <strong>Año:</strong> Año {agreementYears.find(y => y.id === selectedInforme.year_id)?.year_number ?? "?"}
-            </div>
-            <div className="mb-3">
-              <strong>Contenido:</strong>
-              <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                {selectedInforme.contenido ?? "—"}
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setSelectedInforme(null)}>
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content shadow-lg border-0">
+              <div className="modal-header bg-primary text-white">
+                <h4 className="modal-title mb-0">
+                  <i className="bi bi-file-text me-2"></i>
+                  Detalle del Informe
+                </h4>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setSelectedInforme(null)}></button>
               </div>
-            </div>
-            {selectedInforme.dificultades && (
-              <div className="mb-3">
-                <strong>Dificultades/Observaciones:</strong>
-                <div className="border rounded p-3 bg-light mt-2" style={{ whiteSpace: "pre-wrap" }}>
-                  {selectedInforme.dificultades}
+              <div className="modal-body p-4">
+                <div className="row mb-4">
+                  <div className="col-md-6">
+                    <strong className="text-primary">
+                      <i className="bi bi-person me-2"></i>
+                      Responsable:
+                    </strong>
+                    <div className="mt-1">{selectedInforme.user_full_name ?? profilesCache[selectedInforme.user_id ?? ""] ?? "Usuario"}</div>
+                  </div>
+                  <div className="col-md-6">
+                    <strong className="text-primary">
+                      <i className="bi bi-calendar-check me-2"></i>
+                      Año:
+                    </strong>
+                    <div className="mt-1">
+                      Año {agreementYears.find(y => y.id === selectedInforme.year_id)?.year_number ?? "?"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <h6 className="text-primary fw-bold mb-3">
+                    <i className="bi bi-file-text me-2"></i>
+                    Contenido del Informe
+                  </h6>
+                  <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+                    {selectedInforme.contenido ?? "Sin contenido"}
+                  </div>
+                </div>
+
+                {selectedInforme.dificultades && (
+                  <div className="mb-4">
+                    <h6 className="text-warning fw-bold mb-3">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      Dificultades y Observaciones
+                    </h6>
+                    <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+                      {selectedInforme.dificultades}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-muted">
+                  <small>
+                    <i className="bi bi-clock me-1"></i>
+                    Fecha de creación: {selectedInforme.created_at ? new Date(selectedInforme.created_at).toLocaleString("es-PE") : "—"}
+                  </small>
                 </div>
               </div>
-            )}
-            <div className="mb-3">
-              <small className="text-muted">
-                Creado: {selectedInforme.created_at ? new Date(selectedInforme.created_at).toLocaleString("es-PE") : "—"}
-              </small>
+              <div className="modal-footer bg-light">
+                <button className="btn btn-secondary" onClick={() => setSelectedInforme(null)}>
+                  <i className="bi bi-x-circle me-2"></i>
+                  Cerrar
+                </button>
+              </div>
             </div>
-            <button className="btn btn-secondary" onClick={() => setSelectedInforme(null)}>
-              Cerrar
-            </button>
           </div>
         </div>
       )}
