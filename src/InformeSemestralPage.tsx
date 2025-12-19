@@ -486,124 +486,108 @@ export default function InformeSemestralPage() {
           )}
 
           {yearSeleccionado?.puedeInformar && (
-            <div className="card border-0 shadow mb-4">
-              <div className="card-header bg-white border-0 p-4">
-                <div className="d-flex justify-content-between align-items-center">
-                  <h3 className="mb-0 fw-bold text-primary">
-                    📄 Tu Informe Anual
-                  </h3>
+            <div className="card border-0 shadow-sm mb-4">
+              <div className="card-body p-4" style={{ maxWidth: '900px' }}>
+                <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+                  <h4 className="mb-0 fw-bold">
+                    Tu Informe Anual
+                  </h4>
                   {miInforme ? (
-                    <span className="badge bg-success" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
-                      ✅ Completado
-                    </span>
+                    <span className="badge bg-success px-3 py-2">✅ Completado</span>
                   ) : (
-                    <span className="badge bg-warning text-dark" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
-                      ⚠️ Pendiente
-                    </span>
+                    <span className="badge bg-warning text-dark px-3 py-2">⚠️ Pendiente</span>
                   )}
                 </div>
-              </div>
 
-              <div className="card-body p-4">
                 {miInforme ? (
                   <>
-                    <div className="alert alert-info border-0 shadow-sm mb-4" style={{ fontSize: '1rem' }}>
+                    <div className="alert alert-info mb-4">
                       ℹ️ Ya enviaste tu informe para este año. Si necesitas modificarlo, contacta al administrador.
                     </div>
                     
                     <div className="mb-4">
-                      <h5 className="text-primary fw-bold mb-3">
-                        📝 Contenido del Informe
-                      </h5>
-                      <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: '1rem' }}>
+                      <h6 className="fw-bold mb-2">Contenido del Informe</h6>
+                      <div className="border rounded p-3 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
                         {miInforme.contenido || "Sin contenido"}
                       </div>
                     </div>
                     
                     {miInforme.dificultades && (
                       <div className="mb-4">
-                        <h5 className="text-warning fw-bold mb-3">
-                          ⚠️ Dificultades y Observaciones
-                        </h5>
-                        <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: '1rem' }}>
+                        <h6 className="fw-bold mb-2">Dificultades y Observaciones</h6>
+                        <div className="border rounded p-3 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
                           {miInforme.dificultades}
                         </div>
                       </div>
                     )}
                     
-                    <div className="text-muted">
-                      <small>
-                        📅 Enviado el: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
-                      </small>
+                    <div className="text-muted mt-3">
+                      <small>📅 Enviado: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}</small>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="alert alert-primary border-0 shadow-sm mb-4" style={{ fontSize: '1.05rem', padding: '1.25rem' }}>
-                      💡 <strong>Completa los campos requeridos</strong> para enviar tu informe anual del convenio.
+                    <div className="alert alert-light border mb-4">
+                      <strong>💡 Instrucciones:</strong> Completa los campos requeridos para enviar tu informe anual del convenio.
                     </div>
 
+                    {/* Campo 1: Contenido */}
                     <div className="mb-4">
-                      <label className="form-label fw-bold mb-2" style={{ fontSize: '1.25rem', color: '#0d6efd' }}>
-                        📝 Contenido del Informe <span className="text-danger">*</span>
+                      <label className="form-label fw-bold mb-1">
+                        Contenido del Informe <span className="text-danger">*</span>
                       </label>
-                      <small className="text-muted d-block mb-3" style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>
-                        Incluye: resumen ejecutivo de actividades, logros principales alcanzados y resultados cuantitativos obtenidos durante el periodo.
-                      </small>
+                      <div className="text-muted small mb-2">
+                        Incluye: resumen de actividades, logros alcanzados y resultados obtenidos.
+                      </div>
                       <textarea
-                        className="form-control shadow-sm"
+                        className="form-control"
                         value={contenido}
                         onChange={(e) => setContenido(e.target.value)}
-                        placeholder="Ejemplo:
-
-Durante el año se realizaron las siguientes actividades...
-
-Los logros principales incluyen...
-
-Los resultados obtenidos fueron..."
+                        placeholder="Escribe aquí el contenido de tu informe..."
                         style={{ 
-                          fontSize: '1rem',
-                          lineHeight: 1.8,
-                          resize: 'vertical',
-                          minHeight: '350px',
-                          padding: '1rem'
+                          minHeight: '300px',
+                          fontSize: '15px',
+                          lineHeight: '1.6',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
                         }}
                       />
                     </div>
 
+                    {/* Campo 2: Dificultades */}
                     <div className="mb-4">
-                      <label className="form-label fw-bold mb-2" style={{ fontSize: '1.25rem', color: '#ffc107' }}>
-                        ⚠️ Dificultades y Observaciones <span className="text-muted" style={{ fontSize: '1rem' }}>(opcional)</span>
+                      <label className="form-label fw-bold mb-1">
+                        Dificultades y Observaciones <span className="text-muted small">(opcional)</span>
                       </label>
+                      <div className="text-muted small mb-2">
+                        Describe obstáculos, limitaciones o recomendaciones.
+                      </div>
                       <textarea
-                        className="form-control shadow-sm"
+                        className="form-control"
                         value={dificultades}
                         onChange={(e) => setDificultades(e.target.value)}
-                        placeholder="Describe los principales obstáculos encontrados, limitaciones, áreas de mejora o recomendaciones para el siguiente periodo..."
+                        placeholder="Escribe aquí las dificultades u observaciones..."
                         style={{ 
-                          fontSize: '1rem',
-                          lineHeight: 1.8,
-                          resize: 'vertical',
-                          minHeight: '200px',
-                          padding: '1rem'
+                          minHeight: '150px',
+                          fontSize: '15px',
+                          lineHeight: '1.6',
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif'
                         }}
                       />
                     </div>
 
-                    <div className="d-flex gap-3 justify-content-end pt-4 border-top">
+                    {/* Botones */}
+                    <div className="d-flex gap-2 pt-3 border-top">
                       <button 
-                        className="btn btn-outline-secondary px-4 py-2" 
+                        className="btn btn-outline-secondary" 
                         onClick={resetForm} 
                         disabled={saving}
-                        style={{ fontSize: '1.05rem' }}
                       >
-                        ❌ Limpiar
+                        Limpiar
                       </button>
                       <button 
-                        className="btn btn-primary px-5 py-2 shadow" 
+                        className="btn btn-primary" 
                         onClick={handleSave} 
                         disabled={saving || !contenido.trim()}
-                        style={{ fontSize: '1.05rem', fontWeight: '600' }}
                       >
                         {saving ? (
                           <>
@@ -611,9 +595,7 @@ Los resultados obtenidos fueron..."
                             Guardando...
                           </>
                         ) : (
-                          <>
-                            📤 Enviar Informe
-                          </>
+                          "Enviar Informe"
                         )}
                       </button>
                     </div>
