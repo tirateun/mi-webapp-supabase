@@ -599,7 +599,9 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       {grouped.length === 0 ? (
         <div className="alert alert-info">No hay contraprestaciones registradas.</div>
       ) : (
-        grouped.map(({ period, items }) => (
+        grouped
+          .filter(({ items }) => items.length > 0) // 🆕 Ocultar periodos sin items
+          .map(({ period, items }) => (
           <div key={period.key} className="card mb-3">
             <div className="card-body">
               <h6 style={{ marginBottom: 12 }}>
@@ -650,7 +652,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                               <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">📎 Ver PDF</a>
                             ) : (role === "admin" || role === "Admin" || role === "Administrador") ? (
                               <input type="file" accept="application/pdf" disabled={uploadingId === s.id} onChange={(e) => handleFileUpload(e, s)} />
-                              ) : (
+                            ) : (
                                 <span className="text-muted">Solo admins</span>
                               )}
                             </td>
