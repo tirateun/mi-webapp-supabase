@@ -227,8 +227,11 @@ export default function AgreementRenewalsPage() {
         return;
       }
 
-      // 3️⃣ Actualizar el expiration_date Y el estado del convenio
-      // ⚠️ IMPORTANTE: Tu sistema usa "ACTIVO" no "Vigente"
+      // 3️⃣ Actualizar duration_years y estado del convenio
+      // ⚠️ IMPORTANTE: expiration_date es una columna generada
+      // Se calcula como: signature_date + duration_years
+      // Entonces actualizamos duration_years, no expiration_date
+      
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       const fechaVencimiento = new Date(newExpiration);
@@ -236,16 +239,30 @@ export default function AgreementRenewalsPage() {
       
       const nuevoEstado = fechaVencimiento >= hoy ? 'ACTIVO' : 'VENCIDO';
       
-      console.log(`📅 Actualizando convenio:`, {
-        expiration_date: newExpiration,
-        estado: nuevoEstado,
-        comparacion: `${fechaVencimiento.toISOString()} >= ${hoy.toISOString()} = ${fechaVencimiento >= hoy}`
+      // Calcular nueva duración total en años
+      // Desde signature_date hasta newExpiration
+      if (!signatureDate) {
+        console.error("❌ No se puede calcular duration_years sin signature_date");
+        alert("Error: No se encontró la fecha de firma del convenio.");
+        setSaving(false);
+        return;
+      }
+      
+      const fechaFirma = new Date(signatureDate);
+      const fechaVence = new Date(newExpiration);
+      const diffYears = fechaVence.getFullYear() - fechaFirma.getFullYear();
+      
+      console.log(`📅 Calculando nueva duración:`, {
+        signature_date: signatureDate,
+        new_expiration: newExpiration,
+        duration_years: diffYears,
+        estado: nuevoEstado
       });
       
       const { error: updateError } = await supabase
         .from("agreements")
         .update({
-          expiration_date: newExpiration,
+          duration_years: diffYears,
           estado: nuevoEstado,
           updated_at: new Date().toISOString(),
         })
@@ -253,8 +270,9 @@ export default function AgreementRenewalsPage() {
 
       if (updateError) {
         console.error("❌ Error actualizando convenio:", updateError);
+        alert("⚠️ La renovación y los años se guardaron, pero hubo un error al actualizar el convenio.");
       } else {
-        console.log(`✅ Convenio actualizado - Estado: ${nuevoEstado}, Vence: ${newExpiration}`);
+        console.log(`✅ Convenio actualizado - Duration: ${diffYears} años, Estado: ${nuevoEstado}`);
       }
 
       // ✅ Éxito
@@ -340,25 +358,6 @@ export default function AgreementRenewalsPage() {
           }}
         >
           ➕ Registrar nueva renovación
-        </button>
-
-        <button
-          onClick={handleGoToContraprestaciones}
-          style={{
-            backgroundColor: "#4caf50",
-            color: "white",
-            padding: "12px 20px",
-            borderRadius: 8,
-            border: "none",
-            cursor: "pointer",
-            fontSize: 16,
-            fontWeight: 600,
-            display: "inline-flex",
-            alignItems: "center",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-          }}
-        >
-          📋 Registrar contraprestaciones
         </button>
       </div>
 
