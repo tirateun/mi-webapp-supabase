@@ -31,12 +31,62 @@ export default function Contraprestaciones({
   const [unidades, setUnidades] = useState(1);
   const [catalogo, setCatalogo] = useState<any[]>([]);
 
+  // 🆕 Estado para rol del usuario
+  const [userRole, setUserRole] = useState<string>("");
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  /* =========================
+     OBTENER ROL DEL USUARIO
+     ========================= */
+  useEffect(() => {
+    const getUserRole = async () => {
+      try {
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        if (userErr) {
+          console.error("Error obteniendo usuario:", userErr);
+          setLoadingUser(false);
+          return;
+        }
+
+        const user = userData?.user;
+        if (!user) {
+          setLoadingUser(false);
+          return;
+        }
+
+        const { data: profileData, error: profileErr } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (profileErr) {
+          console.error("Error obteniendo perfil:", profileErr);
+        } else if (profileData) {
+          setUserRole(profileData.role || "");
+        }
+      } catch (err) {
+        console.error("Error en getUserRole:", err);
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    getUserRole();
+  }, []);
+
+  /* =========================
+     VALIDAR SI ES ADMIN
+     ========================= */
+  const isAdmin = useMemo(() => {
+    return ["admin", "Admin", "Administrador"].includes(userRole);
+  }, [userRole]);
+
   /* =========================
      HELPERS: Estado de año
      ========================= */
   const getYearStatus = (yearStart: string, yearEnd: string): YearStatus => {
     const hoy = new Date();
-    // Normalizar todas las fechas a medianoche para comparación consistente
     hoy.setHours(0, 0, 0, 0);
     
     const inicio = new Date(yearStart);
@@ -45,7 +95,6 @@ export default function Contraprestaciones({
     const fin = new Date(yearEnd);
     fin.setHours(0, 0, 0, 0);
     
-    // Un año está vigente si hoy está entre inicio (inclusive) y fin (inclusive)
     if (hoy < inicio) {
       return 'futuro';
     } else if (hoy > fin) {
@@ -114,7 +163,7 @@ export default function Contraprestaciones({
   }, [agreementId]);
 
   /* =========================
-     AÑOS DEL CONVENIO (CLAVE)
+     AÑOS DEL CONVENIO
      ========================= */
   async function loadYears() {
     try {
@@ -124,14 +173,13 @@ export default function Contraprestaciones({
         .from("agreement_years")
         .select("id, year_number, year_start, year_end")
         .eq("agreement_id", agreementId)
-        .order("year_number", { ascending: true }); // Orden cronológico
+        .order("year_number", { ascending: true });
 
       if (error) throw error;
 
       if (Array.isArray(data) && data.length > 0) {
         setYears(data);
         
-        // ✅ Seleccionar el año VIGENTE si existe, sino el más nuevo
         const vigente = data.find(y => {
           const status = getYearStatus(y.year_start, y.year_end);
           return status === 'vigente';
@@ -140,7 +188,6 @@ export default function Contraprestaciones({
         if (vigente) {
           setSelectedYear(vigente.id);
         } else {
-          // Si no hay vigente, seleccionar el más reciente
           const sorted = [...data].sort((a, b) => b.year_number - a.year_number);
           setSelectedYear(sorted[0].id);
         }
@@ -210,9 +257,15 @@ export default function Contraprestaciones({
   }
 
   /* =========================
-     AGREGAR
+     AGREGAR - 🔒 SOLO ADMIN
      ========================= */
   async function addItem() {
+    // 🔒 VALIDACIÓN DE PERMISOS
+    if (!isAdmin) {
+      alert("❌ Solo los administradores pueden agregar contraprestaciones.");
+      return;
+    }
+
     if (!agreementId) return alert("Convenio inválido.");
     if (!selectedYear || selectedYear.trim() === "")
       return alert("Seleccione un año válido.");
@@ -242,9 +295,15 @@ export default function Contraprestaciones({
   }
 
   /* =========================
-     ELIMINAR
+     ELIMINAR - 🔒 SOLO ADMIN
      ========================= */
   async function deleteItem(id: string) {
+    // 🔒 VALIDACIÓN DE PERMISOS
+    if (!isAdmin) {
+      alert("❌ Solo los administradores pueden eliminar contraprestaciones.");
+      return;
+    }
+
     if (!confirm("¿Eliminar contraprestación?")) return;
     try {
       const { error } = await supabase
@@ -271,6 +330,14 @@ export default function Contraprestaciones({
   /* =========================
      UI
      ========================= */
+  if (loadingUser) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto text-center">
+        <p>Cargando permisos...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <button className="mb-4 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400" onClick={onBack}>
@@ -292,7 +359,6 @@ export default function Contraprestaciones({
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
           >
-            {/* Año vigente actual */}
             {groupedYears.vigente.length > 0 && (
               <optgroup label="✅ Año vigente actual">
                 {groupedYears.vigente.map((y) => (
@@ -311,7 +377,6 @@ export default function Contraprestaciones({
               </optgroup>
             )}
 
-            {/* Años próximos */}
             {groupedYears.futuro.length > 0 && (
               <optgroup label="📅 Años próximos">
                 {groupedYears.futuro.map((y) => (
@@ -329,7 +394,6 @@ export default function Contraprestaciones({
               </optgroup>
             )}
 
-            {/* Años vencidos */}
             {groupedYears.pasado.length > 0 && (
               <optgroup label="⏸️ Años vencidos">
                 {groupedYears.pasado.map((y) => (
@@ -374,47 +438,57 @@ export default function Contraprestaciones({
         );
       })()}
 
-      {/* Agregar */}
-      <div className="border-2 border-gray-300 p-4 rounded-lg mb-6 bg-gray-50">
-        <h2 className="font-semibold mb-3 text-lg">Agregar contraprestación</h2>
+      {/* Formulario - 🔒 SOLO VISIBLE PARA ADMIN */}
+      {isAdmin ? (
+        <div className="border-2 border-gray-300 p-4 rounded-lg mb-6 bg-gray-50">
+          <h2 className="font-semibold mb-3 text-lg">Agregar contraprestación</h2>
 
-        <select
-          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value)}
-        >
-          <option value="">Seleccione tipo</option>
-          {catalogo.map((c) => (
-            <option key={c.id} value={c.nombre}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
+          <select
+            className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          >
+            <option value="">Seleccione tipo</option>
+            {catalogo.map((c) => (
+              <option key={c.id} value={c.nombre}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
 
-        <textarea
-          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Descripción"
-          rows={3}
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-        />
+          <textarea
+            className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Descripción"
+            rows={3}
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+          />
 
-        <input
-          type="number"
-          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Unidades comprometidas"
-          min={1}
-          value={unidades}
-          onChange={(e) => setUnidades(Number(e.target.value))}
-        />
+          <input
+            type="number"
+            className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Unidades comprometidas"
+            min={1}
+            value={unidades}
+            onChange={(e) => setUnidades(Number(e.target.value))}
+          />
 
-        <button
-          onClick={addItem}
-          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold shadow"
-        >
-          ➕ Agregar
-        </button>
-      </div>
+          <button
+            onClick={addItem}
+            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold shadow"
+          >
+            ➕ Agregar
+          </button>
+        </div>
+      ) : (
+        <div className="border-2 border-yellow-300 p-4 rounded-lg mb-6 bg-yellow-50">
+          <div className="text-center text-yellow-800">
+            <p className="font-semibold text-lg mb-2">🔒 Permisos insuficientes</p>
+            <p className="text-sm">Solo los administradores pueden agregar contraprestaciones.</p>
+            <p className="text-xs mt-2 text-yellow-700">Tu rol actual: <strong>{userRole || "Sin rol"}</strong></p>
+          </div>
+        </div>
+      )}
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-lg border border-gray-300 shadow">
@@ -424,13 +498,13 @@ export default function Contraprestaciones({
               <th className="border border-gray-300 p-3 text-left">Tipo</th>
               <th className="border border-gray-300 p-3 text-left">Descripción</th>
               <th className="border border-gray-300 p-3 text-center">Unidades</th>
-              <th className="border border-gray-300 p-3 text-center">Acciones</th>
+              {isAdmin && <th className="border border-gray-300 p-3 text-center">Acciones</th>}
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="border border-gray-300 p-4 text-center text-gray-500">
+                <td colSpan={isAdmin ? 4 : 3} className="border border-gray-300 p-4 text-center text-gray-500">
                   No hay contraprestaciones registradas para este año
                 </td>
               </tr>
@@ -440,14 +514,16 @@ export default function Contraprestaciones({
                   <td className="border border-gray-300 p-3">{i.tipo}</td>
                   <td className="border border-gray-300 p-3">{i.descripcion || '—'}</td>
                   <td className="border border-gray-300 p-3 text-center">{i.unidades_comprometidas}</td>
-                  <td className="border border-gray-300 p-3 text-center">
-                    <button
-                      className="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                      onClick={() => deleteItem(i.id)}
-                    >
-                      🗑️ Eliminar
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="border border-gray-300 p-3 text-center">
+                      <button
+                        className="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                        onClick={() => deleteItem(i.id)}
+                      >
+                        🗑️ Eliminar
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
