@@ -486,22 +486,19 @@ export default function InformeSemestralPage() {
           )}
 
           {yearSeleccionado?.puedeInformar && (
-            <div className="card border-0 shadow-sm mb-4">
-              <div className="card-header bg-white border-0 p-4 pb-0">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h4 className="mb-0 fw-bold">
-                    <i className="bi bi-file-earmark-text me-2 text-primary"></i>
-                    Tu Informe Anual
-                  </h4>
+            <div className="card border-0 shadow mb-4">
+              <div className="card-header bg-white border-0 p-4">
+                <div className="d-flex justify-content-between align-items-center">
+                  <h3 className="mb-0 fw-bold text-primary">
+                    📄 Tu Informe Anual
+                  </h3>
                   {miInforme ? (
-                    <span className="badge bg-success fs-6 px-3 py-2">
-                      <i className="bi bi-check-circle me-1"></i>
-                      Completado
+                    <span className="badge bg-success" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+                      ✅ Completado
                     </span>
                   ) : (
-                    <span className="badge bg-warning text-dark fs-6 px-3 py-2">
-                      <i className="bi bi-exclamation-circle me-1"></i>
-                      Pendiente
+                    <span className="badge bg-warning text-dark" style={{ fontSize: '1rem', padding: '0.5rem 1rem' }}>
+                      ⚠️ Pendiente
                     </span>
                   )}
                 </div>
@@ -510,28 +507,25 @@ export default function InformeSemestralPage() {
               <div className="card-body p-4">
                 {miInforme ? (
                   <>
-                    <div className="alert alert-info border-0 shadow-sm mb-4">
-                      <i className="bi bi-info-circle me-2"></i>
-                      Ya enviaste tu informe para este año. Si necesitas modificarlo, contacta al administrador.
+                    <div className="alert alert-info border-0 shadow-sm mb-4" style={{ fontSize: '1rem' }}>
+                      ℹ️ Ya enviaste tu informe para este año. Si necesitas modificarlo, contacta al administrador.
                     </div>
                     
                     <div className="mb-4">
-                      <h6 className="text-primary fw-bold mb-3">
-                        <i className="bi bi-file-text me-2"></i>
-                        Contenido del Informe
-                      </h6>
-                      <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+                      <h5 className="text-primary fw-bold mb-3">
+                        📝 Contenido del Informe
+                      </h5>
+                      <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: '1rem' }}>
                         {miInforme.contenido || "Sin contenido"}
                       </div>
                     </div>
                     
                     {miInforme.dificultades && (
                       <div className="mb-4">
-                        <h6 className="text-warning fw-bold mb-3">
-                          <i className="bi bi-exclamation-triangle me-2"></i>
-                          Dificultades y Observaciones
-                        </h6>
-                        <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8 }}>
+                        <h5 className="text-warning fw-bold mb-3">
+                          ⚠️ Dificultades y Observaciones
+                        </h5>
+                        <div className="border rounded-3 p-4 bg-light" style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: '1rem' }}>
                           {miInforme.dificultades}
                         </div>
                       </div>
@@ -539,49 +533,50 @@ export default function InformeSemestralPage() {
                     
                     <div className="text-muted">
                       <small>
-                        <i className="bi bi-calendar me-1"></i>
-                        Enviado el: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
+                        📅 Enviado el: {miInforme.created_at ? new Date(miInforme.created_at).toLocaleString("es-PE") : "—"}
                       </small>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="alert alert-primary border-0 shadow-sm mb-4">
-                      <i className="bi bi-lightbulb me-2"></i>
-                      Completa los campos requeridos para enviar tu informe anual del convenio.
+                    <div className="alert alert-primary border-0 shadow-sm mb-4" style={{ fontSize: '1.05rem', padding: '1.25rem' }}>
+                      💡 <strong>Completa los campos requeridos</strong> para enviar tu informe anual del convenio.
                     </div>
 
                     <div className="mb-4">
-                      <label className="form-label fw-bold fs-5 mb-3">
-                        <i className="bi bi-file-text me-2 text-primary"></i>
-                        Contenido del Informe <span className="text-danger">*</span>
+                      <label className="form-label fw-bold mb-2" style={{ fontSize: '1.25rem', color: '#0d6efd' }}>
+                        📝 Contenido del Informe <span className="text-danger">*</span>
                       </label>
-                      <small className="text-muted d-block mb-3">
+                      <small className="text-muted d-block mb-3" style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>
                         Incluye: resumen ejecutivo de actividades, logros principales alcanzados y resultados cuantitativos obtenidos durante el periodo.
                       </small>
                       <textarea
-                        className="form-control form-control-lg shadow-sm"
-                        rows={10}
+                        className="form-control shadow-sm"
                         value={contenido}
                         onChange={(e) => setContenido(e.target.value)}
-                        placeholder="Ejemplo:&#10;&#10;Durante el año se realizaron las siguientes actividades...&#10;&#10;Los logros principales incluyen...&#10;&#10;Los resultados obtenidos fueron..."
+                        placeholder="Ejemplo:
+
+Durante el año se realizaron las siguientes actividades...
+
+Los logros principales incluyen...
+
+Los resultados obtenidos fueron..."
                         style={{ 
                           fontSize: '1rem',
                           lineHeight: 1.8,
                           resize: 'vertical',
-                          minHeight: '300px'
+                          minHeight: '350px',
+                          padding: '1rem'
                         }}
                       />
                     </div>
 
                     <div className="mb-4">
-                      <label className="form-label fw-bold fs-5 mb-3">
-                        <i className="bi bi-exclamation-circle me-2 text-warning"></i>
-                        Dificultades y Observaciones <span className="text-muted">(opcional)</span>
+                      <label className="form-label fw-bold mb-2" style={{ fontSize: '1.25rem', color: '#ffc107' }}>
+                        ⚠️ Dificultades y Observaciones <span className="text-muted" style={{ fontSize: '1rem' }}>(opcional)</span>
                       </label>
                       <textarea
-                        className="form-control form-control-lg shadow-sm"
-                        rows={6}
+                        className="form-control shadow-sm"
                         value={dificultades}
                         onChange={(e) => setDificultades(e.target.value)}
                         placeholder="Describe los principales obstáculos encontrados, limitaciones, áreas de mejora o recomendaciones para el siguiente periodo..."
@@ -589,24 +584,26 @@ export default function InformeSemestralPage() {
                           fontSize: '1rem',
                           lineHeight: 1.8,
                           resize: 'vertical',
-                          minHeight: '180px'
+                          minHeight: '200px',
+                          padding: '1rem'
                         }}
                       />
                     </div>
 
-                    <div className="d-flex gap-3 justify-content-end pt-3 border-top">
+                    <div className="d-flex gap-3 justify-content-end pt-4 border-top">
                       <button 
-                        className="btn btn-outline-secondary btn-lg px-4" 
+                        className="btn btn-outline-secondary px-4 py-2" 
                         onClick={resetForm} 
                         disabled={saving}
+                        style={{ fontSize: '1.05rem' }}
                       >
-                        <i className="bi bi-x-circle me-2"></i>
-                        Limpiar
+                        ❌ Limpiar
                       </button>
                       <button 
-                        className="btn btn-primary btn-lg px-5 shadow" 
+                        className="btn btn-primary px-5 py-2 shadow" 
                         onClick={handleSave} 
                         disabled={saving || !contenido.trim()}
+                        style={{ fontSize: '1.05rem', fontWeight: '600' }}
                       >
                         {saving ? (
                           <>
@@ -615,8 +612,7 @@ export default function InformeSemestralPage() {
                           </>
                         ) : (
                           <>
-                            <i className="bi bi-send me-2"></i>
-                            Enviar Informe
+                            📤 Enviar Informe
                           </>
                         )}
                       </button>
