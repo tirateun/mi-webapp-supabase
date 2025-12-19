@@ -1,6 +1,18 @@
 // src/Contraprestaciones.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
+
+type YearStatus = 'pasado' | 'vigente' | 'futuro';
+
+interface YearOption {
+  id: string;
+  year_number: number;
+  year_start: string;
+  year_end: string;
+  status: YearStatus;
+  icon: string;
+  statusLabel: string;
+}
 
 export default function Contraprestaciones({
   agreementId,
@@ -18,6 +30,76 @@ export default function Contraprestaciones({
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
   const [catalogo, setCatalogo] = useState<any[]>([]);
+
+  /* =========================
+     HELPERS: Estado de año
+     ========================= */
+  const getYearStatus = (yearStart: string, yearEnd: string): YearStatus => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // Normalizar a medianoche
+    
+    const inicio = new Date(yearStart);
+    inicio.setHours(0, 0, 0, 0);
+    
+    const fin = new Date(yearEnd);
+    fin.setHours(23, 59, 59, 999);
+    
+    if (hoy > fin) {
+      return 'pasado';
+    } else if (hoy >= inicio && hoy <= fin) {
+      return 'vigente';
+    } else {
+      return 'futuro';
+    }
+  };
+
+  const getYearIcon = (status: YearStatus): string => {
+    switch (status) {
+      case 'pasado': return '⏸️';
+      case 'vigente': return '✅';
+      case 'futuro': return '📅';
+    }
+  };
+
+  const getYearLabel = (status: YearStatus): string => {
+    switch (status) {
+      case 'pasado': return '(Vencido)';
+      case 'vigente': return '(Vigente)';
+      case 'futuro': return '(Próximo)';
+    }
+  };
+
+  /* =========================
+     AÑOS PROCESADOS con estado
+     ========================= */
+  const yearOptions = useMemo((): YearOption[] => {
+    return years.map((year) => {
+      const status = getYearStatus(year.year_start, year.year_end);
+      const icon = getYearIcon(status);
+      const statusLabel = getYearLabel(status);
+      
+      return {
+        id: year.id,
+        year_number: year.year_number,
+        year_start: year.year_start,
+        year_end: year.year_end,
+        status,
+        icon,
+        statusLabel,
+      };
+    });
+  }, [years]);
+
+  /* =========================
+     AÑOS AGRUPADOS por estado
+     ========================= */
+  const groupedYears = useMemo(() => {
+    return {
+      vigente: yearOptions.filter(y => y.status === 'vigente'),
+      futuro: yearOptions.filter(y => y.status === 'futuro'),
+      pasado: yearOptions.filter(y => y.status === 'pasado'),
+    };
+  }, [yearOptions]);
 
   /* =========================
      CARGA INICIAL
@@ -40,14 +122,26 @@ export default function Contraprestaciones({
         .from("agreement_years")
         .select("id, year_number, year_start, year_end")
         .eq("agreement_id", agreementId)
-        .order("year_number", { ascending: false }); // 🔥 MÁS NUEVO PRIMERO
+        .order("year_number", { ascending: true }); // Orden cronológico
 
       if (error) throw error;
 
       if (Array.isArray(data) && data.length > 0) {
         setYears(data);
-        // ✅ Seleccionar SIEMPRE el año MÁS NUEVO
-        setSelectedYear(data[0].id);
+        
+        // ✅ Seleccionar el año VIGENTE si existe, sino el más nuevo
+        const vigente = data.find(y => {
+          const status = getYearStatus(y.year_start, y.year_end);
+          return status === 'vigente';
+        });
+        
+        if (vigente) {
+          setSelectedYear(vigente.id);
+        } else {
+          // Si no hay vigente, seleccionar el más reciente
+          const sorted = [...data].sort((a, b) => b.year_number - a.year_number);
+          setSelectedYear(sorted[0].id);
+        }
       } else {
         setYears([]);
         setSelectedYear("");
@@ -177,13 +271,13 @@ export default function Contraprestaciones({
      ========================= */
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <button className="mb-4 px-3 py-1 bg-gray-300" onClick={onBack}>
-        Volver
+      <button className="mb-4 px-3 py-1 bg-gray-300 rounded hover:bg-gray-400" onClick={onBack}>
+        ← Volver
       </button>
 
       <h1 className="text-2xl font-bold mb-4">Contraprestaciones</h1>
 
-      {/* Selector de año */}
+      {/* Selector de año con agrupación visual */}
       <div className="mb-4">
         <label className="font-semibold mr-2">Año del convenio:</label>
         {loadingYears ? (
@@ -192,26 +286,98 @@ export default function Contraprestaciones({
           <span className="text-red-600">No hay años definidos</span>
         ) : (
           <select
-            className="border px-2 py-1"
+            className="border px-3 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
           >
-            {years.map((y) => (
-              <option key={y.id} value={y.id}>
-                Año {y.year_number} — {formatDate(y.year_start)} /{" "}
-                {formatDate(y.year_end)}
-              </option>
-            ))}
+            {/* Año vigente actual */}
+            {groupedYears.vigente.length > 0 && (
+              <optgroup label="✅ Año vigente actual">
+                {groupedYears.vigente.map((y) => (
+                  <option 
+                    key={y.id} 
+                    value={y.id}
+                    style={{
+                      backgroundColor: '#d4edda',
+                      color: '#155724',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {y.icon} Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)} {y.statusLabel}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+
+            {/* Años próximos */}
+            {groupedYears.futuro.length > 0 && (
+              <optgroup label="📅 Años próximos">
+                {groupedYears.futuro.map((y) => (
+                  <option 
+                    key={y.id} 
+                    value={y.id}
+                    style={{
+                      backgroundColor: '#fff3cd',
+                      color: '#856404'
+                    }}
+                  >
+                    {y.icon} Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)} {y.statusLabel}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+
+            {/* Años vencidos */}
+            {groupedYears.pasado.length > 0 && (
+              <optgroup label="⏸️ Años vencidos">
+                {groupedYears.pasado.map((y) => (
+                  <option 
+                    key={y.id} 
+                    value={y.id}
+                    style={{
+                      backgroundColor: '#f8f9fa',
+                      color: '#6c757d',
+                      opacity: 0.8
+                    }}
+                  >
+                    {y.icon} Año {y.year_number} — {formatDate(y.year_start)} / {formatDate(y.year_end)} {y.statusLabel}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         )}
       </div>
 
+      {/* Indicador visual del año seleccionado */}
+      {selectedYear && yearOptions.length > 0 && (() => {
+        const currentYear = yearOptions.find(y => y.id === selectedYear);
+        if (!currentYear) return null;
+        
+        const badgeColors: Record<YearStatus, string> = {
+          vigente: 'bg-green-100 text-green-800 border-green-300',
+          futuro: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+          pasado: 'bg-gray-100 text-gray-600 border-gray-300'
+        };
+        
+        return (
+          <div className={`mb-4 p-3 rounded-lg border-2 ${badgeColors[currentYear.status]}`}>
+            <span className="font-semibold">
+              {currentYear.icon} Trabajando en: Año {currentYear.year_number} {currentYear.statusLabel}
+            </span>
+            <span className="ml-2 text-sm">
+              ({formatDate(currentYear.year_start)} al {formatDate(currentYear.year_end)})
+            </span>
+          </div>
+        );
+      })()}
+
       {/* Agregar */}
-      <div className="border p-4 rounded mb-6">
-        <h2 className="font-semibold mb-2">Agregar contraprestación</h2>
+      <div className="border-2 border-gray-300 p-4 rounded-lg mb-6 bg-gray-50">
+        <h2 className="font-semibold mb-3 text-lg">Agregar contraprestación</h2>
 
         <select
-          className="border px-2 py-1 w-full mb-2"
+          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
         >
@@ -224,55 +390,68 @@ export default function Contraprestaciones({
         </select>
 
         <textarea
-          className="border px-2 py-1 w-full mb-2"
+          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Descripción"
+          rows={3}
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
         />
 
         <input
           type="number"
-          className="border px-2 py-1 w-full mb-2"
+          className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Unidades comprometidas"
+          min={1}
           value={unidades}
           onChange={(e) => setUnidades(Number(e.target.value))}
         />
 
         <button
           onClick={addItem}
-          className="px-4 py-1 bg-blue-600 text-white rounded"
+          className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold shadow"
         >
-          Agregar
+          ➕ Agregar
         </button>
       </div>
 
       {/* Tabla */}
-      <table className="w-full border-collapse border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">Tipo</th>
-            <th className="border p-2">Descripción</th>
-            <th className="border p-2">Unidades</th>
-            <th className="border p-2">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((i) => (
-            <tr key={i.id}>
-              <td className="border p-2">{i.tipo}</td>
-              <td className="border p-2">{i.descripcion}</td>
-              <td className="border p-2">{i.unidades_comprometidas}</td>
-              <td className="border p-2">
-                <button
-                  className="px-3 py-1 bg-red-500 text-white rounded"
-                  onClick={() => deleteItem(i.id)}
-                >
-                  Eliminar
-                </button>
-              </td>
+      <div className="overflow-hidden rounded-lg border border-gray-300 shadow">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border border-gray-300 p-3 text-left">Tipo</th>
+              <th className="border border-gray-300 p-3 text-left">Descripción</th>
+              <th className="border border-gray-300 p-3 text-center">Unidades</th>
+              <th className="border border-gray-300 p-3 text-center">Acciones</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="border border-gray-300 p-4 text-center text-gray-500">
+                  No hay contraprestaciones registradas para este año
+                </td>
+              </tr>
+            ) : (
+              items.map((i) => (
+                <tr key={i.id} className="hover:bg-gray-50">
+                  <td className="border border-gray-300 p-3">{i.tipo}</td>
+                  <td className="border border-gray-300 p-3">{i.descripcion || '—'}</td>
+                  <td className="border border-gray-300 p-3 text-center">{i.unidades_comprometidas}</td>
+                  <td className="border border-gray-300 p-3 text-center">
+                    <button
+                      className="px-4 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                      onClick={() => deleteItem(i.id)}
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
