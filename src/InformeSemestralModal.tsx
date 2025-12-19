@@ -161,13 +161,13 @@ export default function InformeSemestralModal({
       // Construir payload; incluir year_id si hay selectedYearId
       const payload: any = {
         convenio_id: convenioId,
-        periodo,
+        periodo: selectedYearId ? `Año ${new Date().getFullYear()}` : "Sin periodo",
         descripcion,
         actividades,
         logros,
         dificultades,
         resumen,
-        user_id: profile.id, // referencia a profiles.id para trazabilidad
+        user_id: profile.id,
         internal_responsible_id: profile.id,
       };
 
