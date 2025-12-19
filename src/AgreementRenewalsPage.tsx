@@ -137,6 +137,22 @@ export default function AgreementRenewalsPage() {
     setNewExpiration(`${year}-${month}-${day}`);
   }, [renewalDate, years]);
 
+  // 🆕 Autocompletar fecha de renovación cuando se abre el modal
+  useEffect(() => {
+    if (showModal && oldExpiration && !renewalDate) {
+      // Calcular día siguiente al vencimiento actual
+      const expDate = new Date(oldExpiration);
+      expDate.setDate(expDate.getDate() + 1);
+      
+      const year = expDate.getFullYear();
+      const month = String(expDate.getMonth() + 1).padStart(2, "0");
+      const day = String(expDate.getDate()).padStart(2, "0");
+      const nextDay = `${year}-${month}-${day}`;
+      
+      setRenewalDate(nextDay);
+    }
+  }, [showModal, oldExpiration, renewalDate]);
+
   async function saveRenewal() {
     if (!agreementId) {
       alert("No se ha seleccionado convenio.");
