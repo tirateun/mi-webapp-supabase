@@ -63,16 +63,16 @@ export default function FiltroAvanzado({
   }, []);
 
   // 🆕 APLICAR FILTROS AUTOMÁTICAMENTE cuando cambia cualquier filtro
-useEffect(() => {
-  onApply({
-    areas: selectedAreas,
-    tipos: selectedTipos,
-    estados: selectedEstados,
-    anioInicio,
-    anioFin,
-    operator,
-  });
-}, [selectedAreas, selectedTipos, selectedEstados, anioInicio, anioFin, operator, onApply]);
+  useEffect(() => {
+    onApply({
+      areas: selectedAreas,
+      tipos: selectedTipos,
+      estados: selectedEstados,
+      anioInicio,
+      anioFin,
+      operator,
+    });
+  }, [selectedAreas, selectedTipos, selectedEstados, anioInicio, anioFin, operator]);
 
   // Toggles
   const toggleArea = (id: string) => {
