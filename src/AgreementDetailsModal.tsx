@@ -38,24 +38,27 @@ export default function AgreementDetailsModal({
       if (agreementError) throw agreementError;
       setAgreement(agreementData);
 
-      // Cargar responsables internos
-      const { data: internalsData, error: internalsError } = await supabase
+      // Cargar responsables internos - MÉTODO SIMPLIFICADO
+      const { data: internalsLinks, error: internalsError } = await supabase
         .from("agreement_internal_responsibles")
-        .select(`
-          internal_responsible_id,
-          profiles:internal_responsible_id (
-            id,
-            full_name,
-            email
-          )
-        `)
+        .select("internal_responsible_id")
         .eq("agreement_id", agreementId);
 
-      if (!internalsError && internalsData) {
-        const internalsList = internalsData
-          .map((item: any) => item.profiles)
-          .filter(Boolean);
-        setInternals(internalsList);
+      if (!internalsError && internalsLinks && internalsLinks.length > 0) {
+        // Obtener IDs de responsables
+        const internalIds = internalsLinks.map((link: any) => link.internal_responsible_id);
+        
+        // Cargar perfiles de esos responsables
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", internalIds);
+
+        if (!profilesError && profilesData) {
+          setInternals(profilesData);
+        }
+      } else {
+        setInternals([]);
       }
 
       // Cargar responsable externo
@@ -69,23 +72,25 @@ export default function AgreementDetailsModal({
         if (externalData) setExternal(externalData);
       }
 
-      // Cargar áreas vinculadas
-      const { data: areasData } = await supabase
+      // Cargar áreas vinculadas - MÉTODO SIMPLIFICADO
+      const { data: areasLinks } = await supabase
         .from("agreement_areas_vinculadas")
-        .select(`
-          area_vinculada_id,
-          areas_vinculadas:area_vinculada_id (
-            id,
-            nombre
-          )
-        `)
+        .select("area_vinculada_id")
         .eq("agreement_id", agreementId);
 
-      if (areasData) {
-        const areasList = areasData
-          .map((item: any) => item.areas_vinculadas)
-          .filter(Boolean);
-        setAreas(areasList);
+      if (areasLinks && areasLinks.length > 0) {
+        const areaIds = areasLinks.map((link: any) => link.area_vinculada_id);
+        
+        const { data: areasData } = await supabase
+          .from("areas_vinculadas")
+          .select("id, nombre")
+          .in("id", areaIds);
+
+        if (areasData) {
+          setAreas(areasData);
+        }
+      } else {
+        setAreas([]);
       }
 
     } catch (err) {
