@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
-import FiltroAvanzado from "./FiltroAvanzadoSimple";
+import FiltroAvanzado from "./FiltroAvanzado";
 import RenewalHistory from "./RenewalHistory";
 import AgreementDetailsModal from "./AgreementDetailsModal";
 
@@ -789,12 +789,48 @@ export default function AgreementsList({
         </div>
 
         {/* BODY */}
-        <div className="modal-body p-4">
-          <h1>PRUEBA DIRECTA</h1>
-          <p>Total áreas: Test</p>
-          <button className="btn btn-primary">Botón de Prueba</button>
-        </div>
-
+<div className="modal-body p-4">
+  <h5 className="mb-3">Filtro Rápido</h5>
+  
+  <div className="mb-3">
+    <label className="fw-bold mb-2">Estado:</label>
+    <div className="d-flex gap-2">
+      <button 
+        className="btn btn-sm btn-primary"
+        onClick={() => {
+          handleApplyAdvancedFilters({
+            areas: [], tipos: [], estados: ["Vigente"],
+            anioInicio: "", anioFin: "", operator: "AND"
+          });
+          setShowFiltroAvanzado(false);
+        }}
+      >
+        Solo Vigentes
+      </button>
+      <button 
+        className="btn btn-sm btn-warning"
+        onClick={() => {
+          handleApplyAdvancedFilters({
+            areas: [], tipos: [], estados: ["Por vencer"],
+            anioInicio: "", anioFin: "", operator: "AND"
+          });
+          setShowFiltroAvanzado(false);
+        }}
+      >
+        Por Vencer
+      </button>
+      <button 
+        className="btn btn-sm btn-secondary"
+        onClick={() => {
+          handleClearAdvancedFilters();
+          setShowFiltroAvanzado(false);
+        }}
+      >
+        Limpiar Filtros
+      </button>
+    </div>
+  </div>
+</div>
         {/* FOOTER */}
         <div className="modal-footer bg-light border-0">
           <button 
