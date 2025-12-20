@@ -48,30 +48,18 @@ export default function FiltroAvanzado({
     loadAreas();
   }, []);
 
-  // Cargar tipos de convenio
+  // Cargar tipos de convenio (lista fija, no de BD)
   useEffect(() => {
-    async function loadTipos() {
-      const { data, error } = await supabase
-        .from("tipos_convenio")
-        .select("nombre")
-        .order("nombre", { ascending: true });
-
-      if (!error && data && data.length > 0) {
-        setTiposConvenio(data.map((t) => t.nombre));
-      } else {
-        // Si no existe tabla, usamos lista local
-        setTiposConvenio([
-          "Docente Asistencial",
-          "Cooperación técnica",
-          "Movilidad académica",
-          "Investigación",
-          "Colaboración académica",
-          "Consultoría",
-          "Cotutela",
-        ]);
-      }
-    }
-    loadTipos();
+    // Usar siempre lista local ya que la tabla tipos_convenio no existe
+    setTiposConvenio([
+      "Docente Asistencial",
+      "Cooperación técnica",
+      "Movilidad académica",
+      "Investigación",
+      "Colaboración académica",
+      "Consultoría",
+      "Cotutela",
+    ]);
   }, []);
 
   // 🆕 APLICAR FILTROS AUTOMÁTICAMENTE cuando cambia cualquier filtro
