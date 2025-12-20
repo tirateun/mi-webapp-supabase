@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import FiltroAvanzado from "./FiltroAvanzado";
 import RenewalHistory from "./RenewalHistory";
+import AgreementDetailsModal from "./AgreementDetailsModal";
 
 /* ------------------ Tipos ------------------ */
 interface AgreementsListProps {
@@ -108,6 +109,14 @@ export default function AgreementsList({
   // Busca la sección de useState (aproximadamente línea 50-60) y agrega:
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedAgreementForHistory, setSelectedAgreementForHistory] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Agregar estados para el modal
+
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedAgreementForDetails, setSelectedAgreementForDetails] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -468,6 +477,20 @@ export default function AgreementsList({
     setShowHistoryModal(false);
     setSelectedAgreementForHistory(null);
   };
+  // Agregar funciones para abrir/cerrar el modal
+  const handleOpenDetails = (agreement: any) => {
+    setSelectedAgreementForDetails({
+      id: agreement.id,
+      name: agreement.name
+    });
+    setShowDetailsModal(true);
+  };
+  
+  const handleCloseDetails = () => {
+    setShowDetailsModal(false);
+    setSelectedAgreementForDetails(null);
+  };
+
   /* ------------------ Navegación para renovaciones (abre nueva página) ------------------ */
   const navigateToRenewalPage = (agreementId: string) => {
     // abre la página de renovación en la misma pestaña (usar target nuevo si quieres en otra pestaña)
@@ -581,7 +604,7 @@ export default function AgreementsList({
                 <th>Fecha Firma</th>
                 <th style={{ minWidth: 240 }}>Vigencia restante</th>
                 <th style={{ minWidth: 260 }}>Estado</th>
-                <th style={{ width: 320 }}>Acciones</th>
+                <th style={{ width: 380 }}>Acciones</th>
               </tr>
             </thead>
 
@@ -620,7 +643,18 @@ export default function AgreementsList({
                   <td style={{ verticalAlign: "middle" }}>{renderStatusBadge(a)}</td>
 
                   <td style={{ verticalAlign: "middle" }}>
-                    <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '280px' }}>
+                    <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '350px' }}>
+                      
+                      {/* 🆕 BOTÓN VER - AL PRINCIPIO */}
+                      <button 
+                        className="btn btn-sm btn-outline-info" 
+                        onClick={() => handleOpenDetails(a)} 
+                        title="Ver detalles completos"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        👁️ Ver
+                      </button>
+
                       {/* Solo Admin puede editar y eliminar */}
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
@@ -689,7 +723,6 @@ export default function AgreementsList({
                         🔄 Renovar
                       </button>
 
-                      {/* HISTORIAL: abre página /renewals/:id/history */}
                       <button 
                         className="btn btn-sm btn-outline-info" 
                         onClick={() => handleOpenHistory(a)} 
@@ -752,34 +785,15 @@ export default function AgreementsList({
         />
       )}
 
+      {/* Modal de Detalles del Convenio */}
+      {showDetailsModal && selectedAgreementForDetails && (
+        <AgreementDetailsModal
+          show={showDetailsModal}
+          onClose={handleCloseDetails}
+          agreementId={selectedAgreementForDetails.id}
+        />
+      )}
+
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
