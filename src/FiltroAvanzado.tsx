@@ -33,9 +33,7 @@ export default function FiltroAvanzado({
   const [anioFin, setAnioFin] = useState<string>("");
   const [operator, setOperator] = useState<"AND" | "OR">("AND");
 
-  // =====================
-  // CARGAR ÁREAS VINCULADAS
-  // =====================
+  // Cargar áreas vinculadas
   useEffect(() => {
     async function loadAreas() {
       const { data, error } = await supabase
@@ -50,9 +48,7 @@ export default function FiltroAvanzado({
     loadAreas();
   }, []);
 
-  // =====================
-  // CARGAR TIPOS DE CONVENIO (SI EXISTE TABLA)
-  // =====================
+  // Cargar tipos de convenio
   useEffect(() => {
     async function loadTipos() {
       const { data, error } = await supabase
@@ -78,9 +74,7 @@ export default function FiltroAvanzado({
     loadTipos();
   }, []);
 
-  // =====================
-  // TOGGLES
-  // =====================
+  // Toggles
   const toggleArea = (id: string) => {
     setSelectedAreas((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
@@ -99,9 +93,7 @@ export default function FiltroAvanzado({
     );
   };
 
-  // =====================
-  // APLICAR FILTROS
-  // =====================
+  // Aplicar filtros
   const applyFilters = () => {
     onApply({
       areas: selectedAreas,
@@ -111,119 +103,166 @@ export default function FiltroAvanzado({
       anioFin,
       operator,
     });
+    onClose(); // Cerrar modal después de aplicar
+  };
+
+  // Limpiar filtros
+  const clearFilters = () => {
+    setSelectedAreas([]);
+    setSelectedTipos([]);
+    setSelectedEstados([]);
+    setAnioInicio("");
+    setAnioFin("");
+    setOperator("AND");
   };
 
   return (
-    <div className="p-4 bg-white rounded shadow-md w-80">
-      <h2 className="text-xl font-bold mb-4">Filtro Avanzado</h2>
-
-      {/* Áreas */}
-      <h3 className="font-semibold mb-2">Área Responsable</h3>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {areas.map((area) => (
-          <button
-            key={area.id}
-            onClick={() => toggleArea(area.id)}
-            className={`px-3 py-1 rounded-full border ${
-              selectedAreas.includes(area.id)
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100"
-            }`}
-          >
-            {area.nombre}
-          </button>
-        ))}
+    <div>
+      {/* Área Responsable */}
+      <div className="mb-4">
+        <h6 className="fw-bold mb-3">Área Responsable</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {areas.map((area) => (
+            <button
+              key={area.id}
+              type="button"
+              onClick={() => toggleArea(area.id)}
+              className={`btn btn-sm ${
+                selectedAreas.includes(area.id)
+                  ? "btn-primary"
+                  : "btn-outline-secondary"
+              }`}
+            >
+              {area.nombre}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tipos de convenio */}
-      <h3 className="font-semibold mb-2">Tipo de Convenio</h3>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {tiposConvenio.map((tipo) => (
-          <button
-            key={tipo}
-            onClick={() => toggleTipo(tipo)}
-            className={`px-3 py-1 rounded-full border ${
-              selectedTipos.includes(tipo)
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100"
-            }`}
-          >
-            {tipo}
-          </button>
-        ))}
+      {/* Tipo de Convenio */}
+      <div className="mb-4">
+        <h6 className="fw-bold mb-3">Tipo de Convenio</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {tiposConvenio.map((tipo) => (
+            <button
+              key={tipo}
+              type="button"
+              onClick={() => toggleTipo(tipo)}
+              className={`btn btn-sm ${
+                selectedTipos.includes(tipo)
+                  ? "btn-primary"
+                  : "btn-outline-secondary"
+              }`}
+            >
+              {tipo}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Estado */}
-      <h3 className="font-semibold mb-2">Estado</h3>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {["Vigente", "Por vencer", "Concluido"].map((estado) => (
-          <button
-            key={estado}
-            onClick={() => toggleEstado(estado)}
-            className={`px-3 py-1 rounded-full border ${
-              selectedEstados.includes(estado)
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100"
-            }`}
-          >
-            {estado}
-          </button>
-        ))}
+      <div className="mb-4">
+        <h6 className="fw-bold mb-3">Estado</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {["Vigente", "Por vencer", "Vencido"].map((estado) => (
+            <button
+              key={estado}
+              type="button"
+              onClick={() => toggleEstado(estado)}
+              className={`btn btn-sm ${
+                selectedEstados.includes(estado)
+                  ? "btn-primary"
+                  : "btn-outline-secondary"
+              }`}
+            >
+              {estado}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Años */}
       <div className="mb-4">
-        <label className="block">Año Inicio</label>
-        <input
-          type="number"
-          value={anioInicio}
-          onChange={(e) => setAnioInicio(e.target.value)}
-          className="border p-1 w-full rounded"
-        />
-
-        <label className="block mt-2">Año Fin</label>
-        <input
-          type="number"
-          value={anioFin}
-          onChange={(e) => setAnioFin(e.target.value)}
-          className="border p-1 w-full rounded"
-        />
+        <h6 className="fw-bold mb-3">Rango de Años</h6>
+        <div className="row g-3">
+          <div className="col-md-6">
+            <label className="form-label">Año Inicio</label>
+            <input
+              type="number"
+              value={anioInicio}
+              onChange={(e) => setAnioInicio(e.target.value)}
+              className="form-control"
+              placeholder="2020"
+            />
+          </div>
+          <div className="col-md-6">
+            <label className="form-label">Año Fin</label>
+            <input
+              type="number"
+              value={anioFin}
+              onChange={(e) => setAnioFin(e.target.value)}
+              className="form-control"
+              placeholder="2025"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Operador */}
-      <h3 className="font-semibold mb-2">Operador</h3>
-      <div className="flex gap-4 mb-4">
-        <label>
-          <input
-            type="radio"
-            checked={operator === "AND"}
-            onChange={() => setOperator("AND")}
-          />{" "}
-          Y (AND)
-        </label>
-
-        <label>
-          <input
-            type="radio"
-            checked={operator === "OR"}
-            onChange={() => setOperator("OR")}
-          />{" "}
-          O (OR)
-        </label>
+      <div className="mb-4">
+        <h6 className="fw-bold mb-3">Operador</h6>
+        <div className="d-flex gap-4">
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="radio"
+              id="operatorAND"
+              checked={operator === "AND"}
+              onChange={() => setOperator("AND")}
+            />
+            <label className="form-check-label" htmlFor="operatorAND">
+              Y (AND)
+            </label>
+          </div>
+          <div className="form-check">
+            <input
+              className="form-check-input"
+              type="radio"
+              id="operatorOR"
+              checked={operator === "OR"}
+              onChange={() => setOperator("OR")}
+            />
+            <label className="form-check-label" htmlFor="operatorOR">
+              O (OR)
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* Botones */}
-      <button
-        onClick={applyFilters}
-        className="w-full bg-blue-600 text-white py-2 rounded mb-2"
-      >
-        Aplicar filtros
-      </button>
-
-      <button onClick={onClose} className="w-full bg-gray-300 py-2 rounded">
-        Cerrar
-      </button>
+      <div className="d-flex gap-2 justify-content-end pt-3 border-top">
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="btn btn-outline-secondary"
+        >
+          Limpiar
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn btn-secondary"
+        >
+          Cerrar
+        </button>
+        <button
+          type="button"
+          onClick={applyFilters}
+          className="btn btn-primary"
+        >
+          Aplicar filtros
+        </button>
+      </div>
     </div>
   );
 }
-
