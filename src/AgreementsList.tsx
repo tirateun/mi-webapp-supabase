@@ -604,10 +604,16 @@ export default function AgreementsList({
                   <td style={{ verticalAlign: "middle" }}>{renderStatusBadge(a)}</td>
 
                   <td style={{ verticalAlign: "middle" }}>
-                    <div className="d-flex flex-wrap gap-2">
+                    <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '280px' }}>
+                      {/* Solo Admin puede editar y eliminar */}
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio">
+                          <button 
+                            className="btn btn-sm btn-outline-secondary" 
+                            onClick={() => onEdit(a)} 
+                            title="Editar convenio"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
                             ✏️ Editar
                           </button>
                           <button
@@ -623,36 +629,47 @@ export default function AgreementsList({
                               }
                             }}
                             title="Eliminar convenio"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                           >
                             🗑️ Eliminar
                           </button>
                         </>
                       )}
 
-                      {/* ✅ CORREGIDO: SIEMPRE usar a.id (agreement_id original) */}
-                      <button className="btn btn-sm btn-outline-success"
+                      {/* Botones disponibles para todos */}
+                      <button 
+                        className="btn btn-sm btn-outline-success"
                         onClick={() => onOpenContraprestaciones(a.id)}
                         title="Programar contraprestaciones"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📋 Programar
                       </button>
 
-                      <button className="btn btn-sm btn-outline-warning"
+                      <button 
+                        className="btn btn-sm btn-outline-warning"
                         onClick={() => onOpenEvidencias(a.id)}
                         title="Cumplimiento / Evidencias"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📂 Cumplimiento
                       </button>
 
-                      <button className="btn btn-sm btn-outline-primary"
+                      <button 
+                        className="btn btn-sm btn-outline-primary"
                         onClick={() => onOpenInforme(a.id)}
                         title="Informe semestral"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📝 Informe
                       </button>
 
-                      {/* RENOVACIÓN: ahora abre página /renewals/:id */}
-                      <button className="btn btn-sm btn-outline-dark" onClick={() => navigateToRenewalPage(a.id)} title="Renovar convenio">
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        onClick={() => navigateToRenewalPage(a.id)} 
+                        title="Renovar convenio"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
                         🔄 Renovar
                       </button>
 
