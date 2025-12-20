@@ -1,5 +1,5 @@
 // src/AgreementsForm.tsx
-// Versión completa y corregida (≈400 líneas)
+// Versión con campo de ENLACE AL DOCUMENTO
 import React, { useEffect, useMemo, useState } from "react";
 import Select, { MultiValue } from "react-select";
 import { supabase } from "./supabaseClient";
@@ -11,7 +11,7 @@ interface Option {
 }
 
 export default function AgreementsForm({ existingAgreement, onSave, onCancel }: any) {
-  // ---------- Estados principales (único bloque; NO repetir) ----------
+  // ---------- Estados principales ----------
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState<string>(existingAgreement?.name || "");
@@ -23,6 +23,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
   const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
   const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
+  
+  // 🆕 NUEVO: Campo para el enlace al documento
+  const [documentUrl, setDocumentUrl] = useState<string>(existingAgreement?.document_url || "");
 
   // Responsables / externos / áreas
   const [internos, setInternos] = useState<any[]>([]);
@@ -38,14 +41,12 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
 
-  // IDs auxiliares (UNICA declaración)
   const [areaId, setAreaId] = useState<number | null>(existingAgreement?.area_vinculada_id ?? null);
   const [convenioMaestroId, setConvenioMaestroId] = useState<number | null>(existingAgreement?.convenio_maestro_id ?? null);
 
   const [version, setVersion] = useState<number>(existingAgreement?.version ?? 1);
   const [estado, setEstado] = useState<string>(existingAgreement?.estado ?? "ACTIVO");
 
-  // Países (puedes cargar dinámicamente si quieres)
   const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
 
   const tipos = useMemo(
@@ -75,7 +76,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   // ---- Cargas iniciales ----
   useEffect(() => {
     fetchEnumsAndLists();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -86,9 +86,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
-    // si la lista de internos ya llegó, sincronizamos los seleccionados
     if (internos.length > 0) fetchResponsablesInternos(existingAgreement.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [internos, existingAgreement]);
 
   async function fetchEnumsAndLists() {
@@ -103,7 +101,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       setExternos(externosData || []);
       setAreas(areasData || []);
 
-      // si no hay selectedInternals inicial y existingAgreement ya trae internos, mapearlos
       if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
         const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
         setSelectedInternals(mapped);
@@ -124,15 +121,12 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   }
 
-  // ---- Helpers ----
   const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  // helper seguro para convertir fecha a YYYY-MM-DD o null
   const toYMD = (v: any): string | null => {
     if (!v) return null;
     if (typeof v === "string") {
-      // si viene con tiempo, truncar
       return v.length >= 10 ? v.slice(0, 10) : v;
     }
     if (v instanceof Date) {
@@ -146,13 +140,29 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   };
 
-  // ---- Submit (crear / actualizar) ----
+  // 🆕 Validar URL
+  const isValidUrl = (urlString: string): boolean => {
+    if (!urlString) return true; // Vacío es válido (opcional)
+    try {
+      const url = new URL(urlString);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 🆕 Validar URL antes de guardar
+    if (documentUrl && !isValidUrl(documentUrl)) {
+      alert("❌ La URL del documento no es válida. Debe comenzar con http:// o https://");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // construir payload sin expiration_date si la BD la genera
       const payload: any = {
         name,
         signature_date: toYMD(signatureDate) ?? null,
@@ -167,6 +177,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         convenio_maestro_id: convenioMaestroId ?? null,
         version,
         estado,
+        document_url: documentUrl || null, // 🆕 Guardar URL del documento
         updated_at: new Date().toISOString(),
       };
 
@@ -183,7 +194,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
       if (!agreementId) throw new Error("No se obtuvo ID del convenio guardado.");
 
-      // ---- sincronizar responsables internos ----
+      // sincronizar responsables internos
       const internalIds = (selectedInternals || []).map((s) => s.value);
       await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
       if (internalIds.length > 0) {
@@ -192,7 +203,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         if (error) throw error;
       }
 
-      // ---- sincronizar areas vinculadas ----
+      // sincronizar areas vinculadas
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
       if (areasSeleccionadas && areasSeleccionadas.length > 0) {
         const areaPayload = areasSeleccionadas.map((a: any) => ({ agreement_id: agreementId, area_vinculada_id: a }));
@@ -200,10 +211,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         if (error) throw error;
       }
 
-      // ---- actualizar responsable externo si necesario ----
+      // actualizar responsable externo
       await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
 
-      // ---- Recuperar agreement row y generar años si hace falta ----
+      // Generar años
       const { data: agreementRow, error: agreementRowErr } = await supabase
         .from("agreements")
         .select("id, signature_date, expiration_date, duration_years")
@@ -213,19 +224,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       if (agreementRowErr) {
         console.error("No se pudo recuperar convenio para generar años:", agreementRowErr);
       } else {
-        // Convertir duration_years SIEMPRE a number
         const durationFinal = Number(agreementRow.duration_years ?? durationYears ?? 0);
-
-        // conversiones seguras de fecha
         const signatureFinal = toYMD(agreementRow.signature_date) ?? toYMD(signatureDate) ?? null;
         const expirationFinal = toYMD(agreementRow.expiration_date) ?? null;
 
-        await generateYearsIfNeeded(
-          agreementId,      // string uuid
-          signatureFinal,   // string | null
-          expirationFinal,  // string | null
-          durationFinal     // number
-        );
+        await generateYearsIfNeeded(agreementId, signatureFinal, expirationFinal, durationFinal);
       }
 
       alert("✅ Convenio guardado correctamente");
@@ -248,6 +251,28 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           <div className="mb-3">
             <label className="form-label">Nombre del convenio</label>
             <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+
+          {/* 🆕 ENLACE AL DOCUMENTO */}
+          <div className="mb-3">
+            <label className="form-label">
+              Enlace al documento del convenio <span className="text-muted">(opcional)</span>
+            </label>
+            <input 
+              type="url"
+              className="form-control" 
+              value={documentUrl} 
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              placeholder="https://drive.google.com/... o https://..."
+            />
+            <small className="form-text text-muted">
+              💡 Pega aquí el enlace donde está almacenado el documento (Google Drive, OneDrive, etc.)
+            </small>
+            {documentUrl && !isValidUrl(documentUrl) && (
+              <div className="text-danger small mt-1">
+                ⚠️ La URL no es válida. Debe comenzar con http:// o https://
+              </div>
+            )}
           </div>
 
           {/* RESPONSABLES INTERNOS y EXTERNOS */}
@@ -376,4 +401,3 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     </div>
   );
 }
-
