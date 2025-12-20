@@ -760,11 +760,11 @@ export default function AgreementsList({
         </div>
       )}
 
-      {/* Filtro Avanzado modal (Bootstrap) */}
+      {/* Filtro Avanzado modal */}
 {showFiltroAvanzado && (
   <div 
     className="modal fade show d-block" 
-    style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+    style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 9999 }}
     onClick={() => setShowFiltroAvanzado(false)}
   >
     <div 
