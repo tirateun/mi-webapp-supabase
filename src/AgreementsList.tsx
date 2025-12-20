@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import FiltroAvanzado from "./FiltroAvanzado";
+import RenewalHistory from "./RenewalHistory";
 
 /* ------------------ Tipos ------------------ */
 interface AgreementsListProps {
@@ -103,6 +104,13 @@ export default function AgreementsList({
   // paginación simple
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Busca la sección de useState (aproximadamente línea 50-60) y agrega:
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedAgreementForHistory, setSelectedAgreementForHistory] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   /* ------------------ Fetch Áreas ------------------ */
   const fetchAreas = useCallback(async () => {
@@ -447,16 +455,24 @@ export default function AgreementsList({
     setAdvancedFilters(null);
   };
 
+  /* ------------------ Handlers Historial de Renovaciones ------------------ */
+  const handleOpenHistory = (agreement: any) => {
+    setSelectedAgreementForHistory({
+      id: agreement.id,
+      name: agreement.name
+    });
+    setShowHistoryModal(true);
+  };
+
+  const handleCloseHistory = () => {
+    setShowHistoryModal(false);
+    setSelectedAgreementForHistory(null);
+  };
   /* ------------------ Navegación para renovaciones (abre nueva página) ------------------ */
   const navigateToRenewalPage = (agreementId: string) => {
     // abre la página de renovación en la misma pestaña (usar target nuevo si quieres en otra pestaña)
     navigate(`/renewals/${agreementId}`);
   };
-
-  const navigateToRenewalHistory = (agreementId: string) => {
-    navigate(`/renewals/${agreementId}/history`);
-  };
-
   /* ------------------ Render UI ------------------ */
   return (
     <div className="container mt-4">
@@ -674,7 +690,12 @@ export default function AgreementsList({
                       </button>
 
                       {/* HISTORIAL: abre página /renewals/:id/history */}
-                      <button className="btn btn-sm btn-outline-info" onClick={() => navigateToRenewalHistory(a.id)} title="Ver historial de renovaciones">
+                      <button 
+                        className="btn btn-sm btn-outline-info" 
+                        onClick={() => handleOpenHistory(a)} 
+                        title="Ver historial de renovaciones"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
                         📜 Historial
                       </button>
                     </div>
@@ -720,6 +741,17 @@ export default function AgreementsList({
           </div>
         </div>
       )}
+
+      {/* Modal de Historial de Renovaciones */}
+      {showHistoryModal && selectedAgreementForHistory && (
+        <RenewalHistory
+          show={showHistoryModal}
+          onClose={handleCloseHistory}
+          agreementId={selectedAgreementForHistory.id}
+          agreementName={selectedAgreementForHistory.name}
+        />
+      )}
+
     </div>
   );
 }
