@@ -1,14 +1,14 @@
-// RenewalHistory.tsx - VERSIÓN MEJORADA COMO MODAL
+// RenewalHistory.tsx - VERSIÓN CORREGIDA CON ESTRUCTURA REAL
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 interface Renewal {
   id: string;
   agreement_id: string;
-  renewal_year: number;
-  start_date: string;
-  end_date: string;
-  created_at: string;
+  old_expiration_date: string;
+  new_expiration_date: string;
+  changed_at: string;
+  changed_by?: string;
 }
 
 interface RenewalHistoryProps {
@@ -26,6 +26,7 @@ export default function RenewalHistory({
 }: RenewalHistoryProps) {
   const [history, setHistory] = useState<Renewal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (show && agreementId) {
@@ -36,14 +37,35 @@ export default function RenewalHistory({
   const fetchRenewals = async () => {
     try {
       setLoading(true);
+      
+      // Cargar renovaciones
       const { data, error } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, renewal_year, start_date, end_date, created_at")
+        .select("*")
         .eq("agreement_id", agreementId)
-        .order("created_at", { ascending: false }); // Más recientes primero
+        .order("changed_at", { ascending: false }); // Más recientes primero
 
       if (error) throw error;
       setHistory(data || []);
+
+      // Cargar perfiles de usuarios que hicieron las renovaciones
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(r => r.changed_by).filter(Boolean))];
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", userIds);
+
+          if (profilesData) {
+            const profilesMap: Record<string, string> = {};
+            profilesData.forEach((p: any) => {
+              profilesMap[p.user_id] = p.full_name || "Usuario";
+            });
+            setProfiles(profilesMap);
+          }
+        }
+      }
     } catch (err) {
       console.error("Error cargando historial de renovaciones:", err);
       alert("Error al cargar historial de renovaciones.");
@@ -52,16 +74,28 @@ export default function RenewalHistory({
     }
   };
 
-  const calculateDuration = (startDate: string, endDate: string) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
+  const calculateExtension = (oldDate: string, newDate: string) => {
+    if (!oldDate || !newDate) return "-";
+    const old = new Date(oldDate);
+    const newD = new Date(newDate);
+    const diffTime = newD.getTime() - old.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 30) return `${diffDays} días`;
-    if (diffDays < 365) return `${Math.round(diffDays / 30)} meses`;
+    if (diffDays <= 0) return "Sin extensión";
+    if (diffDays < 30) return `+${diffDays} días`;
+    if (diffDays < 365) return `+${Math.round(diffDays / 30)} meses`;
     const years = Math.round(diffDays / 365);
-    return `${years} año${years !== 1 ? 's' : ''}`;
+    return `+${years} año${years !== 1 ? 's' : ''}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("es-PE");
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleString("es-PE");
   };
 
   if (!show) return null;
@@ -133,7 +167,7 @@ export default function RenewalHistory({
                       <div className="card-body text-white text-center">
                         <h6 className="opacity-75 mb-2">Última Renovación</h6>
                         <h5 className="mb-0 fw-bold">
-                          {new Date(history[0]?.created_at).toLocaleDateString("es-PE")}
+                          {formatDate(history[0]?.changed_at)}
                         </h5>
                       </div>
                     </div>
@@ -146,7 +180,7 @@ export default function RenewalHistory({
                       <div className="card-body text-white text-center">
                         <h6 className="opacity-75 mb-2">Vencimiento Actual</h6>
                         <h5 className="mb-0 fw-bold">
-                          {new Date(history[0]?.end_date).toLocaleDateString("es-PE")}
+                          {formatDate(history[0]?.new_expiration_date)}
                         </h5>
                       </div>
                     </div>
@@ -166,11 +200,11 @@ export default function RenewalHistory({
                         <thead style={{ backgroundColor: "#f8f9fa" }}>
                           <tr>
                             <th className="px-4 py-3 fw-semibold" style={{ width: "50px" }}>#</th>
-                            <th className="px-4 py-3 fw-semibold">Año Renovación</th>
-                            <th className="px-4 py-3 fw-semibold">Fecha Inicio</th>
-                            <th className="px-4 py-3 fw-semibold">Fecha Fin</th>
-                            <th className="px-4 py-3 fw-semibold">Duración</th>
-                            <th className="px-4 py-3 fw-semibold">Fecha Registro</th>
+                            <th className="px-4 py-3 fw-semibold">Fecha de Renovación</th>
+                            <th className="px-4 py-3 fw-semibold">Vencimiento Anterior</th>
+                            <th className="px-4 py-3 fw-semibold">Nuevo Vencimiento</th>
+                            <th className="px-4 py-3 fw-semibold">Extensión</th>
+                            <th className="px-4 py-3 fw-semibold">Renovado por</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -196,34 +230,37 @@ export default function RenewalHistory({
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="badge bg-info-subtle text-info">
-                                  Año {renewal.renewal_year}
+                                <div>
+                                  <strong>{formatDate(renewal.changed_at)}</strong>
+                                </div>
+                                <small className="text-muted">
+                                  {new Date(renewal.changed_at).toLocaleTimeString("es-PE", {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </small>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className="badge bg-danger-subtle text-danger">
+                                  {formatDate(renewal.old_expiration_date)}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <span className="badge bg-success-subtle text-success">
-                                  {new Date(renewal.start_date).toLocaleDateString("es-PE")}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="badge bg-danger-subtle text-danger">
-                                  {new Date(renewal.end_date).toLocaleDateString("es-PE")}
+                                  {formatDate(renewal.new_expiration_date)}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <span className="badge bg-primary-subtle text-primary">
-                                  {calculateDuration(renewal.start_date, renewal.end_date)}
+                                  {calculateExtension(renewal.old_expiration_date, renewal.new_expiration_date)}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <div>
-                                  <strong>{new Date(renewal.created_at).toLocaleDateString("es-PE")}</strong>
-                                </div>
                                 <small className="text-muted">
-                                  {new Date(renewal.created_at).toLocaleTimeString("es-PE", { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
+                                  {renewal.changed_by 
+                                    ? (profiles[renewal.changed_by] || "Usuario desconocido")
+                                    : "Sistema"
+                                  }
                                 </small>
                               </td>
                             </tr>
