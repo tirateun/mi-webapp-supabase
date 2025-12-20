@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import * as XLSX from 'xlsx';
 import {
   BarChart,
   Bar,
@@ -174,6 +175,63 @@ export default function Reportes() {
     setResponsableSeleccionado("");
   };
 
+  // Función para exportar a Excel
+  const exportarAExcel = () => {
+    try {
+      // Preparar datos para exportar
+      const datosParaExportar = convenios.map((convenio: any, index: number) => ({
+        'N°': index + 1,
+        'Nombre': convenio.name || '-',
+        'Tipo(s)': Array.isArray(convenio.tipo_convenio) 
+          ? convenio.tipo_convenio.join(', ') 
+          : convenio.convenio || '-',
+        'País': convenio.pais || '-',
+        'Responsable Interno': responsables.find((r: any) => r.id === convenio.internal_responsible)?.full_name || '-',
+        'Duración (años)': convenio.duration_years || '-',
+        'Fecha de Firma': convenio.signature_date 
+          ? new Date(convenio.signature_date).toLocaleDateString('es-PE')
+          : '-',
+        'Resolución Rectoral': convenio['Resolución Rectoral'] || '-',
+        'Objetivos': convenio.objetivos || '-',
+        'Estado': convenio.estado || 'ACTIVO',
+      }));
+
+      // Crear libro de Excel
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(datosParaExportar);
+
+      // Ajustar ancho de columnas
+      const columnWidths = [
+        { wch: 5 },   // N°
+        { wch: 40 },  // Nombre
+        { wch: 30 },  // Tipo(s)
+        { wch: 15 },  // País
+        { wch: 30 },  // Responsable
+        { wch: 12 },  // Duración
+        { wch: 15 },  // Fecha Firma
+        { wch: 20 },  // Resolución
+        { wch: 50 },  // Objetivos
+        { wch: 10 },  // Estado
+      ];
+      ws['!cols'] = columnWidths;
+
+      // Agregar hoja al libro
+      XLSX.utils.book_append_sheet(wb, ws, 'Convenios');
+
+      // Generar nombre de archivo con fecha
+      const fecha = new Date().toLocaleDateString('es-PE').replace(/\//g, '-');
+      const nombreArchivo = `Convenios_${fecha}.xlsx`;
+
+      // Descargar archivo
+      XLSX.writeFile(wb, nombreArchivo);
+
+      alert(`✅ Archivo exportado exitosamente: ${nombreArchivo}`);
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+      alert('❌ Error al exportar a Excel. Revisa la consola.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
@@ -192,8 +250,20 @@ export default function Reportes() {
       {/* HEADER */}
       <div className="card border-0 shadow-sm mb-4" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
         <div className="card-body p-4">
-          <h2 className="mb-1 fw-bold text-white">📊 Panel de Reportes y Análisis</h2>
-          <p className="mb-0 text-white opacity-75">Visualización de datos y estadísticas de convenios</p>
+          <div className="d-flex justify-content-between align-items-center">
+            <div className="text-white">
+              <h2 className="mb-1 fw-bold">📊 Panel de Reportes y Análisis</h2>
+              <p className="mb-0 opacity-75">Visualización de datos y estadísticas de convenios</p>
+            </div>
+            <button 
+              className="btn btn-light shadow-sm px-4" 
+              onClick={exportarAExcel}
+              disabled={convenios.length === 0}
+            >
+              <i className="bi bi-file-earmark-excel me-2"></i>
+              📥 Exportar a Excel
+            </button>
+          </div>
         </div>
       </div>
 
