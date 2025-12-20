@@ -74,6 +74,18 @@ export default function FiltroAvanzado({
     loadTipos();
   }, []);
 
+  // 🆕 APLICAR FILTROS AUTOMÁTICAMENTE cuando cambia cualquier filtro
+  useEffect(() => {
+    onApply({
+      areas: selectedAreas,
+      tipos: selectedTipos,
+      estados: selectedEstados,
+      anioInicio,
+      anioFin,
+      operator,
+    });
+  }, [selectedAreas, selectedTipos, selectedEstados, anioInicio, anioFin, operator]);
+
   // Toggles
   const toggleArea = (id: string) => {
     setSelectedAreas((prev) =>
@@ -93,21 +105,8 @@ export default function FiltroAvanzado({
     );
   };
 
-  // Aplicar filtros
-  const applyFilters = () => {
-    onApply({
-      areas: selectedAreas,
-      tipos: selectedTipos,
-      estados: selectedEstados,
-      anioInicio,
-      anioFin,
-      operator,
-    });
-    onClose(); // Cerrar modal después de aplicar
-  };
-
-  // Limpiar filtros
-  const clearFilters = () => {
+  // Limpiar todos los filtros
+  const clearAllFilters = () => {
     setSelectedAreas([]);
     setSelectedTipos([]);
     setSelectedEstados([]);
@@ -116,32 +115,70 @@ export default function FiltroAvanzado({
     setOperator("AND");
   };
 
+  // Contador de filtros activos
+  const activeFiltersCount = 
+    selectedAreas.length + 
+    selectedTipos.length + 
+    selectedEstados.length + 
+    (anioInicio ? 1 : 0) + 
+    (anioFin ? 1 : 0);
+
   return (
     <div>
+      {/* Indicador de filtros activos */}
+      {activeFiltersCount > 0 && (
+        <div className="alert alert-info d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <strong>🔍 {activeFiltersCount}</strong> filtro{activeFiltersCount !== 1 ? 's' : ''} activo{activeFiltersCount !== 1 ? 's' : ''}
+          </div>
+          <button 
+            type="button"
+            onClick={clearAllFilters}
+            className="btn btn-sm btn-outline-primary"
+          >
+            Limpiar todos
+          </button>
+        </div>
+      )}
+
       {/* Área Responsable */}
       <div className="mb-4">
-        <h6 className="fw-bold mb-3">Área Responsable</h6>
+        <h6 className="fw-bold mb-3">
+          🏢 Área Responsable 
+          {selectedAreas.length > 0 && (
+            <span className="badge bg-primary ms-2">{selectedAreas.length}</span>
+          )}
+        </h6>
         <div className="d-flex flex-wrap gap-2">
-          {areas.map((area) => (
-            <button
-              key={area.id}
-              type="button"
-              onClick={() => toggleArea(area.id)}
-              className={`btn btn-sm ${
-                selectedAreas.includes(area.id)
-                  ? "btn-primary"
-                  : "btn-outline-secondary"
-              }`}
-            >
-              {area.nombre}
-            </button>
-          ))}
+          {areas.length > 0 ? (
+            areas.map((area) => (
+              <button
+                key={area.id}
+                type="button"
+                onClick={() => toggleArea(area.id)}
+                className={`btn btn-sm ${
+                  selectedAreas.includes(area.id)
+                    ? "btn-primary"
+                    : "btn-outline-secondary"
+                }`}
+              >
+                {area.nombre}
+              </button>
+            ))
+          ) : (
+            <div className="text-muted">Cargando áreas...</div>
+          )}
         </div>
       </div>
 
       {/* Tipo de Convenio */}
       <div className="mb-4">
-        <h6 className="fw-bold mb-3">Tipo de Convenio</h6>
+        <h6 className="fw-bold mb-3">
+          📋 Tipo de Convenio
+          {selectedTipos.length > 0 && (
+            <span className="badge bg-primary ms-2">{selectedTipos.length}</span>
+          )}
+        </h6>
         <div className="d-flex flex-wrap gap-2">
           {tiposConvenio.map((tipo) => (
             <button
@@ -162,7 +199,12 @@ export default function FiltroAvanzado({
 
       {/* Estado */}
       <div className="mb-4">
-        <h6 className="fw-bold mb-3">Estado</h6>
+        <h6 className="fw-bold mb-3">
+          🚦 Estado
+          {selectedEstados.length > 0 && (
+            <span className="badge bg-primary ms-2">{selectedEstados.length}</span>
+          )}
+        </h6>
         <div className="d-flex flex-wrap gap-2">
           {["Vigente", "Por vencer", "Vencido"].map((estado) => (
             <button
@@ -183,7 +225,14 @@ export default function FiltroAvanzado({
 
       {/* Años */}
       <div className="mb-4">
-        <h6 className="fw-bold mb-3">Rango de Años</h6>
+        <h6 className="fw-bold mb-3">
+          📅 Rango de Años
+          {(anioInicio || anioFin) && (
+            <span className="badge bg-primary ms-2">
+              {anioInicio && anioFin ? `${anioInicio} - ${anioFin}` : anioInicio || anioFin}
+            </span>
+          )}
+        </h6>
         <div className="row g-3">
           <div className="col-md-6">
             <label className="form-label">Año Inicio</label>
@@ -193,6 +242,8 @@ export default function FiltroAvanzado({
               onChange={(e) => setAnioInicio(e.target.value)}
               className="form-control"
               placeholder="2020"
+              min="2000"
+              max="2100"
             />
           </div>
           <div className="col-md-6">
@@ -203,14 +254,16 @@ export default function FiltroAvanzado({
               onChange={(e) => setAnioFin(e.target.value)}
               className="form-control"
               placeholder="2025"
+              min="2000"
+              max="2100"
             />
           </div>
         </div>
       </div>
 
       {/* Operador */}
-      <div className="mb-4">
-        <h6 className="fw-bold mb-3">Operador</h6>
+      <div className="mb-0">
+        <h6 className="fw-bold mb-3">⚙️ Operador Lógico</h6>
         <div className="d-flex gap-4">
           <div className="form-check">
             <input
@@ -221,7 +274,7 @@ export default function FiltroAvanzado({
               onChange={() => setOperator("AND")}
             />
             <label className="form-check-label" htmlFor="operatorAND">
-              Y (AND)
+              <strong>Y (AND)</strong> - Cumplir todos los filtros
             </label>
           </div>
           <div className="form-check">
@@ -233,35 +286,10 @@ export default function FiltroAvanzado({
               onChange={() => setOperator("OR")}
             />
             <label className="form-check-label" htmlFor="operatorOR">
-              O (OR)
+              <strong>O (OR)</strong> - Cumplir al menos uno
             </label>
           </div>
         </div>
-      </div>
-
-      {/* Botones */}
-      <div className="d-flex gap-2 justify-content-end pt-3 border-top">
-        <button
-          type="button"
-          onClick={clearFilters}
-          className="btn btn-outline-secondary"
-        >
-          Limpiar
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="btn btn-secondary"
-        >
-          Cerrar
-        </button>
-        <button
-          type="button"
-          onClick={applyFilters}
-          className="btn btn-primary"
-        >
-          Aplicar filtros
-        </button>
       </div>
     </div>
   );

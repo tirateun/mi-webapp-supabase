@@ -760,21 +760,55 @@ export default function AgreementsList({
         </div>
       )}
 
-      {/* Filtro Avanzado modal (inline) */}
-      {showFiltroAvanzado && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 d-flex justify-content-center align-items-start p-4" style={{ paddingTop: 40 }}>
-          <div className="bg-white rounded p-3" style={{ width: "min(980px, 96%)", maxHeight: "90vh", overflow: "auto" }}>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5>Filtro Avanzado</h5>
-              <button className="btn btn-sm btn-light" onClick={() => setShowFiltroAvanzado(false)}>
-                Cerrar ✖
-              </button>
-            </div>
-            <FiltroAvanzado onApply={handleApplyAdvancedFilters} onClose={() => setShowFiltroAvanzado(false)} />
+      {/* Filtro Avanzado modal (Bootstrap) */}
+{showFiltroAvanzado && (
+  <div 
+    className="modal fade show d-block" 
+    style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+    onClick={() => setShowFiltroAvanzado(false)}
+  >
+    <div 
+      className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="modal-content border-0 shadow-lg">
+        {/* HEADER */}
+        <div 
+          className="modal-header" 
+          style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
+        >
+          <div className="text-white">
+            <h4 className="modal-title mb-1 fw-bold">⚙️ Filtro Avanzado</h4>
+            <p className="mb-0 opacity-75">Los filtros se aplican automáticamente</p>
           </div>
+          <button 
+            type="button" 
+            className="btn-close btn-close-white" 
+            onClick={() => setShowFiltroAvanzado(false)}
+          ></button>
         </div>
-      )}
 
+        {/* BODY */}
+        <div className="modal-body p-4">
+          <FiltroAvanzado 
+            onApply={handleApplyAdvancedFilters} 
+            onClose={() => setShowFiltroAvanzado(false)} 
+          />
+        </div>
+
+        {/* FOOTER */}
+        <div className="modal-footer bg-light border-0">
+          <button 
+            className="btn btn-secondary px-4" 
+            onClick={() => setShowFiltroAvanzado(false)}
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       {/* Modal de Historial de Renovaciones */}
       {showHistoryModal && selectedAgreementForHistory && (
         <RenewalHistory
