@@ -790,10 +790,9 @@ export default function AgreementsList({
 
         {/* BODY */}
         <div className="modal-body p-4">
-          <FiltroAvanzado 
-            onApply={handleApplyAdvancedFilters} 
-            onClose={() => setShowFiltroAvanzado(false)} 
-          />
+          <h1>PRUEBA DIRECTA</h1>
+          <p>Total áreas: Test</p>
+          <button className="btn btn-primary">Botón de Prueba</button>
         </div>
 
         {/* FOOTER */}
