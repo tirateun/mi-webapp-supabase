@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
-import FiltroAvanzado from "./FiltroAvanzado";
+import FiltroAvanzado from "./FiltroAvanzadoSimple";
 import RenewalHistory from "./RenewalHistory";
 import AgreementDetailsModal from "./AgreementDetailsModal";
 
