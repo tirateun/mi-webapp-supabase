@@ -203,21 +203,20 @@ export default function Reportes() {
       // 🆕 Calcular KPIs de cumplimiento
       const total = contraprestaciones?.length || 0;
       const cumplidas = contraprestaciones?.filter(c => c.estado === "Cumplido").length || 0;
+      const pendientes = total - cumplidas; // Las que NO están cumplidas
       const porcentaje = total > 0 ? Math.round((cumplidas / total) * 100) : 0;
 
       setTotalContraprestaciones(total);
       setContraprestacionesCumplidas(cumplidas);
       setPorcentajeCumplimiento(porcentaje);
 
-      const conteoEstados: Record<string, number> = {};
-      contraprestaciones?.forEach((c) => {
-        const estado = c.estado || "Pendiente";
-        conteoEstados[estado] = (conteoEstados[estado] || 0) + 1;
-      });
+      // 🆕 Agrupar en solo 2 estados: Cumplido vs Pendiente
+      const estadosSimplificados = [
+        { estado: "Cumplido", cantidad: cumplidas },
+        { estado: "Pendiente", cantidad: pendientes }
+      ].filter(item => item.cantidad > 0); // Solo mostrar si hay datos
       
-      setEjecucionContraprestaciones(
-        Object.entries(conteoEstados).map(([estado, cantidad]) => ({ estado, cantidad }))
-      );
+      setEjecucionContraprestaciones(estadosSimplificados);
     } catch (err) {
       console.error("Error cargando reportes:", err);
       alert("❌ Error al cargar reportes. Revisa consola.");
@@ -526,12 +525,20 @@ export default function Reportes() {
         <div className="card-header bg-white border-0 p-4">
           <div className="d-flex justify-content-between align-items-center">
             <h5 className="mb-0 fw-bold">⚙️ Estado de Contraprestaciones</h5>
-            <span className="badge bg-info-subtle text-info">
-              Solo años pasados y vigente
-            </span>
+            <div className="d-flex gap-2">
+              <span className="badge bg-info-subtle text-info">
+                Solo años pasados y vigente
+              </span>
+              {totalContraprestaciones > 0 && (
+                <span className={`badge ${porcentajeCumplimiento >= 80 ? 'bg-success' : porcentajeCumplimiento >= 50 ? 'bg-warning' : 'bg-danger'}`}>
+                  {porcentajeCumplimiento}% Cumplimiento
+                </span>
+              )}
+            </div>
           </div>
           <p className="mb-0 mt-2 text-muted small">
-            📊 Los años futuros no se incluyen en este reporte
+            📊 Los años futuros no se incluyen en este reporte • 
+            Total: {contraprestacionesCumplidas}/{totalContraprestaciones} cumplidas
           </p>
         </div>
         <div className="card-body p-4">
@@ -541,8 +548,22 @@ export default function Reportes() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="estado" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                <Bar dataKey="cantidad" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                  formatter={(value: any, name: any, props: any) => {
+                    const total = totalContraprestaciones;
+                    const porcentaje = total > 0 ? Math.round((value / total) * 100) : 0;
+                    return [`${value} (${porcentaje}%)`, props.payload.estado];
+                  }}
+                />
+                <Bar dataKey="cantidad" radius={[8, 8, 0, 0]}>
+                  {ejecucionContraprestaciones.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.estado === 'Cumplido' ? '#10b981' : '#f59e0b'} 
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
