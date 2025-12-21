@@ -570,14 +570,14 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
               </div>
 
               <div className="col-md-6 mb-3">
-                <label className="form-label">Responsable Externo</label>
+                <label className="form-label">Contacto de la Institución</label>
                 
                 <input
                   type="text"
                   className="form-control"
                   value={externalResponsibleText}
                   onChange={(e) => setExternalResponsibleText(e.target.value)}
-                  placeholder="Nombre del responsable externo"
+                  placeholder="Nombre del contacto"
                   readOnly={!!institucionSeleccionada} // Solo lectura si viene de institución
                 />
                 

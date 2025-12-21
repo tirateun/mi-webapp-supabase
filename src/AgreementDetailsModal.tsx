@@ -45,6 +45,21 @@ export default function AgreementDetailsModal({
       if (agreementError) throw agreementError;
       setAgreement(agreementData);
 
+      // 🆕 Cargar institución asociada para obtener email del contacto
+      let institucionData = null;
+      if (agreementData?.institucion_id) {
+        const { data: inst } = await supabase
+          .from("instituciones")
+          .select("contacto, email")
+          .eq("id", agreementData.institucion_id)
+          .single();
+        
+        if (inst) {
+          institucionData = inst;
+          console.log("🏢 Institución cargada:", inst);
+        }
+      }
+
       // Verificar si tiene subtipos
       const { data: subtypesData, error: subtypesError } = await supabase
         .from("agreement_subtypes")
@@ -113,10 +128,12 @@ export default function AgreementDetailsModal({
         setSubtypes([]);
       }
 
-      // Cargar responsable externo
+      // Cargar responsable externo (ahora "contacto de la institución")
       if (agreementData?.external_responsible) {
         const responsableValue = agreementData.external_responsible;
-        console.log("📋 Cargando responsable externo:", responsableValue);
+        const emailContacto = institucionData?.email || null; // 🆕 Email desde institución
+        
+        console.log("📋 Cargando contacto:", responsableValue, "Email:", emailContacto);
         
         // Verificar si es UUID (legacy) o texto
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -135,16 +152,16 @@ export default function AgreementDetailsModal({
             setExternal(externalData);
           } else {
             console.log("⚠️ UUID no encontrado, mostrando como texto");
-            // UUID no encontrado, mostrar como texto
-            setExternal({ id: '', full_name: responsableValue, email: null });
+            // UUID no encontrado, mostrar como texto con email de institución
+            setExternal({ id: '', full_name: responsableValue, email: emailContacto });
           }
         } else {
           console.log("✅ Es texto, mostrando directamente:", responsableValue);
-          // Es texto (nuevo formato desde institución)
-          setExternal({ id: '', full_name: responsableValue, email: null });
+          // Es texto (nuevo formato desde institución) con email
+          setExternal({ id: '', full_name: responsableValue, email: emailContacto });
         }
       } else {
-        console.log("ℹ️ No hay responsable externo asignado");
+        console.log("ℹ️ No hay contacto asignado");
         setExternal(null);
       }
 
@@ -363,14 +380,14 @@ export default function AgreementDetailsModal({
 
                         <div className="row g-3 mt-3">
                           <div className="col-md-12">
-                            <label className="fw-bold text-muted small">Responsable Externo</label>
+                            <label className="fw-bold text-muted small">Contacto de la Institución</label>
                             {external ? (
                               <div className="mt-2">
                                 <span className="badge bg-warning me-2">👤</span>
                                 <strong>{external.full_name}</strong>
                                 {external.email && (
                                   <div className="text-muted small ms-4">
-                                    {external.email}
+                                    📧 {external.email}
                                   </div>
                                 )}
                               </div>
@@ -405,14 +422,14 @@ export default function AgreementDetailsModal({
                         </div>
 
                         <div className="col-md-6">
-                          <label className="fw-bold text-muted small">Responsable Externo</label>
+                          <label className="fw-bold text-muted small">Contacto de la Institución</label>
                           {external ? (
                             <div className="mt-2">
                               <span className="badge bg-warning me-2">👤</span>
                               <strong>{external.full_name}</strong>
                               {external.email && (
                                 <div className="text-muted small ms-4">
-                                  {external.email}
+                                  📧 {external.email}
                                 </div>
                               )}
                             </div>
