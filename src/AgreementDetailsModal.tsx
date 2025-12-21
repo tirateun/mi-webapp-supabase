@@ -116,11 +116,13 @@ export default function AgreementDetailsModal({
       // Cargar responsable externo
       if (agreementData?.external_responsible) {
         const responsableValue = agreementData.external_responsible;
+        console.log("📋 Cargando responsable externo:", responsableValue);
         
         // Verificar si es UUID (legacy) o texto
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         
         if (uuidRegex.test(responsableValue)) {
+          console.log("🔍 Es UUID, buscando en profiles...");
           // Es UUID legacy, buscar en profiles
           const { data: externalData } = await supabase
             .from("profiles")
@@ -129,15 +131,21 @@ export default function AgreementDetailsModal({
             .single();
 
           if (externalData) {
+            console.log("✅ Perfil encontrado:", externalData.full_name);
             setExternal(externalData);
           } else {
+            console.log("⚠️ UUID no encontrado, mostrando como texto");
             // UUID no encontrado, mostrar como texto
             setExternal({ id: '', full_name: responsableValue, email: null });
           }
         } else {
+          console.log("✅ Es texto, mostrando directamente:", responsableValue);
           // Es texto (nuevo formato desde institución)
           setExternal({ id: '', full_name: responsableValue, email: null });
         }
+      } else {
+        console.log("ℹ️ No hay responsable externo asignado");
+        setExternal(null);
       }
 
       // Cargar áreas vinculadas
