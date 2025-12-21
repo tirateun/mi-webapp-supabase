@@ -162,33 +162,7 @@ export default function Reportes() {
         })
         .map(year => year.id);
 
-      // 3. Consultar contraprestaciones_seguimiento solo de años válidos
-      let seguimientoQuery = supabase
-        .from("contraprestaciones_seguimiento")
-        .select("estado, contraprestacion_id");
-
-      // Si hay años válidos, filtrar por ellos
-      if (yearIdsValidos.length > 0) {
-        // Obtener contraprestaciones de esos años
-        const { data: contraprestacionesValidas } = await supabase
-          .from("contraprestaciones")
-          .select("id")
-          .in("agreement_year_id", yearIdsValidos);
-
-        const contrapIds = (contraprestacionesValidas || []).map(c => c.id);
-
-        if (contrapIds.length > 0) {
-          seguimientoQuery = seguimientoQuery.in("contraprestacion_id", contrapIds);
-        } else {
-          // No hay contraprestaciones en años válidos
-          setEjecucionContraprestaciones([]);
-          setTotalContraprestaciones(0);
-          setContraprestacionesCumplidas(0);
-          setPorcentajeCumplimiento(0);
-          setLoading(false);
-          return;
-        }
-      } else {
+      if (yearIdsValidos.length === 0) {
         // No hay años válidos (todos son futuros)
         setEjecucionContraprestaciones([]);
         setTotalContraprestaciones(0);
@@ -198,23 +172,46 @@ export default function Reportes() {
         return;
       }
 
-      const { data: contraprestaciones } = await seguimientoQuery;
+      // 3. Obtener TODAS las contraprestaciones PROGRAMADAS de esos años
+      const { data: contraprestacionesProgramadas } = await supabase
+        .from("contraprestaciones")
+        .select("id, unidades_comprometidas")
+        .in("agreement_year_id", yearIdsValidos);
 
-      // 🆕 Calcular KPIs de cumplimiento
-      const total = contraprestaciones?.length || 0;
-      const cumplidas = contraprestaciones?.filter(c => c.estado === "Cumplido").length || 0;
-      const pendientes = total - cumplidas; // Las que NO están cumplidas
-      const porcentaje = total > 0 ? Math.round((cumplidas / total) * 100) : 0;
+      // 4. Calcular total de unidades programadas (considerando unidades_comprometidas)
+      let totalProgramadas = 0;
+      (contraprestacionesProgramadas || []).forEach((c: any) => {
+        const unidades = c.unidades_comprometidas || 1;
+        totalProgramadas += unidades;
+      });
 
-      setTotalContraprestaciones(total);
+      // 5. Obtener contraprestaciones CUMPLIDAS
+      const contrapIds = (contraprestacionesProgramadas || []).map(c => c.id);
+      
+      let cumplidas = 0;
+      if (contrapIds.length > 0) {
+        const { data: seguimientos } = await supabase
+          .from("contraprestaciones_seguimiento")
+          .select("estado")
+          .in("contraprestacion_id", contrapIds)
+          .eq("estado", "Cumplido");
+
+        cumplidas = seguimientos?.length || 0;
+      }
+
+      // 6. Calcular pendientes y porcentaje
+      const pendientes = totalProgramadas - cumplidas;
+      const porcentaje = totalProgramadas > 0 ? Math.round((cumplidas / totalProgramadas) * 100) : 0;
+
+      setTotalContraprestaciones(totalProgramadas);
       setContraprestacionesCumplidas(cumplidas);
       setPorcentajeCumplimiento(porcentaje);
 
-      // 🆕 Agrupar en solo 2 estados: Cumplido vs Pendiente
+      // 7. Preparar datos para el gráfico
       const estadosSimplificados = [
         { estado: "Cumplido", cantidad: cumplidas },
         { estado: "Pendiente", cantidad: pendientes }
-      ].filter(item => item.cantidad > 0); // Solo mostrar si hay datos
+      ].filter(item => item.cantidad > 0);
       
       setEjecucionContraprestaciones(estadosSimplificados);
     } catch (err) {
