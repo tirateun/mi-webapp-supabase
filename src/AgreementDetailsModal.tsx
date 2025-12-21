@@ -115,13 +115,29 @@ export default function AgreementDetailsModal({
 
       // Cargar responsable externo
       if (agreementData?.external_responsible) {
-        const { data: externalData } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .eq("id", agreementData.external_responsible)
-          .single();
+        const responsableValue = agreementData.external_responsible;
+        
+        // Verificar si es UUID (legacy) o texto
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (uuidRegex.test(responsableValue)) {
+          // Es UUID legacy, buscar en profiles
+          const { data: externalData } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .eq("id", responsableValue)
+            .single();
 
-        if (externalData) setExternal(externalData);
+          if (externalData) {
+            setExternal(externalData);
+          } else {
+            // UUID no encontrado, mostrar como texto
+            setExternal({ id: '', full_name: responsableValue, email: null });
+          }
+        } else {
+          // Es texto (nuevo formato desde institución)
+          setExternal({ id: '', full_name: responsableValue, email: null });
+        }
       }
 
       // Cargar áreas vinculadas

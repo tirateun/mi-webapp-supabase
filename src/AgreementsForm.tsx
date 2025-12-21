@@ -32,16 +32,17 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   // 🆕 NUEVO: Gestión de subtipos con responsables
   const [subtipesConfig, setSubtipesConfig] = useState<Record<string, SubtipoConfig>>({});
 
-  // Responsables / externos / áreas
+  // Responsables / áreas
   const [internos, setInternos] = useState<any[]>([]);
-  const [externos, setExternos] = useState<any[]>([]);
   const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
     if (!existingAgreement) return [];
     const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
     if (!Array.isArray(list)) return [];
     return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
   });
-  const [externalResponsible, setExternalResponsible] = useState<string>(String(existingAgreement?.external_responsible || ""));
+  
+  // 🆕 Responsable externo como texto (desde institución.contacto)
+  const [externalResponsibleText, setExternalResponsibleText] = useState<string>(existingAgreement?.external_responsible || "");
 
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
@@ -107,20 +108,17 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     try {
       const [
         { data: internosData }, 
-        { data: externosData }, 
         { data: areasData },
-        { data: institucionesData } // 🆕 Cargar instituciones
+        { data: institucionesData }
       ] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
-        supabase.from("profiles").select("id, full_name, role").eq("role", "external"),
         supabase.from("areas_vinculadas").select("id, nombre"),
-        supabase.from("instituciones").select("id, nombre, pais, contacto").order("nombre", { ascending: true }) // 🆕
+        supabase.from("instituciones").select("id, nombre, pais, contacto").order("nombre", { ascending: true })
       ]);
 
       setInternos(internosData || []);
-      setExternos(externosData || []);
       setAreas(areasData || []);
-      setInstituciones(institucionesData || []); // 🆕
+      setInstituciones(institucionesData || []);
 
       if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
         const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
@@ -215,9 +213,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       setPais(inst.pais);
     }
     
-    // Si la institución tiene contacto, no lo asignamos automáticamente
-    // porque el responsable externo debe ser seleccionado manualmente
-    // pero podríamos mostrar una sugerencia
+    // 🆕 Autocompletar responsable externo desde contacto de institución
+    if (inst.contacto) {
+      setExternalResponsibleText(inst.contacto);
+    }
   };
 
   // 🆕 Limpiar selección de institución
@@ -225,6 +224,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     setInstitucionSeleccionada("");
     setBusquedaInstitucion("");
     setMostrarResultados(false);
+    setExternalResponsibleText(""); // Limpiar también responsable externo
   };
 
   // 🆕 Toggle subtipo docente
@@ -394,8 +394,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         if (error) throw error;
       }
 
-      // actualizar responsable externo
-      await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
+      // 🆕 Actualizar responsable externo como TEXTO (no foreign key)
+      await supabase
+        .from("agreements")
+        .update({ external_responsible: externalResponsibleText || null })
+        .eq("id", agreementId);
 
       // Generar años
       const { data: agreementRow, error: agreementRowErr } = await supabase
@@ -569,24 +572,26 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
               <div className="col-md-6 mb-3">
                 <label className="form-label">Responsable Externo</label>
                 
-                {/* 🆕 Sugerencia desde institución */}
-                {institucionSeleccionada && instituciones.find((i: any) => i.id === institucionSeleccionada)?.contacto && (
-                  <div className="alert alert-info py-2 mb-2">
-                    <small>
-                      💡 <strong>Contacto de la institución:</strong> {instituciones.find((i: any) => i.id === institucionSeleccionada)?.contacto}
-                    </small>
-                  </div>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={externalResponsibleText}
+                  onChange={(e) => setExternalResponsibleText(e.target.value)}
+                  placeholder="Nombre del responsable externo"
+                  readOnly={!!institucionSeleccionada} // Solo lectura si viene de institución
+                />
+                
+                {institucionSeleccionada && externalResponsibleText && (
+                  <small className="form-text text-success">
+                    ✓ Autocompletado desde la institución
+                  </small>
                 )}
-
-                <select className="form-select" value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
-                  <option value="">Seleccione</option>
-                  {externos.map((p) => (
-                    <option key={p.id} value={String(p.id)}>{p.full_name}</option>
-                  ))}
-                </select>
-                <small className="form-text text-muted">
-                  O puede usar el contacto de la institución como referencia
-                </small>
+                
+                {!institucionSeleccionada && (
+                  <small className="form-text text-muted">
+                    Primero selecciona una institución para autocompletar
+                  </small>
+                )}
               </div>
             </div>
           )}
