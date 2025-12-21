@@ -8,6 +8,12 @@ interface AgreementDetailsModalProps {
   agreementId: string;
 }
 
+interface Subtype {
+  id: string;
+  subtipo_nombre: string;
+  responsables: any[];
+}
+
 export default function AgreementDetailsModal({
   show,
   onClose,
@@ -18,6 +24,7 @@ export default function AgreementDetailsModal({
   const [internals, setInternals] = useState<any[]>([]);
   const [external, setExternal] = useState<any>(null);
   const [areas, setAreas] = useState<any[]>([]);
+  const [subtypes, setSubtypes] = useState<Subtype[]>([]);
 
   useEffect(() => {
     if (show && agreementId) {
@@ -38,27 +45,72 @@ export default function AgreementDetailsModal({
       if (agreementError) throw agreementError;
       setAgreement(agreementData);
 
-      // Cargar responsables internos - MÉTODO SIMPLIFICADO
-      const { data: internalsLinks, error: internalsError } = await supabase
-        .from("agreement_internal_responsibles")
-        .select("internal_responsible_id")
+      // Verificar si tiene subtipos
+      const { data: subtypesData, error: subtypesError } = await supabase
+        .from("agreement_subtypes")
+        .select("id, subtipo_nombre")
         .eq("agreement_id", agreementId);
 
-      if (!internalsError && internalsLinks && internalsLinks.length > 0) {
-        // Obtener IDs de responsables
-        const internalIds = internalsLinks.map((link: any) => link.internal_responsible_id);
-        
-        // Cargar perfiles de esos responsables
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", internalIds);
+      const hasSubtypes = subtypesData && subtypesData.length > 0;
 
-        if (!profilesError && profilesData) {
-          setInternals(profilesData);
+      if (hasSubtypes) {
+        // Cargar responsables POR SUBTIPO
+        const subtypesWithResponsibles: Subtype[] = [];
+
+        for (const subtype of subtypesData) {
+          // Cargar responsables de este subtipo
+          const { data: responsiblesLinks } = await supabase
+            .from("subtype_internal_responsibles")
+            .select("internal_responsible_id")
+            .eq("subtype_id", subtype.id);
+
+          if (responsiblesLinks && responsiblesLinks.length > 0) {
+            const responsibleIds = responsiblesLinks.map((r: any) => r.internal_responsible_id);
+
+            // Obtener perfiles
+            const { data: profilesData } = await supabase
+              .from("profiles")
+              .select("id, full_name, email")
+              .in("id", responsibleIds);
+
+            subtypesWithResponsibles.push({
+              id: subtype.id,
+              subtipo_nombre: subtype.subtipo_nombre,
+              responsables: profilesData || [],
+            });
+          } else {
+            subtypesWithResponsibles.push({
+              id: subtype.id,
+              subtipo_nombre: subtype.subtipo_nombre,
+              responsables: [],
+            });
+          }
         }
+
+        setSubtypes(subtypesWithResponsibles);
+        setInternals([]); // No hay responsables generales
       } else {
-        setInternals([]);
+        // Cargar responsables internos GENERALES (método anterior)
+        const { data: internalsLinks, error: internalsError } = await supabase
+          .from("agreement_internal_responsibles")
+          .select("internal_responsible_id")
+          .eq("agreement_id", agreementId);
+
+        if (!internalsError && internalsLinks && internalsLinks.length > 0) {
+          const internalIds = internalsLinks.map((link: any) => link.internal_responsible_id);
+
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, email")
+            .in("id", internalIds);
+
+          if (!profilesError && profilesData) {
+            setInternals(profilesData);
+          }
+        } else {
+          setInternals([]);
+        }
+        setSubtypes([]);
       }
 
       // Cargar responsable externo
@@ -68,11 +120,11 @@ export default function AgreementDetailsModal({
           .select("id, full_name, email")
           .eq("id", agreementData.external_responsible)
           .single();
-        
+
         if (externalData) setExternal(externalData);
       }
 
-      // Cargar áreas vinculadas - MÉTODO SIMPLIFICADO
+      // Cargar áreas vinculadas
       const { data: areasLinks } = await supabase
         .from("agreement_areas_vinculadas")
         .select("area_vinculada_id")
@@ -80,7 +132,7 @@ export default function AgreementDetailsModal({
 
       if (areasLinks && areasLinks.length > 0) {
         const areaIds = areasLinks.map((link: any) => link.area_vinculada_id);
-        
+
         const { data: areasData } = await supabase
           .from("areas_vinculadas")
           .select("id, nombre")
@@ -212,13 +264,6 @@ export default function AgreementDetailsModal({
                           </div>
                         </div>
                       )}
-
-                      {agreement.sub_tipo_docente && (
-                        <div className="col-md-12">
-                          <label className="fw-bold text-muted small">Subtipo Docente</label>
-                          <div>{agreement.sub_tipo_docente}</div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -249,51 +294,110 @@ export default function AgreementDetailsModal({
                   </div>
                 )}
 
-                {/* RESPONSABLES */}
+                {/* RESPONSABLES - CON SUBTIPOS */}
                 <div className="card border-0 shadow-sm mb-4">
                   <div className="card-header bg-white border-0 p-4">
                     <h5 className="mb-0 fw-bold">👥 Responsables</h5>
                   </div>
                   <div className="card-body p-4">
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <label className="fw-bold text-muted small">Responsables Internos</label>
-                        {internals.length > 0 ? (
-                          <ul className="list-unstyled mt-2 mb-0">
-                            {internals.map((person: any) => (
-                              <li key={person.id} className="mb-2">
-                                <span className="badge bg-secondary me-2">👤</span>
-                                <strong>{person.full_name}</strong>
-                                {person.email && (
+                    {subtypes.length > 0 ? (
+                      // Mostrar responsables POR SUBTIPO
+                      <>
+                        <div className="alert alert-info mb-3">
+                          <strong>ℹ️ Convenio con subtipos:</strong> Los responsables están asignados por subtipo específico
+                        </div>
+
+                        {subtypes.map((subtype) => (
+                          <div key={subtype.id} className="card mb-3 border-primary">
+                            <div className="card-header bg-primary bg-opacity-10">
+                              <h6 className="mb-0 fw-bold text-primary">
+                                📚 {subtype.subtipo_nombre}
+                              </h6>
+                            </div>
+                            <div className="card-body">
+                              <label className="fw-bold text-muted small">Responsables Internos:</label>
+                              {subtype.responsables.length > 0 ? (
+                                <ul className="list-unstyled mt-2 mb-0">
+                                  {subtype.responsables.map((person: any) => (
+                                    <li key={person.id} className="mb-2">
+                                      <span className="badge bg-secondary me-2">👤</span>
+                                      <strong>{person.full_name}</strong>
+                                      {person.email && (
+                                        <div className="text-muted small ms-4">
+                                          {person.email}
+                                        </div>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="text-muted mt-2">No asignados</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="row g-3 mt-3">
+                          <div className="col-md-12">
+                            <label className="fw-bold text-muted small">Responsable Externo</label>
+                            {external ? (
+                              <div className="mt-2">
+                                <span className="badge bg-warning me-2">👤</span>
+                                <strong>{external.full_name}</strong>
+                                {external.email && (
                                   <div className="text-muted small ms-4">
-                                    {person.email}
+                                    {external.email}
                                   </div>
                                 )}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="text-muted">No asignados</div>
-                        )}
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="fw-bold text-muted small">Responsable Externo</label>
-                        {external ? (
-                          <div className="mt-2">
-                            <span className="badge bg-warning me-2">👤</span>
-                            <strong>{external.full_name}</strong>
-                            {external.email && (
-                              <div className="text-muted small ms-4">
-                                {external.email}
                               </div>
+                            ) : (
+                              <div className="text-muted">No asignado</div>
                             )}
                           </div>
-                        ) : (
-                          <div className="text-muted">No asignado</div>
-                        )}
+                        </div>
+                      </>
+                    ) : (
+                      // Mostrar responsables GENERALES (sin subtipos)
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="fw-bold text-muted small">Responsables Internos</label>
+                          {internals.length > 0 ? (
+                            <ul className="list-unstyled mt-2 mb-0">
+                              {internals.map((person: any) => (
+                                <li key={person.id} className="mb-2">
+                                  <span className="badge bg-secondary me-2">👤</span>
+                                  <strong>{person.full_name}</strong>
+                                  {person.email && (
+                                    <div className="text-muted small ms-4">
+                                      {person.email}
+                                    </div>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="text-muted">No asignados</div>
+                          )}
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="fw-bold text-muted small">Responsable Externo</label>
+                          {external ? (
+                            <div className="mt-2">
+                              <span className="badge bg-warning me-2">👤</span>
+                              <strong>{external.full_name}</strong>
+                              {external.email && (
+                                <div className="text-muted small ms-4">
+                                  {external.email}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-muted">No asignado</div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
