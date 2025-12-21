@@ -514,9 +514,44 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     return periods.map((p) => ({ period: p, items: map[p.key] || [] }));
   }, [agreementInfo, renewals, seguimientosFiltrados, contraprestacionesFiltradas, agreementYears]);
 
+  // 🆕 Verificar si el periodo es futuro
+  const isPeriodoFuturo = (s: Seguimiento): boolean => {
+    const c = s.contraprestacion;
+    if (!c) return false;
+
+    // Verificar por agreement_year
+    if (c.agreement_year_id) {
+      const year = agreementYears.find(y => String(y.id) === String(c.agreement_year_id));
+      if (year && year.year_start) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const inicio = new Date(year.year_start);
+        inicio.setHours(0, 0, 0, 0);
+        return hoy < inicio; // Si hoy es antes del inicio, es futuro
+      }
+    }
+
+    // Verificar por periodo_inicio
+    if (c.periodo_inicio) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const inicio = new Date(c.periodo_inicio);
+      inicio.setHours(0, 0, 0, 0);
+      return hoy < inicio;
+    }
+
+    return false;
+  };
+
   const handleToggleEjecutado = async (s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
       alert("Solo los administradores pueden cambiar el estado.");
+      return;
+    }
+
+    // 🆕 Validar que no sea periodo futuro
+    if (isPeriodoFuturo(s)) {
+      alert("⚠️ No se puede registrar cumplimiento en periodos futuros.\nEspere a que inicie el periodo para registrar evidencias.");
       return;
     }
 
@@ -577,6 +612,13 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
       alert("Solo los administradores pueden subir evidencias.");
+      return;
+    }
+
+    // 🆕 Validar que no sea periodo futuro
+    if (isPeriodoFuturo(s)) {
+      alert("⚠️ No se puede subir evidencias en periodos futuros.\nEspere a que inicie el periodo para registrar evidencias.");
+      e.target.value = ""; // Limpiar el input
       return;
     }
 
@@ -766,20 +808,28 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
                             {s.evidencia_url ? (
                               <a href={s.evidencia_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline-info">📎 Ver PDF</a>
                             ) : (role === "admin" || role === "Admin" || role === "Administrador") ? (
-                              <input type="file" accept="application/pdf" disabled={uploadingId === s.id} onChange={(e) => handleFileUpload(e, s)} />
+                              isPeriodoFuturo(s) ? (
+                                <span className="text-muted small">📅 Periodo futuro</span>
+                              ) : (
+                                <input type="file" accept="application/pdf" disabled={uploadingId === s.id} onChange={(e) => handleFileUpload(e, s)} />
+                              )
                             ) : (
-                                <span className="text-muted">Solo admins</span>
-                              )}
-                            </td>
-  
-                            {(role === "admin" || role === "Admin" || role === "Administrador") && (
-                              <td>
+                              <span className="text-muted">Solo admins</span>
+                            )}
+                          </td>
+
+                          {(role === "admin" || role === "Admin" || role === "Administrador") && (
+                            <td>
+                              {isPeriodoFuturo(s) ? (
+                                <span className="text-muted small">📅 Futuro</span>
+                              ) : (
                                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                                   <input type="checkbox" checked={s.ejecutado} onChange={() => handleToggleEjecutado(s)} disabled={uploadingId === s.id} />
                                   {uploadingId === s.id && <small>Subiendo...</small>}
                                 </label>
-                              </td>
-                            )}
+                              )}
+                            </td>
+                          )}
                           </tr>
                         ))}
                       </tbody>
