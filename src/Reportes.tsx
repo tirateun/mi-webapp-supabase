@@ -66,6 +66,11 @@ export default function Reportes() {
   const [totalConvenios, setTotalConvenios] = useState(0);
   const [totalPaises, setTotalPaises] = useState(0);
   const [promedioAnios, setPromedioAnios] = useState(0);
+  
+  // 🆕 KPIs de contraprestaciones
+  const [totalContraprestaciones, setTotalContraprestaciones] = useState(0);
+  const [contraprestacionesCumplidas, setContraprestacionesCumplidas] = useState(0);
+  const [porcentajeCumplimiento, setPorcentajeCumplimiento] = useState(0);
 
   useEffect(() => {
     cargarReportes();
@@ -139,16 +144,77 @@ export default function Reportes() {
       
       setConveniosPorPais(paisesProcesados);
 
-      // Estado de contraprestaciones
-      const { data: contraprestaciones } = await supabase
+      // 🆕 Estado de contraprestaciones - SOLO AÑOS PASADOS Y VIGENTE
+      // 1. Obtener todos los años del convenio
+      const { data: allYearsData } = await supabase
+        .from("agreement_years")
+        .select("id, year_start, year_end");
+
+      // 2. Filtrar solo años pasados y vigentes (excluir futuros)
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      const yearIdsValidos = (allYearsData || [])
+        .filter(year => {
+          const inicio = new Date(year.year_start);
+          inicio.setHours(0, 0, 0, 0);
+          return hoy >= inicio; // Solo años que ya iniciaron (pasados + vigente)
+        })
+        .map(year => year.id);
+
+      // 3. Consultar contraprestaciones_seguimiento solo de años válidos
+      let seguimientoQuery = supabase
         .from("contraprestaciones_seguimiento")
-        .select("estado");
+        .select("estado, contraprestacion_id");
+
+      // Si hay años válidos, filtrar por ellos
+      if (yearIdsValidos.length > 0) {
+        // Obtener contraprestaciones de esos años
+        const { data: contraprestacionesValidas } = await supabase
+          .from("contraprestaciones")
+          .select("id")
+          .in("agreement_year_id", yearIdsValidos);
+
+        const contrapIds = (contraprestacionesValidas || []).map(c => c.id);
+
+        if (contrapIds.length > 0) {
+          seguimientoQuery = seguimientoQuery.in("contraprestacion_id", contrapIds);
+        } else {
+          // No hay contraprestaciones en años válidos
+          setEjecucionContraprestaciones([]);
+          setTotalContraprestaciones(0);
+          setContraprestacionesCumplidas(0);
+          setPorcentajeCumplimiento(0);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // No hay años válidos (todos son futuros)
+        setEjecucionContraprestaciones([]);
+        setTotalContraprestaciones(0);
+        setContraprestacionesCumplidas(0);
+        setPorcentajeCumplimiento(0);
+        setLoading(false);
+        return;
+      }
+
+      const { data: contraprestaciones } = await seguimientoQuery;
+
+      // 🆕 Calcular KPIs de cumplimiento
+      const total = contraprestaciones?.length || 0;
+      const cumplidas = contraprestaciones?.filter(c => c.estado === "Cumplido").length || 0;
+      const porcentaje = total > 0 ? Math.round((cumplidas / total) * 100) : 0;
+
+      setTotalContraprestaciones(total);
+      setContraprestacionesCumplidas(cumplidas);
+      setPorcentajeCumplimiento(porcentaje);
 
       const conteoEstados: Record<string, number> = {};
       contraprestaciones?.forEach((c) => {
         const estado = c.estado || "Pendiente";
         conteoEstados[estado] = (conteoEstados[estado] || 0) + 1;
       });
+      
       setEjecucionContraprestaciones(
         Object.entries(conteoEstados).map(([estado, cantidad]) => ({ estado, cantidad }))
       );
@@ -267,9 +333,9 @@ export default function Reportes() {
         </div>
       </div>
 
-      {/* KPIs */}
+      {/* 🆕 KPIs - AHORA CON 4 TARJETAS */}
       <div className="row g-3 mb-4">
-        <div className="col-md-4">
+        <div className="col-md-3">
           <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
             <div className="card-body text-white">
               <div className="d-flex justify-content-between align-items-center">
@@ -282,7 +348,7 @@ export default function Reportes() {
             </div>
           </div>
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
             <div className="card-body text-white">
               <div className="d-flex justify-content-between align-items-center">
@@ -295,7 +361,7 @@ export default function Reportes() {
             </div>
           </div>
         </div>
-        <div className="col-md-4">
+        <div className="col-md-3">
           <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
             <div className="card-body text-white">
               <div className="d-flex justify-content-between align-items-center">
@@ -304,6 +370,20 @@ export default function Reportes() {
                   <h2 className="mb-0 fw-bold">{promedioAnios} años</h2>
                 </div>
                 <div style={{ fontSize: '3rem', opacity: 0.3 }}>⏱️</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-3">
+          <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)' }}>
+            <div className="card-body text-white">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 className="mb-1 opacity-75">% Cumplimiento</h6>
+                  <h2 className="mb-0 fw-bold">{porcentajeCumplimiento}%</h2>
+                  <small className="opacity-75">{contraprestacionesCumplidas}/{totalContraprestaciones}</small>
+                </div>
+                <div style={{ fontSize: '3rem', opacity: 0.3 }}>✅</div>
               </div>
             </div>
           </div>
@@ -441,10 +521,18 @@ export default function Reportes() {
         </div>
       </div>
 
-      {/* Estado de Contraprestaciones */}
+      {/* 🆕 Estado de Contraprestaciones - CON INDICADOR */}
       <div className="card border-0 shadow-sm mb-4">
         <div className="card-header bg-white border-0 p-4">
-          <h5 className="mb-0 fw-bold">⚙️ Estado de Contraprestaciones</h5>
+          <div className="d-flex justify-content-between align-items-center">
+            <h5 className="mb-0 fw-bold">⚙️ Estado de Contraprestaciones</h5>
+            <span className="badge bg-info-subtle text-info">
+              Solo años pasados y vigente
+            </span>
+          </div>
+          <p className="mb-0 mt-2 text-muted small">
+            📊 Los años futuros no se incluyen en este reporte
+          </p>
         </div>
         <div className="card-body p-4">
           {ejecucionContraprestaciones.length > 0 ? (
@@ -460,7 +548,7 @@ export default function Reportes() {
           ) : (
             <div className="text-center text-muted py-5">
               <div style={{ fontSize: '3rem', opacity: 0.3 }}>⚙️</div>
-              <p className="mt-2">No hay datos de contraprestaciones</p>
+              <p className="mt-2">No hay datos de contraprestaciones en años pasados o vigente</p>
             </div>
           )}
         </div>
@@ -551,5 +639,4 @@ export default function Reportes() {
     </div>
   );
 }
-
 
