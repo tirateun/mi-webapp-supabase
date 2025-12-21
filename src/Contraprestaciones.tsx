@@ -1,4 +1,5 @@
 // src/Contraprestaciones.tsx
+// Versión con soporte para SUBTIPOS DOCENTES
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -14,6 +15,11 @@ interface YearOption {
   statusLabel: string;
 }
 
+interface Subtype {
+  id: string;
+  subtipo_nombre: string;
+}
+
 export default function Contraprestaciones({
   agreementId,
   onBack,
@@ -26,12 +32,16 @@ export default function Contraprestaciones({
   const [items, setItems] = useState<any[]>([]);
   const [loadingYears, setLoadingYears] = useState(false);
 
+  // 🆕 Estados para subtipos
+  const [subtypes, setSubtypes] = useState<Subtype[]>([]);
+  const [selectedSubtype, setSelectedSubtype] = useState<string>("");
+  const [loadingSubtypes, setLoadingSubtypes] = useState(false);
+
   const [tipo, setTipo] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [unidades, setUnidades] = useState(1);
   const [catalogo, setCatalogo] = useState<any[]>([]);
 
-  // 🆕 Estado para rol del usuario
   const [userRole, setUserRole] = useState<string>("");
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -75,9 +85,6 @@ export default function Contraprestaciones({
     getUserRole();
   }, []);
 
-  /* =========================
-     VALIDAR SI ES ADMIN
-     ========================= */
   const isAdmin = useMemo(() => {
     return ["admin", "Admin", "Administrador"].includes(userRole);
   }, [userRole]);
@@ -120,9 +127,6 @@ export default function Contraprestaciones({
     }
   };
 
-  /* =========================
-     AÑOS PROCESADOS con estado
-     ========================= */
   const yearOptions = useMemo((): YearOption[] => {
     return years.map((year) => {
       const status = getYearStatus(year.year_start, year.year_end);
@@ -141,9 +145,6 @@ export default function Contraprestaciones({
     });
   }, [years]);
 
-  /* =========================
-     AÑOS AGRUPADOS por estado
-     ========================= */
   const groupedYears = useMemo(() => {
     return {
       vigente: yearOptions.filter(y => y.status === 'vigente'),
@@ -153,18 +154,48 @@ export default function Contraprestaciones({
   }, [yearOptions]);
 
   /* =========================
+     🆕 CARGAR SUBTIPOS
+     ========================= */
+  async function loadSubtypes() {
+    if (!agreementId) return;
+    
+    try {
+      setLoadingSubtypes(true);
+      const { data, error } = await supabase
+        .from("agreement_subtypes")
+        .select("id, subtipo_nombre")
+        .eq("agreement_id", agreementId)
+        .order("subtipo_nombre", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setSubtypes(data);
+        setSelectedSubtype(data[0].id); // Seleccionar el primero por defecto
+      } else {
+        setSubtypes([]);
+        setSelectedSubtype("");
+      }
+    } catch (err) {
+      console.error("Error loadSubtypes:", err);
+      setSubtypes([]);
+      setSelectedSubtype("");
+    } finally {
+      setLoadingSubtypes(false);
+    }
+  }
+
+  /* =========================
      CARGA INICIAL
      ========================= */
   useEffect(() => {
     if (!agreementId) return;
     loadYears();
     loadCatalogo();
+    loadSubtypes(); // 🆕 Cargar subtipos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreementId]);
 
-  /* =========================
-     AÑOS DEL CONVENIO
-     ========================= */
   async function loadYears() {
     try {
       setLoadingYears(true);
@@ -206,9 +237,6 @@ export default function Contraprestaciones({
     }
   }
 
-  /* =========================
-     CATÁLOGO
-     ========================= */
   async function loadCatalogo() {
     try {
       const { data, error } = await supabase
@@ -224,7 +252,7 @@ export default function Contraprestaciones({
   }
 
   /* =========================
-     CONTRAPRESTACIONES POR AÑO
+     🆕 CONTRAPRESTACIONES POR AÑO Y SUBTIPO
      ========================= */
   useEffect(() => {
     if (!selectedYear || selectedYear.trim() === "") {
@@ -233,7 +261,7 @@ export default function Contraprestaciones({
     }
     loadContraprestaciones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear]);
+  }, [selectedYear, selectedSubtype]);
 
   async function loadContraprestaciones() {
     if (!selectedYear || selectedYear.trim() === "") {
@@ -242,11 +270,24 @@ export default function Contraprestaciones({
     }
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, unidades_comprometidas")
-        .eq("agreement_year_id", selectedYear)
-        .order("created_at", { ascending: true });
+        .select("id, tipo, descripcion, unidades_comprometidas, subtype_id")
+        .eq("agreement_year_id", selectedYear);
+
+      // 🆕 Filtrar por subtipo si hay subtipos
+      if (subtypes.length > 0 && selectedSubtype) {
+        query = query.eq("subtype_id", selectedSubtype);
+      } else if (subtypes.length > 0) {
+        // Si hay subtipos pero ninguno seleccionado, no mostrar nada
+        setItems([]);
+        return;
+      } else {
+        // Si no hay subtipos, mostrar las contraprestaciones generales (subtype_id null)
+        query = query.is("subtype_id", null);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: true });
 
       if (error) throw error;
       setItems(data ?? []);
@@ -257,10 +298,9 @@ export default function Contraprestaciones({
   }
 
   /* =========================
-     AGREGAR - 🔒 SOLO ADMIN
+     🆕 AGREGAR CON SUBTIPO
      ========================= */
   async function addItem() {
-    // 🔒 VALIDACIÓN DE PERMISOS
     if (!isAdmin) {
       alert("❌ Solo los administradores pueden agregar contraprestaciones.");
       return;
@@ -271,14 +311,20 @@ export default function Contraprestaciones({
       return alert("Seleccione un año válido.");
     if (!tipo) return alert("Seleccione un tipo.");
 
+    // 🆕 Validar subtipo si existen subtipos
+    if (subtypes.length > 0 && !selectedSubtype) {
+      return alert("Seleccione un subtipo.");
+    }
+
     try {
-      const payload = {
+      const payload: any = {
         agreement_id: agreementId,
         agreement_year_id: selectedYear,
         catalogo_id: catalogo.find((c) => c.nombre === tipo)?.id ?? null,
         tipo,
         descripcion,
         unidades_comprometidas: unidades,
+        subtype_id: subtypes.length > 0 ? selectedSubtype : null, // 🆕 Agregar subtipo
       };
 
       const { error } = await supabase.from("contraprestaciones").insert(payload);
@@ -294,11 +340,7 @@ export default function Contraprestaciones({
     }
   }
 
-  /* =========================
-     ELIMINAR - 🔒 SOLO ADMIN
-     ========================= */
   async function deleteItem(id: string) {
-    // 🔒 VALIDACIÓN DE PERMISOS
     if (!isAdmin) {
       alert("❌ Solo los administradores pueden eliminar contraprestaciones.");
       return;
@@ -328,6 +370,15 @@ export default function Contraprestaciones({
   }
 
   /* =========================
+     🆕 Contador de contraprestaciones por subtipo
+     ========================= */
+  const getSubtypeCount = (subtypeId: string) => {
+    // Esta función se ejecutará cuando tengamos las contraprestaciones cargadas
+    // Por ahora retornamos 0, pero se puede mejorar con un estado adicional
+    return items.filter(i => i.subtype_id === subtypeId).length;
+  };
+
+  /* =========================
      UI
      ========================= */
   if (loadingUser) {
@@ -346,7 +397,46 @@ export default function Contraprestaciones({
 
       <h1 className="text-2xl font-bold mb-4">Contraprestaciones</h1>
 
-      {/* Selector de año con agrupación visual */}
+      {/* 🆕 PESTAÑAS DE SUBTIPOS */}
+      {loadingSubtypes ? (
+        <div className="mb-4 p-3 bg-blue-50 rounded">
+          <p>Cargando subtipos...</p>
+        </div>
+      ) : subtypes.length > 0 ? (
+        <div className="mb-4">
+          <label className="font-semibold mb-2 block">Subtipo Docente:</label>
+          <div className="flex flex-wrap gap-2 border-b-2 border-gray-200">
+            {subtypes.map((subtype) => (
+              <button
+                key={subtype.id}
+                onClick={() => setSelectedSubtype(subtype.id)}
+                className={`px-4 py-2 font-semibold transition-all ${
+                  selectedSubtype === subtype.id
+                    ? "bg-blue-600 text-white border-b-4 border-blue-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                } rounded-t-lg`}
+              >
+                📚 {subtype.subtipo_nombre}
+                {selectedSubtype === subtype.id && items.length > 0 && (
+                  <span className="ml-2 bg-white text-blue-600 px-2 py-0.5 rounded-full text-xs">
+                    {items.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {selectedSubtype && (
+            <div className="mt-2 p-3 bg-blue-50 rounded border-l-4 border-blue-600">
+              <p className="text-sm text-blue-800">
+                <strong>Trabajando en:</strong> {subtypes.find(s => s.id === selectedSubtype)?.subtipo_nombre}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {/* Selector de año */}
       <div className="mb-4">
         <label className="font-semibold mr-2">Año del convenio:</label>
         {loadingYears ? (
@@ -438,10 +528,17 @@ export default function Contraprestaciones({
         );
       })()}
 
-      {/* Formulario - 🔒 SOLO VISIBLE PARA ADMIN */}
+      {/* Formulario - SOLO ADMIN */}
       {isAdmin ? (
         <div className="border-2 border-gray-300 p-4 rounded-lg mb-6 bg-gray-50">
-          <h2 className="font-semibold mb-3 text-lg">Agregar contraprestación</h2>
+          <h2 className="font-semibold mb-3 text-lg">
+            Agregar contraprestación
+            {subtypes.length > 0 && selectedSubtype && (
+              <span className="ml-2 text-sm text-blue-600">
+                para {subtypes.find(s => s.id === selectedSubtype)?.subtipo_nombre}
+              </span>
+            )}
+          </h2>
 
           <select
             className="border px-3 py-2 w-full mb-3 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -476,6 +573,7 @@ export default function Contraprestaciones({
           <button
             onClick={addItem}
             className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold shadow"
+            disabled={subtypes.length > 0 && !selectedSubtype}
           >
             ➕ Agregar
           </button>
@@ -505,7 +603,11 @@ export default function Contraprestaciones({
             {items.length === 0 ? (
               <tr>
                 <td colSpan={isAdmin ? 4 : 3} className="border border-gray-300 p-4 text-center text-gray-500">
-                  No hay contraprestaciones registradas para este año
+                  {subtypes.length > 0 && !selectedSubtype ? (
+                    "Seleccione un subtipo para ver las contraprestaciones"
+                  ) : (
+                    `No hay contraprestaciones registradas para este ${subtypes.length > 0 ? 'subtipo y ' : ''}año`
+                  )}
                 </td>
               </tr>
             ) : (
