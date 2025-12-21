@@ -1,5 +1,5 @@
 // src/ContraprestacionesEvidencias.tsx
-// CORREGIDO: Ahora genera múltiples filas según unidades_comprometidas
+// VERSIÓN CON SOPORTE PARA SUBTIPOS DOCENTES
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
@@ -17,12 +17,13 @@ interface Contraprestacion {
   renewal_id?: string | null;
   agreement_year_id?: string | null;
   periodo?: number | null;
+  subtype_id?: string | null; // 🆕
 }
 
 interface SeguimientoRaw {
   id: string;
   contraprestacion_id: string | null;
-  unidad_numero?: number | null; // 🆕 para identificar cuál unidad es (1, 2, 3...)
+  unidad_numero?: number | null;
   anio?: number | null;
   ["año"]?: number | null;
   estado?: string | null;
@@ -38,7 +39,7 @@ interface SeguimientoRaw {
 interface Seguimiento {
   id: string;
   contraprestacion_id: string;
-  unidad_numero: number; // 🆕 número de unidad (1, 2, 3...)
+  unidad_numero: number;
   anio: number;
   estado: string | null;
   observaciones: string | null;
@@ -58,6 +59,12 @@ interface Renewal {
   new_expiration_date: string | null;
   changed_at: string | null;
   changed_by?: string | null;
+}
+
+// 🆕 Interface para subtipos
+interface Subtype {
+  id: string;
+  subtipo_nombre: string;
 }
 
 /* ------------------ Props ------------------ */
@@ -102,6 +109,11 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
   const [resolvedAgreementId, setResolvedAgreementId] = useState<string | null>(null);
   const [agreementYears, setAgreementYears] = useState<any[]>([]);
 
+  // 🆕 Estados para subtipos
+  const [subtypes, setSubtypes] = useState<Subtype[]>([]);
+  const [selectedSubtype, setSelectedSubtype] = useState<string>("");
+  const [loadingSubtypes, setLoadingSubtypes] = useState(false);
+
   const resolveAgreementId = async (id: string) => {
     try {
       const { data: agreementData, error: agreementError } = await supabase
@@ -125,6 +137,34 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
     }
   };
 
+  // 🆕 Cargar subtipos
+  const loadSubtypes = async (agreementId: string) => {
+    try {
+      setLoadingSubtypes(true);
+      const { data, error } = await supabase
+        .from("agreement_subtypes")
+        .select("id, subtipo_nombre")
+        .eq("agreement_id", agreementId)
+        .order("subtipo_nombre", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setSubtypes(data);
+        setSelectedSubtype(data[0].id);
+      } else {
+        setSubtypes([]);
+        setSelectedSubtype("");
+      }
+    } catch (err) {
+      console.error("Error loadSubtypes:", err);
+      setSubtypes([]);
+      setSelectedSubtype("");
+    } finally {
+      setLoadingSubtypes(false);
+    }
+  };
+
   useEffect(() => {
     if (!inputId) {
       setError("No se proporcionó ID de convenio");
@@ -144,6 +184,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       }
 
       setResolvedAgreementId(realAgreementId);
+      await loadSubtypes(realAgreementId); // 🆕 Cargar subtipos
       await loadAllData(realAgreementId);
     };
 
@@ -177,11 +218,14 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       if (yErr) throw yErr;
       setAgreementYears(yData || []);
 
-      const { data: cData, error: cErr } = await supabase
+      // 🆕 Cargar contraprestaciones (filtradas por subtipo si existe)
+      let contrapQuery = supabase
         .from("contraprestaciones")
-        .select("id, tipo, descripcion, renewal_id, agreement_id, periodo_inicio, periodo_fin, agreement_year_id, periodo, unidades_comprometidas")
+        .select("id, tipo, descripcion, renewal_id, agreement_id, periodo_inicio, periodo_fin, agreement_year_id, periodo, unidades_comprometidas, subtype_id")
         .eq("agreement_id", agreementId)
         .order("tipo", { ascending: true });
+
+      const { data: cData, error: cErr } = await contrapQuery;
       if (cErr) throw cErr;
       const cList = (cData || []) as Contraprestacion[];
       setContraprestaciones(cList);
@@ -195,7 +239,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
       const { data: sData, error: sErr } = await supabase
         .from("contraprestaciones_seguimiento")
-        .select("*, contraprestaciones(id, tipo, descripcion, periodo_inicio, periodo_fin, periodo, renewal_id, agreement_year_id, unidades_comprometidas)")
+        .select("*, contraprestaciones(id, tipo, descripcion, periodo_inicio, periodo_fin, periodo, renewal_id, agreement_year_id, unidades_comprometidas, subtype_id)")
         .in("contraprestacion_id", contraprestacionIds)
         .order("fecha_verificacion", { ascending: true });
       if (sErr) throw sErr;
@@ -239,7 +283,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         return {
           id: r.id,
           contraprestacion_id: (r.contraprestacion_id as string) ?? "",
-          unidad_numero: r.unidad_numero ?? 1, // 🆕
+          unidad_numero: r.unidad_numero ?? 1,
           anio: anioCalculado,
           estado: r.estado ?? null,
           observaciones: r.observaciones ?? null,
@@ -272,6 +316,24 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       setLoading(false);
     }
   };
+
+  // 🆕 Filtrar contraprestaciones y seguimientos por subtipo
+  const contraprestacionesFiltradas = useMemo(() => {
+    if (subtypes.length === 0) {
+      // Sin subtipos: mostrar solo las contraprestaciones sin subtipo
+      return contraprestaciones.filter(c => !c.subtype_id);
+    } else if (selectedSubtype) {
+      // Con subtipos: mostrar solo las del subtipo seleccionado
+      return contraprestaciones.filter(c => c.subtype_id === selectedSubtype);
+    } else {
+      return [];
+    }
+  }, [contraprestaciones, subtypes, selectedSubtype]);
+
+  const seguimientosFiltrados = useMemo(() => {
+    const contrapIds = contraprestacionesFiltradas.map(c => c.id);
+    return seguimientos.filter(s => contrapIds.includes(s.contraprestacion_id));
+  }, [seguimientos, contraprestacionesFiltradas]);
 
   const grouped = useMemo(() => {
     const periods: { key: string; title: string; start: Date | null; end: Date | null; renewalId: string | null }[] = [];
@@ -367,27 +429,27 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       return "original";
     };
 
-    const contraprestacionesMap = new Map(contraprestaciones.map(c => [c.id, c]));
+    const contraprestacionesMap = new Map(contraprestacionesFiltradas.map(c => [c.id, c]));
 
-    (seguimientos || []).forEach((s) => {
+    // 🆕 Usar seguimientos filtrados
+    (seguimientosFiltrados || []).forEach((s) => {
       const key = findPeriodKeyForSeguimiento(s) ?? "original";
       const contraprestacionCompleta = contraprestacionesMap.get(s.contraprestacion_id) || s.contraprestacion || null;
       if (!map[key]) map[key] = [];
       map[key].push({ ...s, contraprestacion: contraprestacionCompleta, periodo: periods.find((p) => p.key === key)?.title ?? "" });
     });
 
-    // 🆕 CREAR DUMMIES POR CADA UNIDAD COMPROMETIDA
-    contraprestaciones.forEach(c => {
+    // Crear dummies solo para contraprestaciones filtradas
+    contraprestacionesFiltradas.forEach(c => {
       const unidadesComprometidas = c.unidades_comprometidas ?? 1;
       
-      // Para cada unidad, verificar si ya existe un seguimiento
       for (let unidadNum = 1; unidadNum <= unidadesComprometidas; unidadNum++) {
-        const yaExiste = seguimientos.some(s => 
+        const yaExiste = seguimientosFiltrados.some(s => 
           s.contraprestacion_id === c.id && 
           s.unidad_numero === unidadNum
         );
         
-        if (yaExiste) continue; // Ya tiene seguimiento para esta unidad
+        if (yaExiste) continue;
 
         const calcularAnioReal = () => {
           if (!c.periodo_inicio || !agreementInfo?.signature_date) return (c as any).periodo ?? 1;
@@ -399,7 +461,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         const dummySeguimiento: Seguimiento = {
           id: `dummy_${c.id}_${unidadNum}`,
           contraprestacion_id: c.id,
-          unidad_numero: unidadNum, // 🆕
+          unidad_numero: unidadNum,
           anio: calcularAnioReal(),
           estado: null,
           observaciones: null,
@@ -445,13 +507,12 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         const ty = y.contraprestacion?.tipo ?? "";
         const tc = tx.localeCompare(ty);
         if (tc !== 0) return tc;
-        // Si mismo tipo, ordenar por unidad_numero
         return (x.unidad_numero || 0) - (y.unidad_numero || 0);
       });
     });
 
     return periods.map((p) => ({ period: p, items: map[p.key] || [] }));
-  }, [agreementInfo, renewals, seguimientos, contraprestaciones, agreementYears]);
+  }, [agreementInfo, renewals, seguimientosFiltrados, contraprestacionesFiltradas, agreementYears]);
 
   const handleToggleEjecutado = async (s: Seguimiento) => {
     if (!(role === "admin" || role === "Admin" || role === "Administrador")) {
@@ -464,7 +525,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       try {
         const insertObj: any = {
           contraprestacion_id: s.contraprestacion_id,
-          unidad_numero: s.unidad_numero, // 🆕
+          unidad_numero: s.unidad_numero,
           estado: "Cumplido",
           ejecutado: true,
           responsable: userId,
@@ -528,20 +589,16 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
 
     setUploadingId(s.id);
     try {
-      // 🆕 Sanitizar nombre del archivo (remover caracteres especiales)
       const sanitizeFilename = (filename: string): string => {
-        // Obtener la extensión
         const ext = filename.substring(filename.lastIndexOf('.'));
-        // Obtener el nombre sin extensión
         const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.'));
         
-        // Remover caracteres especiales, mantener solo letras, números, guiones y guiones bajos
         const sanitized = nameWithoutExt
-          .normalize("NFD") // Descomponer caracteres acentuados
-          .replace(/[\u0300-\u036f]/g, "") // Remover diacríticos (tildes)
-          .replace(/[^a-zA-Z0-9_-]/g, "_") // Reemplazar caracteres especiales con guion bajo
-          .replace(/_+/g, "_") // Reemplazar múltiples guiones bajos con uno solo
-          .substring(0, 100); // Limitar longitud
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9_-]/g, "_")
+          .replace(/_+/g, "_")
+          .substring(0, 100);
         
         return `${sanitized}${ext}`;
       };
@@ -549,8 +606,6 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       const sanitizedFileName = sanitizeFilename(file.name);
       const timestamp = Date.now();
       const filePath = `${resolvedAgreementId}/${s.contraprestacion_id}/${s.id}_${timestamp}_${sanitizedFileName}`;
-      
-      console.log("📤 Subiendo archivo:", { original: file.name, sanitized: sanitizedFileName, path: filePath });
       
       const { error: uploadError } = await supabase.storage.from("evidencias").upload(filePath, file, { cacheControl: "3600", upsert: false });
       if (uploadError) throw uploadError;
@@ -562,7 +617,7 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         const renewal_to_set = s.renewal_id ?? s.contraprestacion?.renewal_id ?? null;
         const insertObj: any = {
           contraprestacion_id: s.contraprestacion_id,
-          unidad_numero: s.unidad_numero, // 🆕
+          unidad_numero: s.unidad_numero,
           estado: "Cumplido",
           ejecutado: true,
           responsable: userId,
@@ -619,11 +674,48 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
         </small>
       </div>
 
+      {/* 🆕 PESTAÑAS DE SUBTIPOS */}
+      {loadingSubtypes ? (
+        <div className="mb-4 p-3 bg-primary bg-opacity-10 rounded">
+          <p className="mb-0">Cargando subtipos...</p>
+        </div>
+      ) : subtypes.length > 0 ? (
+        <div className="mb-4">
+          <div className="d-flex flex-wrap gap-2 border-bottom border-2 border-secondary pb-2">
+            {subtypes.map((subtype) => (
+              <button
+                key={subtype.id}
+                onClick={() => setSelectedSubtype(subtype.id)}
+                className={`btn ${
+                  selectedSubtype === subtype.id
+                    ? "btn-primary fw-bold"
+                    : "btn-outline-secondary"
+                }`}
+              >
+                📚 {subtype.subtipo_nombre}
+              </button>
+            ))}
+          </div>
+          
+          {selectedSubtype && (
+            <div className="mt-3 p-3 bg-primary bg-opacity-10 rounded border-start border-primary border-4">
+              <p className="mb-0 text-primary">
+                <strong>Trabajando en:</strong> {subtypes.find(s => s.id === selectedSubtype)?.subtipo_nombre}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {grouped.length === 0 ? (
-        <div className="alert alert-info">No hay contraprestaciones registradas.</div>
+        <div className="alert alert-info">
+          {subtypes.length > 0 && !selectedSubtype
+            ? "Seleccione un subtipo para ver las contraprestaciones"
+            : "No hay contraprestaciones registradas."}
+        </div>
       ) : (
         grouped
-          .filter(({ items }) => items.length > 0) // 🆕 Ocultar periodos sin items
+          .filter(({ items }) => items.length > 0)
           .map(({ period, items }) => (
           <div key={period.key} className="card mb-3">
             <div className="card-body">
