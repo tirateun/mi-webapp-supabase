@@ -2,6 +2,7 @@
 // Versión con soporte para SUBTIPOS DOCENTES
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "./supabaseClient";
+import React from "react";
 
 type YearStatus = 'pasado' | 'vigente' | 'futuro';
 
