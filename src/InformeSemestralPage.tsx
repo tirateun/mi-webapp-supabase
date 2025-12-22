@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { useNavigate, useParams } from "react-router-dom";
+import * as XLSX from 'xlsx';
 
 interface AgreementYear {
   id: string;
@@ -371,6 +372,67 @@ export default function InformeSemestralPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // AGREGAR ESTA FUNCIÓN antes del return principal, después de handleView
+  const exportarAExcel = () => {
+    try {
+      if (informes.length === 0) {
+        alert("No hay informes para exportar");
+        return;
+      }
+
+      // Preparar datos para exportar
+      const datosParaExportar = informes.map((inf, index) => {
+        const year = agreementYears.find(y => y.id === inf.year_id);
+        
+        return {
+          'N°': index + 1,
+          'Responsable': inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario",
+          'Año': `Año ${year?.year_number ?? "?"}`,
+          'Periodo': year ? `${new Date(year.year_start!).toLocaleDateString('es-PE')} - ${new Date(year.year_end!).toLocaleDateString('es-PE')}` : '-',
+          'Contenido': inf.contenido ?? "Sin contenido",
+          'Dificultades/Observaciones': inf.dificultades ?? "Sin observaciones",
+          'Fecha de Envío': inf.created_at ? new Date(inf.created_at).toLocaleDateString('es-PE') : '-',
+          'Última Actualización': inf.updated_at ? new Date(inf.updated_at).toLocaleDateString('es-PE') : '-'
+        };
+      });
+
+      // Crear libro de Excel
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(datosParaExportar);
+
+      // Ajustar ancho de columnas
+      const columnWidths = [
+        { wch: 5 },   // N°
+        { wch: 30 },  // Responsable
+        { wch: 10 },  // Año
+        { wch: 25 },  // Periodo
+        { wch: 80 },  // Contenido
+        { wch: 60 },  // Dificultades
+        { wch: 15 },  // Fecha Envío
+        { wch: 15 },  // Última Actualización
+      ];
+      ws['!cols'] = columnWidths;
+
+      // Agregar hoja al libro
+      XLSX.utils.book_append_sheet(wb, ws, 'Informes Anuales');
+
+      // Generar nombre de archivo con fecha
+      const fecha = new Date().toLocaleDateString('es-PE').replace(/\//g, '-');
+      const yearInfo = selectedYearId 
+        ? `Año_${agreementYears.find(y => y.id === selectedYearId)?.year_number}`
+        : 'Todos_los_años';
+      const nombreArchivo = `Informes_${yearInfo}_${fecha}.xlsx`;
+
+      // Descargar archivo
+      XLSX.writeFile(wb, nombreArchivo);
+
+      alert(`✅ Archivo exportado exitosamente: ${nombreArchivo}`);
+    } catch (error) {
+      console.error('Error al exportar a Excel:', error);
+      alert('❌ Error al exportar a Excel. Revisa la consola.');
+    }
+  };
+
   return (
     <div className="container-fluid py-4" style={{ maxWidth: 1400, backgroundColor: '#f8f9fa' }}>
       {/* HEADER */}
@@ -607,60 +669,66 @@ export default function InformeSemestralPage() {
         </>
       )}
 
+// ========================================
+// REEMPLAZAR TODA LA SECCIÓN "VISTA PARA ADMINISTRADORES"
+// Buscar: {/* VISTA PARA ADMINISTRADORES */}
+// ========================================
+
       {/* VISTA PARA ADMINISTRADORES */}
       {isAdmin && selectedYearId && (
         <>
-          {/* Formulario de edición */}
-          <div className="card border-0 shadow-sm mb-4">
-            <div className="card-header bg-white border-0 p-4">
-              <h4 className="mb-0 fw-bold">
-                <i className="bi bi-pencil-square me-2 text-primary"></i>
-                {selectedInforme ? "Editar Informe" : "Nuevo Informe"}
-              </h4>
+          {/* Panel de Estadísticas y Exportación */}
+          <div className="row g-3 mb-4">
+            {/* KPI: Total Informes */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                <div className="card-body text-white">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="mb-1 opacity-75">Total Informes</h6>
+                      <h2 className="mb-0 fw-bold">{informes.length}</h2>
+                    </div>
+                    <div style={{ fontSize: '3rem', opacity: 0.3 }}>📋</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="card-body p-4">
-              <div className="mb-4">
-                <label className="form-label fw-bold">
-                  Contenido <span className="text-danger">*</span>
-                </label>
-                <textarea
-                  className="form-control shadow-sm"
-                  rows={8}
-                  value={contenido}
-                  onChange={(e) => setContenido(e.target.value)}
-                  style={{ fontSize: '0.95rem', lineHeight: 1.6 }}
-                />
-              </div>
 
-              <div className="mb-4">
-                <label className="form-label fw-bold">Dificultades/Observaciones</label>
-                <textarea
-                  className="form-control shadow-sm"
-                  rows={5}
-                  value={dificultades}
-                  onChange={(e) => setDificultades(e.target.value)}
-                  style={{ fontSize: '0.95rem', lineHeight: 1.6 }}
-                />
+            {/* KPI: Responsables Únicos */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' }}>
+                <div className="card-body text-white">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="mb-1 opacity-75">Responsables</h6>
+                      <h2 className="mb-0 fw-bold">
+                        {new Set(informes.map(i => i.user_id)).size}
+                      </h2>
+                    </div>
+                    <div style={{ fontSize: '3rem', opacity: 0.3 }}>👥</div>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              <div className="d-flex gap-2 justify-content-end pt-3 border-top">
-                <button className="btn btn-outline-secondary px-4" onClick={resetForm} disabled={saving}>
-                  <i className="bi bi-x-circle me-2"></i>
-                  Cancelar
-                </button>
-                <button className="btn btn-primary px-4 shadow-sm" onClick={handleSave} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2"></span>
-                      {selectedInforme ? "Actualizando..." : "Guardando..."}
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-check-circle me-2"></i>
-                      {selectedInforme ? "Actualizar" : "Guardar"}
-                    </>
+            {/* Botón Exportar Excel */}
+            <div className="col-md-4">
+              <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }}>
+                <div className="card-body text-white d-flex flex-column justify-content-center">
+                  <button 
+                    className="btn btn-light btn-lg shadow w-100"
+                    onClick={exportarAExcel}
+                    disabled={informes.length === 0}
+                  >
+                    <i className="bi bi-file-earmark-excel me-2"></i>
+                    📥 Exportar a Excel
+                  </button>
+                  {informes.length === 0 && (
+                    <small className="text-white opacity-75 mt-2 text-center">
+                      No hay informes para exportar
+                    </small>
                   )}
-                </button>
+                </div>
               </div>
             </div>
           </div>
@@ -668,10 +736,15 @@ export default function InformeSemestralPage() {
           {/* Lista de informes */}
           <div className="card border-0 shadow-sm">
             <div className="card-header bg-white border-0 p-4">
-              <h4 className="mb-0 fw-bold">
-                <i className="bi bi-list-ul me-2 text-primary"></i>
-                Todos los Informes
-              </h4>
+              <div className="d-flex justify-content-between align-items-center">
+                <h4 className="mb-0 fw-bold">
+                  <i className="bi bi-list-ul me-2 text-primary"></i>
+                  Todos los Informes del Año
+                </h4>
+                <span className="badge bg-primary px-3 py-2">
+                  {informes.length} {informes.length === 1 ? 'informe' : 'informes'}
+                </span>
+              </div>
             </div>
             <div className="card-body p-0">
               {loading ? (
@@ -684,7 +757,8 @@ export default function InformeSemestralPage() {
               ) : informes.length === 0 ? (
                 <div className="text-center py-5">
                   <div style={{ fontSize: '4rem', opacity: 0.3 }}>📋</div>
-                  <p className="text-muted mt-3 mb-0">No hay informes registrados para este año</p>
+                  <p className="text-muted mt-3 mb-1">No hay informes registrados para este año</p>
+                  <small className="text-muted">Los responsables internos podrán enviar sus informes cuando el periodo esté disponible</small>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -735,21 +809,14 @@ export default function InformeSemestralPage() {
                               <button 
                                 className="btn btn-sm btn-outline-info" 
                                 onClick={() => handleView(inf)}
-                                title="Ver detalles"
+                                title="Ver detalles completos"
                               >
-                                <i className="bi bi-eye"></i>
-                              </button>
-                              <button 
-                                className="btn btn-sm btn-outline-warning" 
-                                onClick={() => handleEdit(inf)}
-                                title="Editar"
-                              >
-                                <i className="bi bi-pencil"></i>
+                                <i className="bi bi-eye"></i> Ver
                               </button>
                               <button 
                                 className="btn btn-sm btn-outline-danger" 
                                 onClick={() => handleDelete(inf.id)}
-                                title="Eliminar"
+                                title="Eliminar informe"
                               >
                                 <i className="bi bi-trash"></i>
                               </button>
