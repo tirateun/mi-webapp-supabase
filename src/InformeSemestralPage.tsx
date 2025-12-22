@@ -17,11 +17,18 @@ interface InformeSemestralRow {
   convenio_id?: string | null;
   user_id?: string | null;
   year_id?: string | null;
+  subtype_id?: string | null; // 🆕 AGREGAR ESTA LÍNEA
   contenido?: string | null;
   dificultades?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   user_full_name?: string | null;
+}
+
+interface Subtype {
+  id: string;
+  subtipo_nombre: string;
+  agreement_id: string;
 }
 
 export default function InformeSemestralPage() {
@@ -46,6 +53,10 @@ export default function InformeSemestralPage() {
   const [profilesCache, setProfilesCache] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [subtypes, setSubtypes] = useState<Subtype[]>([]);
+  const [selectedSubtype, setSelectedSubtype] = useState<string>("");
+  const [mySubtypes, setMySubtypes] = useState<string[]>([]); // IDs de subtipos donde soy responsable
 
   const isAdmin = useMemo(() => {
     return ["admin", "Admin", "Administrador"].includes(userRole);
@@ -120,8 +131,16 @@ export default function InformeSemestralPage() {
 
   const miInforme = useMemo(() => {
     if (!userId || !selectedYearId) return null;
-    return informes.find(inf => inf.user_id === userId && inf.year_id === selectedYearId);
-  }, [informes, userId, selectedYearId]);
+    
+    return informes.find(inf => 
+      inf.user_id === userId && 
+      inf.year_id === selectedYearId &&
+      // 🆕 Comparar subtipo (o ambos null)
+      (subtypes.length > 0 
+        ? inf.subtype_id === selectedSubtype 
+        : !inf.subtype_id)
+    );
+  }, [informes, userId, selectedYearId, selectedSubtype, subtypes]);
 
   const yearSeleccionado = useMemo(() => {
     return yearOptionsWithStatus.find(y => y.id === selectedYearId);
@@ -158,8 +177,9 @@ export default function InformeSemestralPage() {
   useEffect(() => {
     if (!convenioId) return;
     loadAgreementYears();
+    loadSubtypes(); // 🆕 Cargar subtipos
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convenioId]);
+  }, [convenioId, userId, isInternal]);
 
   const loadAgreementYears = async () => {
     setLoading(true);
@@ -208,30 +228,94 @@ export default function InformeSemestralPage() {
     }
   };
 
+  const loadSubtypes = async () => {
+    if (!convenioId) return;
+    
+    try {
+      // 1. Cargar todos los subtipos del convenio
+      const { data: subtypesData, error: subtypesError } = await supabase
+        .from("agreement_subtypes")
+        .select("id, subtipo_nombre, agreement_id")
+        .eq("agreement_id", convenioId)
+        .order("subtipo_nombre", { ascending: true });
+  
+      if (subtypesError) throw subtypesError;
+  
+      setSubtypes(subtypesData || []);
+  
+      // 2. Si soy usuario interno, cargar MIS subtipos (donde soy responsable)
+      if (isInternal && userId) {
+        const subtypeIds = (subtypesData || []).map(s => s.id);
+        
+        if (subtypeIds.length > 0) {
+          const { data: myResponsibilities } = await supabase
+            .from("subtype_internal_responsibles")
+            .select("subtype_id")
+            .eq("internal_responsible_id", userId)
+            .in("subtype_id", subtypeIds);
+  
+          const myIds = (myResponsibilities || []).map(r => r.subtype_id);
+          setMySubtypes(myIds);
+          
+          // Auto-seleccionar el primer subtipo donde soy responsable
+          if (myIds.length > 0 && !selectedSubtype) {
+            setSelectedSubtype(myIds[0]);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error cargando subtipos:", err);
+      setSubtypes([]);
+      setMySubtypes([]);
+    }
+  };
+
   useEffect(() => {
     if (!convenioId || !userId) return;
     loadInformes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convenioId, selectedYearId, userId]);
+  }, [convenioId, selectedYearId, userId, selectedSubtype]); // 🆕 Agregado selectedSubtype
 
   const loadInformes = async () => {
     if (!userId) return;
-
+  
     setLoading(true);
     setError(null);
     
     try {
       let query = supabase
         .from("informes_semestrales")
-        .select("id, convenio_id, user_id, year_id, contenido, dificultades, created_at, updated_at")
+        .select("id, convenio_id, user_id, year_id, subtype_id, contenido, dificultades, created_at, updated_at")
         .eq("convenio_id", convenioId);
-
+  
+      // Filtrar por año seleccionado
       if (selectedYearId) {
         query = query.eq("year_id", selectedYearId);
       }
-
+  
+      // 🆕 Filtrar por subtipo
+      if (subtypes.length > 0) {
+        // Si hay subtipos en el convenio
+        if (selectedSubtype) {
+          query = query.eq("subtype_id", selectedSubtype);
+        } else {
+          // Si no hay subtipo seleccionado, no mostrar nada
+          setInformes([]);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Si no hay subtipos, solo mostrar informes generales
+        query = query.is("subtype_id", null);
+      }
+  
+      // Si soy usuario interno (no admin), solo ver mis informes
+      if (isInternal && !isAdmin) {
+        query = query.eq("user_id", userId);
+      }
+  
       const { data, error } = await query.order("created_at", { ascending: false });
-
+  
       if (error) {
         console.error("Error cargando informes:", error);
         setInformes([]);
@@ -295,6 +379,7 @@ export default function InformeSemestralPage() {
           .eq("convenio_id", convenioId)
           .eq("user_id", userId)
           .eq("year_id", selectedYearId)
+          .eq("subtype_id", subtypes.length > 0 ? selectedSubtype : null) // 🆕
           .maybeSingle();
 
         if (existing) {
@@ -307,6 +392,7 @@ export default function InformeSemestralPage() {
           convenio_id: convenioId,
           user_id: userId,
           year_id: selectedYearId,
+          subtype_id: subtypes.length > 0 ? selectedSubtype : null, // 🆕
           contenido: contenido || null,
           dificultades: dificultades || null,
           created_at: new Date().toISOString(),
@@ -383,10 +469,12 @@ export default function InformeSemestralPage() {
       // Preparar datos para exportar
       const datosParaExportar = informes.map((inf, index) => {
         const year = agreementYears.find(y => y.id === inf.year_id);
+        const subtype = subtypes.find(s => s.id === inf.subtype_id); // 🆕
         
         return {
           'N°': index + 1,
           'Responsable': inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario",
+          'Subtipo': subtype?.subtipo_nombre ?? 'General', // 🆕
           'Año': `Año ${year?.year_number ?? "?"}`,
           'Periodo': year ? `${new Date(year.year_start!).toLocaleDateString('es-PE')} - ${new Date(year.year_end!).toLocaleDateString('es-PE')}` : '-',
           'Contenido': inf.contenido ?? "Sin contenido",
@@ -404,6 +492,7 @@ export default function InformeSemestralPage() {
       const columnWidths = [
         { wch: 5 },   // N°
         { wch: 30 },  // Responsable
+        { wch: 40 },  // 🆕 Subtipo
         { wch: 10 },  // Año
         { wch: 25 },  // Periodo
         { wch: 80 },  // Contenido
@@ -528,8 +617,59 @@ export default function InformeSemestralPage() {
         </div>
       </div>
 
+      {/* 🆕 SELECTOR DE SUBTIPO (si hay subtipos) */}
+      {subtypes.length > 0 && selectedYearId && (
+              <div className="card border-0 shadow-sm mb-4">
+                <div className="card-body p-4">
+                  <label className="form-label fw-bold mb-3">
+                    <i className="bi bi-folder me-2 text-primary"></i>
+                    Selecciona el Subtipo
+                  </label>
+                  
+                  {isInternal && mySubtypes.length === 0 ? (
+                    <div className="alert alert-warning">
+                      <i className="bi bi-exclamation-triangle me-2"></i>
+                      No estás asignado como responsable de ningún subtipo de este convenio.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="d-flex flex-wrap gap-2">
+                        {subtypes
+                          .filter(s => isAdmin || mySubtypes.includes(s.id)) // 🔒 Solo mis subtipos si soy interno
+                          .map((subtype) => (
+                            <button
+                              key={subtype.id}
+                              className={`btn ${
+                                selectedSubtype === subtype.id 
+                                  ? 'btn-primary' 
+                                  : 'btn-outline-primary'
+                              }`}
+                              onClick={() => setSelectedSubtype(subtype.id)}
+                            >
+                              📚 {subtype.subtipo_nombre}
+                              {selectedSubtype === subtype.id && informes.length > 0 && (
+                                <span className="badge bg-light text-primary ms-2">
+                                  {informes.length}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                      
+                      {selectedSubtype && (
+                        <div className="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
+                          <strong>✓ Subtipo seleccionado:</strong>{' '}
+                          {subtypes.find(s => s.id === selectedSubtype)?.subtipo_nombre}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
       {/* VISTA PARA USUARIOS INTERNOS */}
-      {isInternal && selectedYearId && (
+      {isInternal && selectedYearId && (subtypes.length === 0 || selectedSubtype) && (
         <>
           {yearSeleccionado && !yearSeleccionado.puedeInformar && (
             <div className="card border-0 shadow-sm mb-4 border-start border-warning border-4">
@@ -758,15 +898,16 @@ export default function InformeSemestralPage() {
               ) : (
                 <div className="table-responsive">
                   <table className="table table-hover align-middle mb-0">
-                    <thead className="bg-light">
-                      <tr>
-                        <th className="px-4 py-3 fw-bold">Responsable</th>
-                        <th className="px-4 py-3 fw-bold">Año</th>
-                        <th className="px-4 py-3 fw-bold" style={{ width: '40%' }}>Contenido</th>
-                        <th className="px-4 py-3 fw-bold">Fecha</th>
-                        <th className="px-4 py-3 fw-bold text-center">Acciones</th>
-                      </tr>
-                    </thead>
+                  <thead className="bg-light">
+                    <tr>
+                      <th className="px-4 py-3 fw-bold">Responsable</th>
+                      <th className="px-4 py-3 fw-bold">Subtipo</th> {/* 🆕 */}
+                      <th className="px-4 py-3 fw-bold">Año</th>
+                      <th className="px-4 py-3 fw-bold" style={{ width: '40%' }}>Contenido</th>
+                      <th className="px-4 py-3 fw-bold">Fecha</th>
+                      <th className="px-4 py-3 fw-bold text-center">Acciones</th>
+                    </tr>
+                  </thead>
                     <tbody>
                       {informes.map((inf, idx) => (
                         <tr key={inf.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8f9fa' }}>
@@ -776,6 +917,18 @@ export default function InformeSemestralPage() {
                               {inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario"}
                             </strong>
                           </td>
+                          
+                          {/* 🆕 PEGAR AQUÍ - Columna de Subtipo */}
+                          <td className="px-4 py-3">
+                            {subtypes.find(s => s.id === inf.subtype_id)?.subtipo_nombre ? (
+                              <span className="badge bg-info">
+                                📚 {subtypes.find(s => s.id === inf.subtype_id)?.subtipo_nombre}
+                              </span>
+                            ) : (
+                              <span className="badge bg-secondary">General</span>
+                            )}
+                          </td>
+                          
                           <td className="px-4 py-3">
                             <span className="badge bg-primary">
                               Año {agreementYears.find((y) => y.id === inf.year_id)?.year_number ?? "?"}
