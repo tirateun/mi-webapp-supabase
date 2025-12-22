@@ -669,11 +669,6 @@ export default function InformeSemestralPage() {
         </>
       )}
 
-// ========================================
-// REEMPLAZAR TODA LA SECCIÓN "VISTA PARA ADMINISTRADORES"
-// Buscar: {/* VISTA PARA ADMINISTRADORES */}
-// ========================================
-
       {/* VISTA PARA ADMINISTRADORES */}
       {isAdmin && selectedYearId && (
         <>
