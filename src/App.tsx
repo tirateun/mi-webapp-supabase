@@ -1,5 +1,5 @@
 // src/App.tsx
-
+import ConsultaConvenios from "./ConsultaConvenios";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
@@ -42,6 +42,7 @@ function MainLayout({
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
     | "areasVinculadas"
+    | "consultaConvenios"  // 🆕 NUEVO
   >("agreementsList");
 
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);

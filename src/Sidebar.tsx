@@ -9,6 +9,7 @@ interface SidebarProps {
       | "users"
       | "reportes"
       | "areasVinculadas"
+      | "consultaConvenios"  // 🆕 NUEVO
   ) => void;
   onLogout: () => void;
   role: string;
@@ -49,7 +50,13 @@ export default function Sidebar({
             active={activePage === "agreementsList"}
             onClick={() => handlePageChange("agreementsList")}
           />
-
+          {/* 🔍 Consultar Convenios - Para todos los usuarios */}
+          <SidebarItem
+            icon="🔍"
+            label="Consultar Convenios"
+            active={activePage === "consultaConvenios"}
+            onClick={() => handlePageChange("consultaConvenios")}
+          />
           {/* 🏢 Instituciones */}
           <SidebarItem
             icon="🏢"
