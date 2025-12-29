@@ -44,7 +44,7 @@ function MainLayout({
     | "areasVinculadas"
     | "consultaConvenios"  // 🆕 NUEVO
   >("agreementsList");
-
+  console.log("🏠 App - activePage actual:", activePage); // 🆕 AGREGAR
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
 
@@ -246,6 +246,14 @@ function MainLayout({
 
         {/* Areas vinculadas */}
         {activePage === "areasVinculadas" && <AreasVinculadasList />}
+
+        {/* Consulta de Convenios */}
+        {activePage === "consultaConvenios" && (
+          <ConsultaConvenios
+            userId={session.user.id}
+            role={role}
+          />
+        )}
       </div>
     </div>
   );

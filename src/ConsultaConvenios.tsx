@@ -21,6 +21,8 @@ interface ConsultaConveniosProps {
 }
 
 export default function ConsultaConvenios({ userId, role }: ConsultaConveniosProps) {
+  console.log("🔍 ConsultaConvenios montado", { userId, role }); // 🆕 AGREGAR
+
   const [convenios, setConvenios] = useState<Convenio[]>([]);
   const [conveniosFiltrados, setConveniosFiltrados] = useState<Convenio[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,25 +75,40 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   };
 
   const cargarConvenios = async () => {
+    console.log("📊 Iniciando carga de convenios...");
     setLoading(true);
     try {
+      // Query corregida con nombres de columnas reales
       const { data, error } = await supabase
         .from("agreements")
         .select(`
           id,
           name,
-          agreement_type,
+          tipo_convenio,
           pais,
           signature_date,
           expiration_date,
-          institucion_id,
-          instituciones (nombre)
+          institucion_id
         `)
         .order("name");
-
-      if (error) throw error;
-
-      // Procesar datos
+  
+      console.log("📊 Convenios cargados:", data?.length, data);
+      
+      if (error) {
+        console.error("❌ Error:", error);
+        throw error;
+      }
+  
+      // 2. Cargar instituciones por separado
+      const { data: institucionesData } = await supabase
+        .from("instituciones")
+        .select("id, nombre");
+  
+      const institucionesMap = new Map(
+        (institucionesData || []).map(i => [i.id, i.nombre])
+      );
+  
+      // 3. Procesar datos
       const conveniosConDatos = await Promise.all(
         (data || []).map(async (conv: any) => {
           // Obtener áreas vinculadas
@@ -99,11 +116,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             .from("agreement_areas")
             .select("area_vinculada_id, areas_vinculadas(nombre)")
             .eq("agreement_id", conv.id);
-
+  
           const areasNombres = (areasVinc || [])
             .map((a: any) => a.areas_vinculadas?.nombre)
             .filter(Boolean);
-
+  
           // Calcular estado
           const hoy = new Date();
           const expiracion = conv.expiration_date ? new Date(conv.expiration_date) : null;
@@ -119,31 +136,36 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
               estado = "Vigente";
             }
           }
-
+  
+          // tipo_convenio es un array, tomar el primero o unirlos
+          const tipoConvenio = Array.isArray(conv.tipo_convenio) 
+            ? conv.tipo_convenio.join(", ") || "Sin especificar"
+            : conv.tipo_convenio || "Sin especificar";
+  
           return {
             id: conv.id,
             name: conv.name,
-            agreement_type: conv.agreement_type || "Sin especificar",
+            agreement_type: tipoConvenio, // Mantener este nombre para compatibilidad
             pais: conv.pais || "No especificado",
             signature_date: conv.signature_date,
             expiration_date: conv.expiration_date,
             estado,
-            institucion_nombre: conv.instituciones?.nombre || "Sin institución",
+            institucion_nombre: institucionesMap.get(conv.institucion_id) || "Sin institución",
             areas_vinculadas: areasNombres,
           };
         })
       );
-
+  
       setConvenios(conveniosConDatos);
-
+  
       // Extraer tipos únicos
       const tiposUnicos = [...new Set(conveniosConDatos.map(c => c.agreement_type))].filter(Boolean);
       setTipos(tiposUnicos);
-
+  
       // Extraer países únicos
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
       setPaises(paisesUnicos);
-
+  
     } catch (error) {
       console.error("Error cargando convenios:", error);
     } finally {
@@ -152,7 +174,9 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   };
 
   const aplicarFiltros = () => {
+    console.log("🔧 Aplicando filtros..."); // 🆕 AGREGAR
     let resultado = [...convenios];
+    console.log("Total convenios:", resultado.length); // 🆕 AGREGAR
 
     // Filtro por estado
     if (filtroEstado !== "todos") {
@@ -194,7 +218,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
         c.name.toLowerCase().includes(busquedaTexto.toLowerCase())
       );
     }
-
+    console.log("Convenios filtrados:", resultado.length); // 🆕 AGREGAR
     setConveniosFiltrados(resultado);
   };
 

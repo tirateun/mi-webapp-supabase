@@ -24,7 +24,10 @@ export default function Sidebar({
 }: SidebarProps) {
   const [activePage, setActivePageState] = useState<string>("agreementsList");
 
+  console.log("📍 Sidebar - activePage actual:", activePage); // 🆕 AGREGAR
+
   const handlePageChange = (page: any) => {
+    console.log("🔄 Cambiando página a:", page); // 🆕 AGREGAR
     setActivePageState(page);
     setActivePage(page);
   };
