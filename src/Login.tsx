@@ -343,7 +343,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
               margin: "0.25rem 0 0 0",
             }}
           >
-            Sistema de Gestión de Convenios Institucionales
+            Sistema de Gestión de Convenios - Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
           </p>
         </div>
       </div>
