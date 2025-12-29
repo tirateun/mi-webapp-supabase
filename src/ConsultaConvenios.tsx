@@ -42,6 +42,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [instituciones, setInstituciones] = useState<any[]>([]);
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [convenioSeleccionado, setConvenioSeleccionado] = useState<Convenio | null>(null);
+  const [mostrarModal, setMostrarModal] = useState(false);
 
   // Cargar catálogos
   useEffect(() => {
@@ -230,7 +232,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroInstitucion("");
     setBusquedaTexto("");
   };
-
+// 🆕 AGREGAR AQUÍ:
+const verDetalleConvenio = (convenio: Convenio) => {
+  setConvenioSeleccionado(convenio);
+  setMostrarModal(true);
+};
   const getBadgeColor = (estado: string) => {
     switch (estado) {
       case "Vigente":
@@ -627,95 +633,411 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
                   <th style={{ padding: "1rem", textAlign: "left", fontWeight: 600, color: "#3D1A4F", borderBottom: "2px solid #E9ECEF" }}>
                     Vencimiento
                   </th>
+                  <th style={{ padding: "1rem", textAlign: "center", fontWeight: 600, color: "#3D1A4F", borderBottom: "2px solid #E9ECEF" }}>
+                    Acciones
+                </th>
                 </tr>
               </thead>
               <tbody>
-                {conveniosFiltrados.map((conv, idx) => {
-                  const badgeStyle = getBadgeColor(conv.estado);
-                  return (
-                    <tr 
-                      key={conv.id}
-                      style={{ 
-                        background: idx % 2 === 0 ? "white" : "#F8F9FA",
-                        transition: "background 0.2s ease"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(91, 44, 111, 0.05)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = idx % 2 === 0 ? "white" : "#F8F9FA";
-                      }}
-                    >
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
-                        <strong style={{ color: "#3D1A4F" }}>{conv.name}</strong>
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
-                        {conv.institucion_nombre}
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
-                        <span style={{
-                          background: "rgba(91, 44, 111, 0.1)",
-                          color: "#5B2C6F",
-                          padding: "0.25rem 0.75rem",
-                          borderRadius: "12px",
-                          fontSize: "0.85rem",
-                          fontWeight: 500
-                        }}>
-                          {conv.agreement_type}
-                        </span>
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
-                        {conv.pais}
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
-                          {conv.areas_vinculadas && conv.areas_vinculadas.length > 0 ? (
-                            conv.areas_vinculadas.map((area, i) => (
-                              <span
-                                key={i}
-                                style={{
-                                  background: "#E3F2FD",
-                                  color: "#1976D2",
-                                  padding: "0.2rem 0.5rem",
-                                  borderRadius: "8px",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 500
-                                }}
-                              >
-                                {area}
-                              </span>
-                            ))
-                          ) : (
-                            <span style={{ color: "#ADB5BD", fontSize: "0.85rem" }}>Sin áreas</span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
-                        <span style={{
-                          background: badgeStyle.bg,
-                          color: badgeStyle.color,
-                          border: `1px solid ${badgeStyle.border}`,
-                          padding: "0.35rem 0.75rem",
-                          borderRadius: "12px",
-                          fontSize: "0.85rem",
-                          fontWeight: 600
-                        }}>
-                          {conv.estado}
-                        </span>
-                      </td>
-                      <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D", fontSize: "0.9rem" }}>
-                        {conv.expiration_date 
-                          ? new Date(conv.expiration_date).toLocaleDateString("es-PE")
-                          : "Sin fecha"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+  {conveniosFiltrados.map((conv, idx) => {
+    const badgeStyle = getBadgeColor(conv.estado);
+    return (
+      <tr 
+        key={conv.id}
+        style={{ 
+          background: idx % 2 === 0 ? "white" : "#F8F9FA",
+          transition: "background 0.2s ease"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(91, 44, 111, 0.05)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = idx % 2 === 0 ? "white" : "#F8F9FA";
+        }}
+      >
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
+          <strong style={{ color: "#3D1A4F" }}>{conv.name}</strong>
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
+          {conv.institucion_nombre}
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
+          <span style={{
+            background: "rgba(91, 44, 111, 0.1)",
+            color: "#5B2C6F",
+            padding: "0.25rem 0.75rem",
+            borderRadius: "12px",
+            fontSize: "0.85rem",
+            fontWeight: 500
+          }}>
+            {conv.agreement_type}
+          </span>
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
+          {conv.pais}
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+            {conv.areas_vinculadas && conv.areas_vinculadas.length > 0 ? (
+              conv.areas_vinculadas.map((area, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: "#E3F2FD",
+                    color: "#1976D2",
+                    padding: "0.2rem 0.5rem",
+                    borderRadius: "8px",
+                    fontSize: "0.75rem",
+                    fontWeight: 500
+                  }}
+                >
+                  {area}
+                </span>
+              ))
+            ) : (
+              <span style={{ color: "#ADB5BD", fontSize: "0.85rem" }}>Sin áreas</span>
+            )}
+          </div>
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
+          <span style={{
+            background: badgeStyle.bg,
+            color: badgeStyle.color,
+            border: `1px solid ${badgeStyle.border}`,
+            padding: "0.35rem 0.75rem",
+            borderRadius: "12px",
+            fontSize: "0.85rem",
+            fontWeight: 600
+          }}>
+            {conv.estado}
+          </span>
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D", fontSize: "0.9rem" }}>
+          {conv.expiration_date 
+            ? new Date(conv.expiration_date).toLocaleDateString("es-PE")
+            : "Sin fecha"}
+        </td>
+        {/* 🆕 NUEVA COLUMNA: ACCIONES */}
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", textAlign: "center" }}>
+          <button
+            onClick={() => verDetalleConvenio(conv)}
+            style={{
+              background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+              color: "white",
+              border: "none",
+              padding: "0.5rem 1rem",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.3s ease",
+              boxShadow: "0 2px 4px rgba(91, 44, 111, 0.3)"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = "0 4px 8px rgba(91, 44, 111, 0.4)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 4px rgba(91, 44, 111, 0.3)";
+            }}
+          >
+            <i className="bi bi-eye"></i>
+            Ver
+          </button>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* 🆕 Modal de Detalle del Convenio */}
+      {mostrarModal && convenioSeleccionado && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "2rem"
+          }}
+          onClick={() => setMostrarModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "16px",
+              maxWidth: "900px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header del Modal */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+                color: "white",
+                padding: "1.5rem 2rem",
+                borderRadius: "16px 16px 0 0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 600 }}>
+                <i className="bi bi-file-text"></i> Detalle del Convenio
+              </h2>
+              <button
+                onClick={() => setMostrarModal(false)}
+                style={{
+                  background: "rgba(255,255,255,0.2)",
+                  border: "none",
+                  color: "white",
+                  width: "40px",
+                  height: "40px",
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: "1.5rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div style={{ padding: "2rem" }}>
+              {/* Nombre del Convenio */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h3
+                  style={{
+                    color: "#3D1A4F",
+                    fontSize: "1.75rem",
+                    fontWeight: 700,
+                    marginBottom: "0.5rem",
+                    lineHeight: 1.3
+                  }}
+                >
+                  {convenioSeleccionado.name}
+                </h3>
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+                  <span
+                    style={{
+                      background: getBadgeColor(convenioSeleccionado.estado).bg,
+                      color: getBadgeColor(convenioSeleccionado.estado).color,
+                      border: `1px solid ${getBadgeColor(convenioSeleccionado.estado).border}`,
+                      padding: "0.5rem 1rem",
+                      borderRadius: "20px",
+                      fontSize: "0.9rem",
+                      fontWeight: 600
+                    }}
+                  >
+                    {convenioSeleccionado.estado}
+                  </span>
+                  <span
+                    style={{
+                      background: "rgba(91, 44, 111, 0.1)",
+                      color: "#5B2C6F",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "20px",
+                      fontSize: "0.9rem",
+                      fontWeight: 500
+                    }}
+                  >
+                    {convenioSeleccionado.agreement_type}
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid de Información */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                  gap: "1.5rem",
+                  marginBottom: "2rem"
+                }}
+              >
+                {/* Institución */}
+                <div
+                  style={{
+                    background: "#F8F9FA",
+                    padding: "1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid #E9ECEF"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <i className="bi bi-building" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Institución</strong>
+                  </div>
+                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                    {convenioSeleccionado.institucion_nombre}
+                  </p>
+                </div>
+
+                {/* País */}
+                <div
+                  style={{
+                    background: "#F8F9FA",
+                    padding: "1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid #E9ECEF"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <i className="bi bi-globe" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>País</strong>
+                  </div>
+                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                    {convenioSeleccionado.pais}
+                  </p>
+                </div>
+
+                {/* Fecha de Firma */}
+                <div
+                  style={{
+                    background: "#F8F9FA",
+                    padding: "1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid #E9ECEF"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <i className="bi bi-calendar-check" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Firma</strong>
+                  </div>
+                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                    {convenioSeleccionado.signature_date
+                      ? new Date(convenioSeleccionado.signature_date).toLocaleDateString("es-PE", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric"
+                        })
+                      : "No especificada"}
+                  </p>
+                </div>
+
+                {/* Fecha de Vencimiento */}
+                <div
+                  style={{
+                    background: "#F8F9FA",
+                    padding: "1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid #E9ECEF"
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <i className="bi bi-calendar-x" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Vencimiento</strong>
+                  </div>
+                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                    {convenioSeleccionado.expiration_date
+                      ? new Date(convenioSeleccionado.expiration_date).toLocaleDateString("es-PE", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric"
+                        })
+                      : "Sin fecha"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Áreas Vinculadas */}
+              <div
+                style={{
+                  background: "#F8F9FA",
+                  padding: "1.5rem",
+                  borderRadius: "12px",
+                  border: "1px solid #E9ECEF",
+                  marginBottom: "2rem"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+                  <i className="bi bi-diagram-3" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                  <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Áreas Vinculadas</strong>
+                </div>
+                {convenioSeleccionado.areas_vinculadas && convenioSeleccionado.areas_vinculadas.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                    {convenioSeleccionado.areas_vinculadas.map((area, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          background: "#E3F2FD",
+                          color: "#1976D2",
+                          padding: "0.5rem 1rem",
+                          borderRadius: "20px",
+                          fontSize: "0.9rem",
+                          fontWeight: 500,
+                          border: "1px solid #90CAF9"
+                        }}
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, color: "#6C757D", fontStyle: "italic" }}>
+                    No hay áreas vinculadas registradas
+                  </p>
+                )}
+              </div>
+
+              {/* Botones de Acción */}
+              <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setMostrarModal(false)}
+                  style={{
+                    background: "#6C757D",
+                    color: "white",
+                    border: "none",
+                    padding: "0.75rem 1.5rem",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "1rem",
+                    fontWeight: 500,
+                    transition: "all 0.3s ease"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#5A6268";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#6C757D";
+                  }}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 }
