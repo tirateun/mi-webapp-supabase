@@ -293,26 +293,33 @@ export default function InformeSemestralPage() {
         query = query.eq("year_id", selectedYearId);
       }
   
-      // 🆕 Filtrar por subtipo
+      // 🔥 CORRECCIÓN PRINCIPAL: Filtro por subtipo
       if (subtypes.length > 0) {
         // Si hay subtipos en el convenio
         if (selectedSubtype) {
+          // Si hay un subtipo seleccionado, filtrar por él
           query = query.eq("subtype_id", selectedSubtype);
         } else {
-          // Si no hay subtipo seleccionado, no mostrar nada
-          setInformes([]);
-          setLoading(false);
-          return;
+          // NO hay subtipo seleccionado
+          if (isInternal && !isAdmin) {
+            // Usuario interno SIN subtipo seleccionado → No mostrar nada
+            setInformes([]);
+            setLoading(false);
+            return;
+          }
+          // Si es ADMIN y NO hay subtipo seleccionado → Mostrar TODOS (no aplicar filtro)
+          // No agregamos query = query.eq(...) aquí
         }
       } else {
-        // Si no hay subtipos, solo mostrar informes generales
+        // Si el convenio NO tiene subtipos, solo mostrar informes generales (sin subtipo)
         query = query.is("subtype_id", null);
       }
   
-      // Si soy usuario interno (no admin), solo ver mis informes
+      // Si soy usuario interno (no admin), solo ver MIS informes
       if (isInternal && !isAdmin) {
         query = query.eq("user_id", userId);
       }
+      // Si soy ADMIN, NO filtrar por user_id (ver todos los informes)
   
       const { data, error } = await query.order("created_at", { ascending: false });
   
