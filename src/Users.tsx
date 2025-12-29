@@ -6,13 +6,18 @@ export default function Users() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("internal");
+  const [cargo, setCargo] = useState(""); // 🆕 NUEVO CAMPO
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   // 📌 Cargar usuarios existentes desde la tabla profiles
   const fetchUsers = async () => {
-    const { data, error } = await supabase.from("profiles").select("*");
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*") // 🆕 Ya incluye cargo automáticamente
+      .order("updated_at", { ascending: false });
+    
     if (!error) setUsers(data || []);
   };
 
@@ -49,6 +54,7 @@ export default function Users() {
             password: tempPassword,
             full_name: fullName,
             role,
+            cargo: cargo || null, // 🆕 Incluir cargo en la creación
           }),
         }
       );
@@ -59,7 +65,10 @@ export default function Users() {
       // ✅ 2. Actualizar el perfil en la tabla "profiles" con `must_change_password = true`
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ must_change_password: true })
+        .update({ 
+          must_change_password: true,
+          cargo: cargo || null // 🆕 Asegurar que cargo se guarde
+        })
         .eq("email", email);
 
       if (updateError) throw updateError;
@@ -68,9 +77,11 @@ export default function Users() {
         `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
       );
 
+      // 🆕 Limpiar todos los campos incluyendo cargo
       setFullName("");
       setEmail("");
       setRole("internal");
+      setCargo("");
       fetchUsers();
     } catch (err: any) {
       setError(err.message);
@@ -97,9 +108,8 @@ export default function Users() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            // 🔥 este header es CLAVE
             Authorization: `Bearer ${token}`,
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY, // ✅ también importante
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({ user_id: userId }),
         }
@@ -152,10 +162,23 @@ export default function Users() {
           onChange={(e) => setRole(e.target.value)}
           style={{ margin: "5px", padding: "8px", width: "100%" }}
         >
-          <option value="admin">Administrador</option>
           <option value="internal">Interno</option>
-          <option value="external">Externo</option>
+          <option value="admin">Administrador</option>
         </select>
+        
+        {/* 🆕 NUEVO CAMPO: CARGO */}
+        <input
+          type="text"
+          placeholder="Cargo (ej: Coordinador de Convenios)"
+          value={cargo}
+          onChange={(e) => setCargo(e.target.value)}
+          style={{ margin: "5px", padding: "8px", width: "100%" }}
+          maxLength={100}
+        />
+        <small style={{ marginLeft: "5px", color: "#666", fontSize: "12px" }}>
+          Cargo o puesto del usuario (opcional)
+        </small>
+        
         <button
           onClick={handleAddUser}
           disabled={loading}
@@ -191,6 +214,7 @@ export default function Users() {
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Nombre</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Correo</th>
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>Rol</th>
+            <th style={{ border: "1px solid #ccc", padding: "8px" }}>Cargo</th> {/* 🆕 NUEVA COLUMNA */}
             <th style={{ border: "1px solid #ccc", padding: "8px" }}>
               ¿Debe cambiar contraseña?
             </th>
@@ -203,7 +227,7 @@ export default function Users() {
         <tbody>
           {users.length === 0 ? (
             <tr>
-              <td colSpan={6} style={{ textAlign: "center", padding: "10px" }}>
+              <td colSpan={7} style={{ textAlign: "center", padding: "10px" }}> {/* 🆕 Cambiar colspan a 7 */}
                 No hay usuarios registrados.
               </td>
             </tr>
@@ -217,7 +241,11 @@ export default function Users() {
                   {u.email}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {u.role}
+                  {u.role === 'admin' ? 'Administrador' : 'Interno'}
+                </td>
+                {/* 🆕 NUEVA COLUMNA: MOSTRAR CARGO */}
+                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                  {u.cargo || '-'}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
                   {u.must_change_password ? "✅ Sí" : "❌ No"}
