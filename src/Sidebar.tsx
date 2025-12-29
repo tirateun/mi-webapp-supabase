@@ -1,4 +1,4 @@
-import { FaNetworkWired } from "react-icons/fa"; // 🧩 Ícono para Áreas Vinculadas
+import { useState } from "react";
 
 interface SidebarProps {
   setActivePage: (
@@ -8,7 +8,7 @@ interface SidebarProps {
       | "instituciones"
       | "users"
       | "reportes"
-      | "areasVinculadas" // 👈 Nuevo
+      | "areasVinculadas"
   ) => void;
   onLogout: () => void;
   role: string;
@@ -21,113 +21,196 @@ export default function Sidebar({
   role,
   userName,
 }: SidebarProps) {
+  const [activePage, setActivePageState] = useState<string>("agreementsList");
+
+  const handlePageChange = (page: any) => {
+    setActivePageState(page);
+    setActivePage(page);
+  };
+
   return (
     <aside
       style={{
-        width: "240px",
-        background: "#1e3a8a",
+        width: "260px",
+        background: "#5B2C6F",
         color: "white",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
         minHeight: "100vh",
-        padding: "20px",
+        boxShadow: "2px 0 8px rgba(0,0,0,0.15)",
       }}
     >
-      <div>
-        <h2
-          style={{
-            fontSize: "1.2rem",
-            fontWeight: "bold",
-            marginBottom: "20px",
-          }}
-        >
-          🏛️ Convenios UNMSM
-        </h2>
-
-        <nav style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div style={{ flex: 1, padding: "1.5rem 0" }}>
+        <nav style={{ display: "flex", flexDirection: "column" }}>
           {/* 📜 Convenios */}
-          <button onClick={() => setActivePage("agreementsList")} style={buttonStyle}>
-            📜 Convenios
-          </button>
+          <SidebarItem
+            icon="📜"
+            label="Convenios"
+            active={activePage === "agreementsList"}
+            onClick={() => handlePageChange("agreementsList")}
+          />
 
           {/* 🏢 Instituciones */}
-          <button onClick={() => setActivePage("instituciones")} style={buttonStyle}>
-            🏢 Instituciones
-          </button>
+          <SidebarItem
+            icon="🏢"
+            label="Instituciones"
+            active={activePage === "instituciones"}
+            onClick={() => handlePageChange("instituciones")}
+          />
 
-          {/* 🧩 Áreas Vinculadas */}
-          <button
-            onClick={() => setActivePage("areasVinculadas")}
-            style={{
-              ...buttonStyle,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <FaNetworkWired style={{ fontSize: "16px", color: "#93c5fd" }} />
-            Áreas Vinculadas
-          </button>
+          {/* 🔗 Áreas Vinculadas */}
+          <SidebarItem
+            icon="🔗"
+            label="Áreas Vinculadas"
+            active={activePage === "areasVinculadas"}
+            onClick={() => handlePageChange("areasVinculadas")}
+          />
 
-          {/* 👥 Usuarios y 📊 Reportes solo para admin */}
+          {/* Sección Admin */}
           {role === "admin" && (
             <>
-              <button onClick={() => setActivePage("users")} style={buttonStyle}>
-                👥 Usuarios
-              </button>
+              <div
+                style={{
+                  margin: "1rem 0 0.5rem 1.5rem",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "1px",
+                  color: "#FDB913",
+                  opacity: 0.9,
+                }}
+              >
+                Administración
+              </div>
 
-              <button onClick={() => setActivePage("reportes")} style={buttonStyle}>
-                📊 Reportes
-              </button>
+              {/* 👥 Usuarios */}
+              <SidebarItem
+                icon="👥"
+                label="Usuarios"
+                active={activePage === "users"}
+                onClick={() => handlePageChange("users")}
+              />
+
+              {/* 📊 Reportes */}
+              <SidebarItem
+                icon="📊"
+                label="Reportes"
+                active={activePage === "reportes"}
+                onClick={() => handlePageChange("reportes")}
+              />
             </>
           )}
         </nav>
       </div>
 
-      <div>
-        <p
+      {/* Footer con info del usuario */}
+      <div
+        style={{
+          padding: "1.5rem",
+          borderTop: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(0,0,0,0.15)",
+        }}
+      >
+        <div
           style={{
-            fontSize: "0.85rem",
-            marginBottom: "8px",
-            color: "#dbeafe",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            marginBottom: "1rem",
           }}
         >
-          {userName}
-        </p>
-        <button
-          onClick={onLogout}
-          style={{
-            background: "#ef4444",
-            color: "white",
-            border: "none",
-            padding: "8px 12px",
-            borderRadius: "6px",
-            width: "100%",
-            cursor: "pointer",
-            fontWeight: "500",
-            transition: "background 0.2s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "#dc2626")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "#ef4444")}
-        >
-          Cerrar sesión
-        </button>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #FDB913 0%, #E5A612 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.25rem",
+              fontWeight: 600,
+              color: "#3D1A4F",
+            }}
+          >
+            {userName?.charAt(0)?.toUpperCase() || "U"}
+          </div>
+          <div style={{ flex: 1, overflow: "hidden" }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                color: "white",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {userName}
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.75rem",
+                color: "rgba(255,255,255,0.7)",
+                textTransform: "capitalize",
+              }}
+            >
+              {role === "admin" ? "Administrador" : "Usuario Interno"}
+            </p>
+          </div>
+        </div>
       </div>
     </aside>
   );
 }
 
-const buttonStyle: React.CSSProperties = {
-  background: "transparent",
-  color: "white",
-  border: "none",
-  textAlign: "left",
-  padding: "8px 10px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  transition: "all 0.2s ease-in-out",
-  fontWeight: "500",
-  fontSize: "0.95rem",
-};
+// Componente reutilizable para items del sidebar
+function SidebarItem({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        background: active
+          ? "rgba(253, 185, 19, 0.15)"
+          : isHovered
+          ? "rgba(255,255,255,0.1)"
+          : "transparent",
+        color: active ? "#FDB913" : "rgba(255,255,255,0.9)",
+        border: "none",
+        borderLeft: active ? "3px solid #FDB913" : "3px solid transparent",
+        textAlign: "left",
+        padding: "0.85rem 1.5rem",
+        cursor: "pointer",
+        transition: "all 0.3s ease",
+        fontWeight: active ? 600 : 500,
+        fontSize: "0.95rem",
+        display: "flex",
+        alignItems: "center",
+        gap: "0.75rem",
+        width: "100%",
+      }}
+    >
+      <span style={{ fontSize: "1.25rem", width: "24px", textAlign: "center" }}>
+        {icon}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
 

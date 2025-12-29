@@ -1,0 +1,539 @@
+/* ============================================
+   TEMA INSTITUCIONAL - UNMSM MEDICINA SAN FERNANDO
+   ============================================ */
+
+   :root {
+    /* Colores principales */
+    --unmsm-purple-dark: #3D1A4F;
+    --unmsm-purple-main: #5B2C6F;
+    --unmsm-purple-light: #7B4C8F;
+    --unmsm-gold: #FDB913;
+    --unmsm-gold-dark: #E5A612;
+    
+    /* Colores de estado */
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #17a2b8;
+    
+    /* Grises */
+    --gray-100: #F8F9FA;
+    --gray-200: #E9ECEF;
+    --gray-300: #DEE2E6;
+    --gray-400: #CED4DA;
+    --gray-500: #ADB5BD;
+    --gray-600: #6C757D;
+    --gray-700: #495057;
+    --gray-800: #343A40;
+    --gray-900: #212529;
+    
+    /* Texto */
+    --text-primary: #212529;
+    --text-secondary: #6C757D;
+    --text-light: #FFFFFF;
+    
+    /* Sombras */
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+    
+    /* Bordes */
+    --border-radius: 8px;
+    --border-radius-lg: 12px;
+    --border-color: #DEE2E6;
+  }
+  
+  /* ============================================
+     RESET Y BASE
+     ============================================ */
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--gray-100);
+    color: var(--text-primary);
+  }
+  
+  /* ============================================
+     HEADER / NAVBAR
+     ============================================ */
+  
+  .app-header {
+    background: linear-gradient(135deg, var(--unmsm-purple-dark) 0%, var(--unmsm-purple-main) 100%);
+    color: var(--text-light);
+    padding: 1rem 2rem;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+  
+  .app-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .app-header .logo {
+    height: 40px;
+    width: auto;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-light);
+  }
+  
+  .user-badge {
+    background-color: var(--unmsm-gold);
+    color: var(--unmsm-purple-dark);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  
+  /* ============================================
+     SIDEBAR / MENÚ LATERAL
+     ============================================ */
+  
+  .sidebar {
+    background-color: var(--unmsm-purple-main);
+    min-height: calc(100vh - 80px);
+    padding: 1.5rem 0;
+    box-shadow: var(--shadow);
+  }
+  
+  .sidebar-item {
+    color: rgba(255, 255, 255, 0.8);
+    padding: 0.75rem 1.5rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+  }
+  
+  .sidebar-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-light);
+    border-left-color: var(--unmsm-gold);
+  }
+  
+  .sidebar-item.active {
+    background-color: rgba(253, 185, 19, 0.15);
+    color: var(--unmsm-gold);
+    border-left-color: var(--unmsm-gold);
+    font-weight: 600;
+  }
+  
+  .sidebar-item i {
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+  }
+  
+  /* ============================================
+     BOTONES
+     ============================================ */
+  
+  .btn {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    font-size: 0.95rem;
+  }
+  
+  .btn-primary {
+    background: linear-gradient(135deg, var(--unmsm-purple-main) 0%, var(--unmsm-purple-dark) 100%);
+    color: var(--text-light);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  
+  .btn-gold {
+    background: linear-gradient(135deg, var(--unmsm-gold) 0%, var(--unmsm-gold-dark) 100%);
+    color: var(--unmsm-purple-dark);
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+  }
+  
+  .btn-gold:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  
+  .btn-success {
+    background-color: var(--success);
+    color: var(--text-light);
+  }
+  
+  .btn-danger {
+    background-color: var(--danger);
+    color: var(--text-light);
+  }
+  
+  .btn-outline-primary {
+    background-color: transparent;
+    border: 2px solid var(--unmsm-purple-main);
+    color: var(--unmsm-purple-main);
+  }
+  
+  .btn-outline-primary:hover {
+    background-color: var(--unmsm-purple-main);
+    color: var(--text-light);
+  }
+  
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  
+  /* ============================================
+     CARDS / TARJETAS
+     ============================================ */
+  
+  .card {
+    background-color: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+  }
+  
+  .card:hover {
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+  }
+  
+  .card-header {
+    background: linear-gradient(135deg, var(--unmsm-purple-main) 0%, var(--unmsm-purple-dark) 100%);
+    color: var(--text-light);
+    padding: 1rem 1.5rem;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .card-title {
+    color: var(--unmsm-purple-dark);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  /* ============================================
+     TABLAS
+     ============================================ */
+  
+  .table-container {
+    background-color: white;
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  thead {
+    background: linear-gradient(135deg, var(--unmsm-purple-main) 0%, var(--unmsm-purple-dark) 100%);
+    color: var(--text-light);
+  }
+  
+  thead th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+  }
+  
+  tbody tr:hover {
+    background-color: rgba(91, 44, 111, 0.05);
+  }
+  
+  tbody td {
+    padding: 1rem;
+    color: var(--text-primary);
+  }
+  
+  tbody tr:last-child {
+    border-bottom: none;
+  }
+  
+  /* ============================================
+     BADGES / INSIGNIAS
+     ============================================ */
+  
+  .badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+  }
+  
+  .badge-primary {
+    background-color: var(--unmsm-purple-main);
+    color: var(--text-light);
+  }
+  
+  .badge-gold {
+    background-color: var(--unmsm-gold);
+    color: var(--unmsm-purple-dark);
+  }
+  
+  .badge-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .badge-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+  }
+  
+  .badge-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  .badge-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+  }
+  
+  /* ============================================
+     INPUTS Y FORMULARIOS
+     ============================================ */
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--unmsm-purple-dark);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  
+  .form-control,
+  .form-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background-color: white;
+  }
+  
+  .form-control:focus,
+  .form-select:focus {
+    outline: none;
+    border-color: var(--unmsm-purple-main);
+    box-shadow: 0 0 0 3px rgba(91, 44, 111, 0.1);
+  }
+  
+  .form-control:disabled,
+  .form-select:disabled {
+    background-color: var(--gray-200);
+    cursor: not-allowed;
+  }
+  
+  /* ============================================
+     ALERTS / ALERTAS
+     ============================================ */
+  
+  .alert {
+    padding: 1rem 1.25rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    border-left: 4px solid;
+  }
+  
+  .alert-success {
+    background-color: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+  }
+  
+  .alert-warning {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    color: #856404;
+  }
+  
+  .alert-danger {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+  }
+  
+  .alert-info {
+    background-color: #d1ecf1;
+    border-color: #17a2b8;
+    color: #0c5460;
+  }
+  
+  /* ============================================
+     MODALES
+     ============================================ */
+  
+  .modal-header {
+    background: linear-gradient(135deg, var(--unmsm-purple-main) 0%, var(--unmsm-purple-dark) 100%);
+    color: var(--text-light);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+  }
+  
+  .modal-title {
+    color: var(--text-light);
+    font-weight: 600;
+  }
+  
+  .modal-content {
+    border-radius: var(--border-radius-lg);
+    border: none;
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* ============================================
+     UTILIDADES
+     ============================================ */
+  
+  .text-primary {
+    color: var(--unmsm-purple-main) !important;
+  }
+  
+  .text-gold {
+    color: var(--unmsm-gold) !important;
+  }
+  
+  .bg-primary {
+    background-color: var(--unmsm-purple-main) !important;
+  }
+  
+  .bg-gold {
+    background-color: var(--unmsm-gold) !important;
+  }
+  
+  .border-primary {
+    border-color: var(--unmsm-purple-main) !important;
+  }
+  
+  .shadow-sm {
+    box-shadow: var(--shadow-sm) !important;
+  }
+  
+  .shadow {
+    box-shadow: var(--shadow) !important;
+  }
+  
+  .shadow-lg {
+    box-shadow: var(--shadow-lg) !important;
+  }
+  
+  /* ============================================
+     ANIMACIONES
+     ============================================ */
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  /* ============================================
+     RESPONSIVE
+     ============================================ */
+  
+  @media (max-width: 768px) {
+    .app-header {
+      padding: 0.75rem 1rem;
+    }
+    
+    .app-header h1 {
+      font-size: 1.2rem;
+    }
+    
+    .sidebar {
+      position: fixed;
+      left: -250px;
+      transition: left 0.3s ease;
+    }
+    
+    .sidebar.open {
+      left: 0;
+    }
+    
+    .card {
+      padding: 1rem;
+    }
+    
+    thead th,
+    tbody td {
+      padding: 0.75rem 0.5rem;
+      font-size: 0.85rem;
+    }
+  }
