@@ -31,6 +31,14 @@ export default function Users() {
     setError("");
     setSuccess("");
 
+     // 🆕 AGREGAR ESTOS LOGS
+    console.log("📤 Datos a enviar:", {
+      email,
+      password: "Temporal123!",
+      full_name: fullName,
+      role,
+      cargo
+    });
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
@@ -38,8 +46,17 @@ export default function Users() {
 
       // Contraseña temporal generada automáticamente
       const tempPassword = "Temporal123!";
-
-      // ✅ 1. Llamar a la Edge Function `create-user`
+      const body = {
+        email,
+        password: tempPassword,
+        full_name: fullName,
+        role,
+        cargo: cargo || null,
+      };
+  
+      console.log("📤 Body JSON:", JSON.stringify(body)); // 🆕 AGREGAR
+  
+       // ✅ 1. Llamar a la Edge Function `create-user`
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
         {
@@ -60,18 +77,8 @@ export default function Users() {
       );
 
       const result = await response.json();
+      console.log("📥 Respuesta:", result); // 🆕 AGREGAR
       if (!response.ok) throw new Error(result.error || "Error en create-user");
-
-      // ✅ 2. Actualizar el perfil en la tabla "profiles" con `must_change_password = true`
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ 
-          must_change_password: true,
-          cargo: cargo || null // 🆕 Asegurar que cargo se guarde
-        })
-        .eq("email", email);
-
-      if (updateError) throw updateError;
 
       setSuccess(
         `✅ Usuario creado exitosamente. Contraseña temporal: ${tempPassword}`
