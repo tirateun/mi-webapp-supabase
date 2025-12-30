@@ -27,6 +27,14 @@ interface Convenio {
   convenio_maestro_id?: string;
   created_at?: string;
   updated_at?: string;
+  // 🆕 NUEVOS CAMPOS:
+  institucion_email?: string;
+  institucion_contacto?: string;
+  institucion_telefono?: string;
+  internal_responsible_email?: string;
+  internal_responsible_cargo?: string;
+  renovaciones_count?: number;
+  ultimo_cambio?: string;
 }
 
 interface ConsultaConveniosProps {
@@ -129,18 +137,27 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       // 2. Cargar instituciones por separado
       const { data: institucionesData } = await supabase
         .from("instituciones")
-        .select("id, nombre");
-  
+        .select("id, nombre, email, contacto, telefono");
+
       const institucionesMap = new Map(
-        (institucionesData || []).map(i => [i.id, i.nombre])
+        (institucionesData || []).map(i => [i.id, {
+          nombre: i.nombre,
+          email: i.email,
+          contacto: i.contacto,
+          telefono: i.telefono
+        }])
       );
       // 2b. Cargar perfiles (responsables internos)
       const { data: profilesData } = await supabase
-      .from("profiles")
-      .select("id, full_name");
+        .from("profiles")
+        .select("id, full_name, email, cargo");
 
       const profilesMap = new Map(
-      (profilesData || []).map(p => [p.id, p.full_name])
+        (profilesData || []).map(p => [p.id, {
+          full_name: p.full_name,
+          email: p.email,
+          cargo: p.cargo
+        }])
       );
       // 3. Procesar datos
       const conveniosConDatos = await Promise.all(
@@ -157,6 +174,16 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           const areasNombres = (areasVinc || [])
             .map((a: any) => a.areas_vinculadas?.nombre)
             .filter(Boolean);
+
+            const { data: historial } = await supabase
+            .from("agreements_history")
+            .select("action, changed_at")
+            .eq("agreement_id", conv.id)
+            .in("action", ["RENOVACIÓN", "RENOVACION", "renovación", "renovacion"])
+            .order("changed_at", { ascending: false });
+          
+          const renovacionesCount = historial?.length || 0;
+          const ultimoCambio = historial?.[0]?.changed_at;
 
           // Calcular estado
           const hoy = new Date();
@@ -179,32 +206,45 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             ? conv.tipo_convenio.join(", ") || "Sin especificar"
             : conv.tipo_convenio || "Sin especificar";
   
-            return {
-              id: conv.id,
-              name: conv.name,
-              agreement_type: tipoConvenio,
-              pais: conv.pais || "No especificado",
-              signature_date: conv.signature_date,
-              expiration_date: conv.expiration_date,
-              duration_years: conv.duration_years,
-              estado,
-              institucion_nombre: institucionesMap.get(conv.institucion_id) || "Sin institución",
-              areas_vinculadas: areasNombres,
-              // 🆕 Campos adicionales:
-              objetivos: conv.objetivos,
-              convenio: conv.convenio,
-              resolucion_rectoral: conv["Resolución Rectoral"],
-              sub_tipo_docente: conv.sub_tipo_docente,
-              version: conv.version,
-              estado_db: conv.estado,
-              document_url: conv.document_url,
-              external_responsible: conv.external_responsible,
-              internal_responsible_name: profilesMap.get(conv.internal_responsible),
-              convenio_maestro_id: conv.convenio_maestro_id,
-              created_at: conv.created_at,
-              updated_at: conv.updated_at,
-            };
-        })
+          const institucionData = institucionesMap.get(conv.institucion_id);
+          const responsableData = profilesMap.get(conv.internal_responsible);
+
+          return {
+            id: conv.id,
+            name: conv.name,
+            agreement_type: tipoConvenio,
+            pais: conv.pais || "No especificado",
+            signature_date: conv.signature_date,
+            expiration_date: conv.expiration_date,
+            duration_years: conv.duration_years,
+            estado,
+            areas_vinculadas: areasNombres,
+            // Datos de institución:
+            institucion_nombre: institucionData?.nombre || "Sin institución",
+            institucion_email: institucionData?.email,
+            institucion_contacto: institucionData?.contacto,
+            institucion_telefono: institucionData?.telefono,
+            // Datos del convenio:
+            objetivos: conv.objetivos,
+            convenio: conv.convenio,
+            resolucion_rectoral: conv["Resolución Rectoral"],
+            sub_tipo_docente: conv.sub_tipo_docente,
+            version: conv.version,
+            estado_db: conv.estado,
+            document_url: conv.document_url,
+            external_responsible: conv.external_responsible,
+            convenio_maestro_id: conv.convenio_maestro_id,
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+            // Datos de responsable interno:
+            internal_responsible_name: responsableData?.full_name,
+            internal_responsible_email: responsableData?.email,
+            internal_responsible_cargo: responsableData?.cargo,
+            // Renovaciones:
+            renovaciones_count: renovacionesCount,
+            ultimo_cambio: ultimoCambio,
+          };
+        })  // ← Cierra el .map
       );
   
       setConvenios(conveniosConDatos);
@@ -1074,56 +1114,220 @@ const verDetalleConvenio = (convenio: Convenio) => {
           </div>
         </div>
 
-        {/* Responsables */}
+         {/* Duración y Renovaciones */}
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "1.5rem",
+            background: "#F8F9FA",
+            padding: "1.5rem",
+            borderRadius: "12px",
+            border: "1px solid #E9ECEF",
             marginBottom: "2rem"
           }}
         >
-          {/* Responsable Interno */}
-          {convenioSeleccionado.internal_responsible_name && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <i className="bi bi-arrow-repeat" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+            <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Duración y Renovaciones</strong>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1.5rem" }}>
+            {/* Duración Original */}
             <div
               style={{
-                background: "#F8F9FA",
+                background: "white",
                 padding: "1.25rem",
-                borderRadius: "12px",
-                border: "1px solid #E9ECEF"
+                borderRadius: "10px",
+                border: "2px solid #FFF3CD"
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                <i className="bi bi-person-badge" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Responsable UNMSM</strong>
+                <i className="bi bi-hourglass-split" style={{ color: "#856404", fontSize: "1.1rem" }}></i>
+                <strong style={{ color: "#856404", fontSize: "0.85rem" }}>Duración Original</strong>
               </div>
-              <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                {convenioSeleccionado.internal_responsible_name}
+              <p style={{ margin: 0, fontSize: "1.5rem", color: "#2C3E50", fontWeight: 700 }}>
+                {convenioSeleccionado.duration_years}
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#6C757D", marginLeft: "0.25rem" }}>
+                  {convenioSeleccionado.duration_years === 1 ? 'año' : 'años'}
+                </span>
               </p>
             </div>
-          )}
 
-          {/* Responsable Externo */}
-          {convenioSeleccionado.external_responsible && (
+            {/* Número de Renovaciones */}
             <div
               style={{
-                background: "#F8F9FA",
+                background: "white",
                 padding: "1.25rem",
-                borderRadius: "12px",
-                border: "1px solid #E9ECEF"
+                borderRadius: "10px",
+                border: "2px solid #D1ECF1"
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                <i className="bi bi-person" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Responsable Externo</strong>
+                <i className="bi bi-arrow-clockwise" style={{ color: "#0C5460", fontSize: "1.1rem" }}></i>
+                <strong style={{ color: "#0C5460", fontSize: "0.85rem" }}>Renovaciones</strong>
               </div>
-              <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                {convenioSeleccionado.external_responsible}
+              <p style={{ margin: 0, fontSize: "1.5rem", color: "#2C3E50", fontWeight: 700 }}>
+                {convenioSeleccionado.renovaciones_count || 0}
+                <span style={{ fontSize: "0.9rem", fontWeight: 400, color: "#6C757D", marginLeft: "0.25rem" }}>
+                  {convenioSeleccionado.renovaciones_count === 1 ? 'vez' : 'veces'}
+                </span>
               </p>
             </div>
-          )}
+
+            {/* Última Renovación */}
+            {convenioSeleccionado.ultimo_cambio && (
+              <div
+                style={{
+                  background: "white",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  border: "2px solid #D4EDDA"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <i className="bi bi-calendar-event" style={{ color: "#155724", fontSize: "1.1rem" }}></i>
+                  <strong style={{ color: "#155724", fontSize: "0.85rem" }}>Última Renovación</strong>
+                </div>
+                <p style={{ margin: 0, fontSize: "0.95rem", color: "#2C3E50", fontWeight: 600 }}>
+                  {new Date(convenioSeleccionado.ultimo_cambio).toLocaleDateString("es-PE", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric"
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>            
+        {/* Responsables */}
+        <div
+          style={{
+            background: "#F8F9FA",
+            padding: "1.5rem",
+            borderRadius: "12px",
+            border: "1px solid #E9ECEF",
+            marginBottom: "2rem"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <i className="bi bi-people" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+            <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Responsables del Convenio</strong>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem" }}>
+            {/* Responsable Interno UNMSM */}
+            {convenioSeleccionado.internal_responsible_name && (
+              <div
+                style={{
+                  background: "white",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  border: "2px solid #E3F2FD"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                  <i className="bi bi-person-badge" style={{ color: "#1976D2", fontSize: "1.1rem" }}></i>
+                  <strong style={{ color: "#1976D2", fontSize: "0.9rem" }}>Responsable UNMSM</strong>
+                </div>
+                <p style={{ margin: "0 0 0.5rem 0", fontSize: "1rem", color: "#2C3E50", fontWeight: 600 }}>
+                  {convenioSeleccionado.internal_responsible_name}
+                </p>
+                {convenioSeleccionado.internal_responsible_cargo && (
+                  <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "#6C757D", fontStyle: "italic" }}>
+                    {convenioSeleccionado.internal_responsible_cargo}
+                  </p>
+                )}
+                {convenioSeleccionado.internal_responsible_email && (
+                  <a 
+                    href={`mailto:${convenioSeleccionado.internal_responsible_email}`}
+                    style={{ 
+                      fontSize: "0.9rem", 
+                      color: "#5B2C6F",
+                      textDecoration: "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.35rem"
+                    }}
+                  >
+                    <i className="bi bi-envelope"></i>
+                    {convenioSeleccionado.internal_responsible_email}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Responsable Externo */}
+            {convenioSeleccionado.external_responsible && (
+              <div
+                style={{
+                  background: "white",
+                  padding: "1.25rem",
+                  borderRadius: "10px",
+                  border: "2px solid #E8F5E9"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                  <i className="bi bi-person" style={{ color: "#388E3C", fontSize: "1.1rem" }}></i>
+                  <strong style={{ color: "#388E3C", fontSize: "0.9rem" }}>Responsable Externo</strong>
+                </div>
+                <p style={{ margin: 0, fontSize: "1rem", color: "#2C3E50", fontWeight: 600 }}>
+                  {convenioSeleccionado.external_responsible}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-
+        
+        {/* Contacto de la Institución */}
+        {(convenioSeleccionado.institucion_email || convenioSeleccionado.institucion_telefono) && (
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF",
+              marginBottom: "2rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <i className="bi bi-envelope" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Contacto de la Institución</strong>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "1rem" }}>
+              {convenioSeleccionado.institucion_contacto && (
+                <div>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Nombre</p>
+                  <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.95rem", color: "#495057" }}>
+                    {convenioSeleccionado.institucion_contacto}
+                  </p>
+                </div>
+              )}
+              {convenioSeleccionado.institucion_email && (
+                <div>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Email</p>
+                  <a 
+                    href={`mailto:${convenioSeleccionado.institucion_email}`}
+                    style={{ 
+                      margin: "0.25rem 0 0 0", 
+                      fontSize: "0.95rem", 
+                      color: "#5B2C6F",
+                      textDecoration: "none",
+                      display: "block"
+                    }}
+                  >
+                    {convenioSeleccionado.institucion_email}
+                  </a>
+                </div>
+              )}
+              {convenioSeleccionado.institucion_telefono && (
+                <div>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Teléfono</p>
+                  <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.95rem", color: "#495057" }}>
+                    {convenioSeleccionado.institucion_telefono}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {/* Resolución Rectoral */}
         {convenioSeleccionado.resolucion_rectoral && (
           <div
