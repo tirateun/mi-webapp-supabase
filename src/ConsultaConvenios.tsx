@@ -10,9 +10,23 @@ interface Convenio {
   pais: string;
   signature_date: string;
   expiration_date: string;
+  duration_years: number;
   estado: string;
   institucion_nombre?: string;
   areas_vinculadas?: string[];
+  // 🆕 Nuevos campos:
+  objetivos?: string;
+  convenio?: string; // marco o específico
+  resolucion_rectoral?: string;
+  sub_tipo_docente?: string;
+  version?: number;
+  estado_db?: string; // activo/inactivo
+  document_url?: string;
+  external_responsible?: string;
+  internal_responsible_name?: string;
+  convenio_maestro_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ConsultaConveniosProps {
@@ -88,7 +102,20 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           pais,
           signature_date,
           expiration_date,
-          institucion_id
+          duration_years,
+          institucion_id,
+          objetivos,
+          convenio,
+          "Resolución Rectoral",
+          sub_tipo_docente,
+          version,
+          estado,
+          document_url,
+          external_responsible,
+          internal_responsible,
+          convenio_maestro_id,
+          created_at,
+          updated_at
         `)
         .order("name");
   
@@ -107,7 +134,14 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       const institucionesMap = new Map(
         (institucionesData || []).map(i => [i.id, i.nombre])
       );
-  
+      // 2b. Cargar perfiles (responsables internos)
+      const { data: profilesData } = await supabase
+      .from("profiles")
+      .select("id, full_name");
+
+      const profilesMap = new Map(
+      (profilesData || []).map(p => [p.id, p.full_name])
+      );
       // 3. Procesar datos
       const conveniosConDatos = await Promise.all(
         (data || []).map(async (conv: any) => {
@@ -145,17 +179,31 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             ? conv.tipo_convenio.join(", ") || "Sin especificar"
             : conv.tipo_convenio || "Sin especificar";
   
-          return {
-            id: conv.id,
-            name: conv.name,
-            agreement_type: tipoConvenio, // Mantener este nombre para compatibilidad
-            pais: conv.pais || "No especificado",
-            signature_date: conv.signature_date,
-            expiration_date: conv.expiration_date,
-            estado,
-            institucion_nombre: institucionesMap.get(conv.institucion_id) || "Sin institución",
-            areas_vinculadas: areasNombres,
-          };
+            return {
+              id: conv.id,
+              name: conv.name,
+              agreement_type: tipoConvenio,
+              pais: conv.pais || "No especificado",
+              signature_date: conv.signature_date,
+              expiration_date: conv.expiration_date,
+              duration_years: conv.duration_years,
+              estado,
+              institucion_nombre: institucionesMap.get(conv.institucion_id) || "Sin institución",
+              areas_vinculadas: areasNombres,
+              // 🆕 Campos adicionales:
+              objetivos: conv.objetivos,
+              convenio: conv.convenio,
+              resolucion_rectoral: conv["Resolución Rectoral"],
+              sub_tipo_docente: conv.sub_tipo_docente,
+              version: conv.version,
+              estado_db: conv.estado,
+              document_url: conv.document_url,
+              external_responsible: conv.external_responsible,
+              internal_responsible_name: profilesMap.get(conv.internal_responsible),
+              convenio_maestro_id: conv.convenio_maestro_id,
+              created_at: conv.created_at,
+              updated_at: conv.updated_at,
+            };
         })
       );
   
@@ -756,286 +804,553 @@ const verDetalleConvenio = (convenio: Convenio) => {
         )}
       </div>
 
-      {/* 🆕 Modal de Detalle del Convenio */}
-      {mostrarModal && convenioSeleccionado && (
-        <div
+      {/* Modal de Detalle del Convenio - VERSIÓN COMPLETA */}
+{mostrarModal && convenioSeleccionado && (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+      padding: "2rem"
+    }}
+    onClick={() => setMostrarModal(false)}
+  >
+    <div
+      style={{
+        backgroundColor: "white",
+        borderRadius: "16px",
+        maxWidth: "1100px",
+        width: "100%",
+        maxHeight: "90vh",
+        overflow: "auto",
+        boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)"
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header del Modal */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+          color: "white",
+          padding: "1.5rem 2rem",
+          borderRadius: "16px 16px 0 0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          position: "sticky",
+          top: 0,
+          zIndex: 10
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 600 }}>
+          <i className="bi bi-file-text"></i> Información Completa del Convenio
+        </h2>
+        <button
+          onClick={() => setMostrarModal(false)}
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            background: "rgba(255,255,255,0.2)",
+            border: "none",
+            color: "white",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            cursor: "pointer",
+            fontSize: "1.5rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 9999,
-            padding: "2rem"
+            transition: "all 0.3s ease"
           }}
-          onClick={() => setMostrarModal(false)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+          }}
         >
-          <div
+          ×
+        </button>
+      </div>
+
+      {/* Contenido del Modal */}
+      <div style={{ padding: "2rem" }}>
+        {/* Nombre del Convenio */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h3
             style={{
-              backgroundColor: "white",
-              borderRadius: "16px",
-              maxWidth: "900px",
-              width: "100%",
-              maxHeight: "90vh",
-              overflow: "auto",
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)"
+              color: "#3D1A4F",
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              marginBottom: "0.5rem",
+              lineHeight: 1.3
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Header del Modal */}
-            <div
+            {convenioSeleccionado.name}
+          </h3>
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
+            <span
               style={{
-                background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
-                color: "white",
-                padding: "1.5rem 2rem",
-                borderRadius: "16px 16px 0 0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center"
+                background: getBadgeColor(convenioSeleccionado.estado).bg,
+                color: getBadgeColor(convenioSeleccionado.estado).color,
+                border: `1px solid ${getBadgeColor(convenioSeleccionado.estado).border}`,
+                padding: "0.5rem 1rem",
+                borderRadius: "20px",
+                fontSize: "0.9rem",
+                fontWeight: 600
               }}
             >
-              <h2 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 600 }}>
-                <i className="bi bi-file-text"></i> Detalle del Convenio
-              </h2>
-              <button
-                onClick={() => setMostrarModal(false)}
+              {convenioSeleccionado.estado}
+            </span>
+            <span
+              style={{
+                background: "rgba(91, 44, 111, 0.1)",
+                color: "#5B2C6F",
+                padding: "0.5rem 1rem",
+                borderRadius: "20px",
+                fontSize: "0.9rem",
+                fontWeight: 500
+              }}
+            >
+              {convenioSeleccionado.agreement_type}
+            </span>
+            {convenioSeleccionado.convenio && (
+              <span
                 style={{
-                  background: "rgba(255,255,255,0.2)",
-                  border: "none",
-                  color: "white",
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "50%",
-                  cursor: "pointer",
-                  fontSize: "1.5rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.3s ease"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                  background: "#FFF3CD",
+                  color: "#856404",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "20px",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  textTransform: "capitalize"
                 }}
               >
-                ×
-              </button>
-            </div>
-
-            {/* Contenido del Modal */}
-            <div style={{ padding: "2rem" }}>
-              {/* Nombre del Convenio */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h3
-                  style={{
-                    color: "#3D1A4F",
-                    fontSize: "1.75rem",
-                    fontWeight: 700,
-                    marginBottom: "0.5rem",
-                    lineHeight: 1.3
-                  }}
-                >
-                  {convenioSeleccionado.name}
-                </h3>
-                <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-                  <span
-                    style={{
-                      background: getBadgeColor(convenioSeleccionado.estado).bg,
-                      color: getBadgeColor(convenioSeleccionado.estado).color,
-                      border: `1px solid ${getBadgeColor(convenioSeleccionado.estado).border}`,
-                      padding: "0.5rem 1rem",
-                      borderRadius: "20px",
-                      fontSize: "0.9rem",
-                      fontWeight: 600
-                    }}
-                  >
-                    {convenioSeleccionado.estado}
-                  </span>
-                  <span
-                    style={{
-                      background: "rgba(91, 44, 111, 0.1)",
-                      color: "#5B2C6F",
-                      padding: "0.5rem 1rem",
-                      borderRadius: "20px",
-                      fontSize: "0.9rem",
-                      fontWeight: 500
-                    }}
-                  >
-                    {convenioSeleccionado.agreement_type}
-                  </span>
-                </div>
-              </div>
-
-              {/* Grid de Información */}
-              <div
+                {convenioSeleccionado.convenio}
+              </span>
+            )}
+            {convenioSeleccionado.version && convenioSeleccionado.version > 1 && (
+              <span
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                  gap: "1.5rem",
-                  marginBottom: "2rem"
+                  background: "#D1ECF1",
+                  color: "#0C5460",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "20px",
+                  fontSize: "0.9rem",
+                  fontWeight: 500
                 }}
               >
-                {/* Institución */}
-                <div
-                  style={{
-                    background: "#F8F9FA",
-                    padding: "1.25rem",
-                    borderRadius: "12px",
-                    border: "1px solid #E9ECEF"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <i className="bi bi-building" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Institución</strong>
-                  </div>
-                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                    {convenioSeleccionado.institucion_nombre}
-                  </p>
-                </div>
-
-                {/* País */}
-                <div
-                  style={{
-                    background: "#F8F9FA",
-                    padding: "1.25rem",
-                    borderRadius: "12px",
-                    border: "1px solid #E9ECEF"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <i className="bi bi-globe" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>País</strong>
-                  </div>
-                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                    {convenioSeleccionado.pais}
-                  </p>
-                </div>
-
-                {/* Fecha de Firma */}
-                <div
-                  style={{
-                    background: "#F8F9FA",
-                    padding: "1.25rem",
-                    borderRadius: "12px",
-                    border: "1px solid #E9ECEF"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <i className="bi bi-calendar-check" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Firma</strong>
-                  </div>
-                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                    {convenioSeleccionado.signature_date
-                      ? new Date(convenioSeleccionado.signature_date).toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric"
-                        })
-                      : "No especificada"}
-                  </p>
-                </div>
-
-                {/* Fecha de Vencimiento */}
-                <div
-                  style={{
-                    background: "#F8F9FA",
-                    padding: "1.25rem",
-                    borderRadius: "12px",
-                    border: "1px solid #E9ECEF"
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-                    <i className="bi bi-calendar-x" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                    <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Vencimiento</strong>
-                  </div>
-                  <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-                    {convenioSeleccionado.expiration_date
-                      ? new Date(convenioSeleccionado.expiration_date).toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric"
-                        })
-                      : "Sin fecha"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Áreas Vinculadas */}
-              <div
-                style={{
-                  background: "#F8F9FA",
-                  padding: "1.5rem",
-                  borderRadius: "12px",
-                  border: "1px solid #E9ECEF",
-                  marginBottom: "2rem"
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-                  <i className="bi bi-diagram-3" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-                  <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Áreas Vinculadas</strong>
-                </div>
-                {convenioSeleccionado.areas_vinculadas && convenioSeleccionado.areas_vinculadas.length > 0 ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                    {convenioSeleccionado.areas_vinculadas.map((area, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          background: "#E3F2FD",
-                          color: "#1976D2",
-                          padding: "0.5rem 1rem",
-                          borderRadius: "20px",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                          border: "1px solid #90CAF9"
-                        }}
-                      >
-                        {area}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ margin: 0, color: "#6C757D", fontStyle: "italic" }}>
-                    No hay áreas vinculadas registradas
-                  </p>
-                )}
-              </div>
-
-              {/* Botones de Acción */}
-              <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
-                <button
-                  onClick={() => setMostrarModal(false)}
-                  style={{
-                    background: "#6C757D",
-                    color: "white",
-                    border: "none",
-                    padding: "0.75rem 1.5rem",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                    transition: "all 0.3s ease"
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "#5A6268";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#6C757D";
-                  }}
-                >
-                  Cerrar
-                </button>
-              </div>
-            </div>
+                Versión {convenioSeleccionado.version}
+              </span>
+            )}
           </div>
         </div>
-      )}
-      
+
+        {/* Grid de Información Principal */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "1.5rem",
+            marginBottom: "2rem"
+          }}
+        >
+          {/* Institución */}
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.25rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <i className="bi bi-building" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Institución</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+              {convenioSeleccionado.institucion_nombre}
+            </p>
+          </div>
+
+          {/* País */}
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.25rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <i className="bi bi-globe" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>País</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+              {convenioSeleccionado.pais}
+            </p>
+          </div>
+
+          {/* Duración */}
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.25rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <i className="bi bi-hourglass-split" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Duración</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+              {convenioSeleccionado.duration_years} {convenioSeleccionado.duration_years === 1 ? 'año' : 'años'}
+            </p>
+          </div>
+        </div>
+
+        {/* Fechas */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+            gap: "1.5rem",
+            marginBottom: "2rem"
+          }}
+        >
+          {/* Fecha de Firma */}
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.25rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <i className="bi bi-calendar-check" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Firma</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+              {convenioSeleccionado.signature_date
+                ? new Date(convenioSeleccionado.signature_date).toLocaleDateString("es-PE", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                  })
+                : "No especificada"}
+            </p>
+          </div>
+
+          {/* Fecha de Vencimiento */}
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.25rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <i className="bi bi-calendar-x" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Vencimiento</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+              {convenioSeleccionado.expiration_date
+                ? new Date(convenioSeleccionado.expiration_date).toLocaleDateString("es-PE", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                  })
+                : "Sin fecha"}
+            </p>
+          </div>
+        </div>
+
+        {/* Responsables */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+            gap: "1.5rem",
+            marginBottom: "2rem"
+          }}
+        >
+          {/* Responsable Interno */}
+          {convenioSeleccionado.internal_responsible_name && (
+            <div
+              style={{
+                background: "#F8F9FA",
+                padding: "1.25rem",
+                borderRadius: "12px",
+                border: "1px solid #E9ECEF"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <i className="bi bi-person-badge" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Responsable UNMSM</strong>
+              </div>
+              <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                {convenioSeleccionado.internal_responsible_name}
+              </p>
+            </div>
+          )}
+
+          {/* Responsable Externo */}
+          {convenioSeleccionado.external_responsible && (
+            <div
+              style={{
+                background: "#F8F9FA",
+                padding: "1.25rem",
+                borderRadius: "12px",
+                border: "1px solid #E9ECEF"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <i className="bi bi-person" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Responsable Externo</strong>
+              </div>
+              <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
+                {convenioSeleccionado.external_responsible}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Resolución Rectoral */}
+        {convenioSeleccionado.resolucion_rectoral && (
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF",
+              marginBottom: "2rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <i className="bi bi-file-earmark-text" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Resolución Rectoral</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "0.95rem" }}>
+              {convenioSeleccionado.resolucion_rectoral}
+            </p>
+          </div>
+        )}
+
+        {/* Sub Tipo Docente */}
+        {convenioSeleccionado.sub_tipo_docente && (
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF",
+              marginBottom: "2rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <i className="bi bi-tags" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Sub Tipo</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "0.95rem" }}>
+              {convenioSeleccionado.sub_tipo_docente}
+            </p>
+          </div>
+        )}
+
+        {/* Áreas Vinculadas */}
+        <div
+          style={{
+            background: "#F8F9FA",
+            padding: "1.5rem",
+            borderRadius: "12px",
+            border: "1px solid #E9ECEF",
+            marginBottom: "2rem"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <i className="bi bi-diagram-3" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+            <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Áreas Vinculadas</strong>
+          </div>
+          {convenioSeleccionado.areas_vinculadas && convenioSeleccionado.areas_vinculadas.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {convenioSeleccionado.areas_vinculadas.map((area, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: "#E3F2FD",
+                    color: "#1976D2",
+                    padding: "0.5rem 1rem",
+                    borderRadius: "20px",
+                    fontSize: "0.9rem",
+                    fontWeight: 500,
+                    border: "1px solid #90CAF9"
+                  }}
+                >
+                  {area}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: 0, color: "#6C757D", fontStyle: "italic" }}>
+              No hay áreas vinculadas registradas
+            </p>
+          )}
+        </div>
+
+        {/* Objetivos */}
+        {convenioSeleccionado.objetivos && (
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF",
+              marginBottom: "2rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <i className="bi bi-bullseye" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Objetivos</strong>
+            </div>
+            <p style={{ margin: 0, color: "#495057", fontSize: "0.95rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+              {convenioSeleccionado.objetivos}
+            </p>
+          </div>
+        )}
+
+        {/* Documento */}
+        {convenioSeleccionado.document_url && (
+          <div
+            style={{
+              background: "#F8F9FA",
+              padding: "1.5rem",
+              borderRadius: "12px",
+              border: "1px solid #E9ECEF",
+              marginBottom: "2rem"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <i className="bi bi-file-pdf" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Documento</strong>
+            </div>
+            <a
+              href={convenioSeleccionado.document_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+                color: "white",
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                textDecoration: "none",
+                fontSize: "0.95rem",
+                fontWeight: 500,
+                transition: "all 0.3s ease"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(91, 44, 111, 0.4)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <i className="bi bi-download"></i>
+              Descargar Documento
+            </a>
+          </div>
+        )}
+
+        {/* Información del Sistema */}
+        <div
+          style={{
+            background: "#F8F9FA",
+            padding: "1.5rem",
+            borderRadius: "12px",
+            border: "1px solid #E9ECEF",
+            marginBottom: "2rem"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+            <i className="bi bi-info-circle" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+            <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Información del Sistema</strong>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+            <div>
+              <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>ID del Convenio</p>
+              <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.9rem", color: "#495057", fontFamily: "monospace" }}>
+                {convenioSeleccionado.id.substring(0, 8)}...
+              </p>
+            </div>
+            {convenioSeleccionado.created_at && (
+              <div>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Creado el</p>
+                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.9rem", color: "#495057" }}>
+                  {new Date(convenioSeleccionado.created_at).toLocaleDateString("es-PE")}
+                </p>
+              </div>
+            )}
+            {convenioSeleccionado.updated_at && (
+              <div>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Última actualización</p>
+                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.9rem", color: "#495057" }}>
+                  {new Date(convenioSeleccionado.updated_at).toLocaleDateString("es-PE")}
+                </p>
+              </div>
+            )}
+            {convenioSeleccionado.estado_db && (
+              <div>
+                <p style={{ margin: 0, fontSize: "0.85rem", color: "#6C757D" }}>Estado en Base de Datos</p>
+                <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.9rem", color: "#495057", textTransform: "capitalize" }}>
+                  {convenioSeleccionado.estado_db}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Botones de Acción */}
+        <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => setMostrarModal(false)}
+            style={{
+              background: "#6C757D",
+              color: "white",
+              border: "none",
+              padding: "0.75rem 1.5rem",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "1rem",
+              fontWeight: 500,
+              transition: "all 0.3s ease"
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#5A6268";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#6C757D";
+            }}
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
