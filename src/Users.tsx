@@ -105,9 +105,21 @@ export default function Users() {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
   
-      if (!token) throw new Error("No hay sesión activa o token disponible");
+      if (!token) throw new Error("No hay sesión activa");
   
-      console.log("🧩 Enviando user_id:", userId);
+      // 🔍 Primero obtener el user_id del perfil
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("id", userId)
+        .single();
+  
+      if (!profile) {
+        alert("❌ No se encontró el perfil");
+        return;
+      }
+  
+      console.log("🧩 Enviando user_id:", profile.user_id);
   
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
@@ -118,7 +130,7 @@ export default function Users() {
             Authorization: `Bearer ${token}`,
             apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ user_id: userId }),
+          body: JSON.stringify({ user_id: profile.user_id }),  // ← Enviar user_id, no id
         }
       );
   
