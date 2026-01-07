@@ -15,6 +15,8 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState<string>(existingAgreement?.name || "");
+  const [institucionId, setInstitucionId] = useState<string>(existingAgreement?.institucion_id || "");
+  const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_link || "");
   const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
   const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years ?? 1);
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
@@ -26,6 +28,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   const [internos, setInternos] = useState<any[]>([]);
   const [externos, setExternos] = useState<any[]>([]);
+  const [instituciones, setInstituciones] = useState<any[]>([]);
   const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
     if (!existingAgreement) return [];
     const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
@@ -88,15 +91,17 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   async function fetchEnumsAndLists() {
     try {
-      const [{ data: internosData }, { data: externosData }, { data: areasData }] = await Promise.all([
+      const [{ data: internosData }, { data: externosData }, { data: areasData }, { data: institucionesData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
         supabase.from("profiles").select("id, full_name, role").eq("role", "external"),
         supabase.from("areas_vinculadas").select("id, nombre"),
+        supabase.from("instituciones").select("id, nombre").order("nombre"),
       ]);
 
       setInternos(internosData || []);
       setExternos(externosData || []);
       setAreas(areasData || []);
+      setInstituciones(institucionesData || []);
 
       if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
         const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
@@ -140,6 +145,8 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     try {
       const payload: any = {
         name,
+        institucion_id: institucionId || null,
+        document_link: documentLink || null,
         signature_date: toYMD(signatureDate) ?? null,
         duration_years: durationYears ?? null,
         convenio: tipoConvenio,
@@ -233,6 +240,42 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           <div className="mb-3">
             <label className="form-label">Nombre del convenio</label>
             <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+
+          {/* INSTITUCIÓN ASOCIADA */}
+          <div className="mb-3">
+            <label className="form-label">Institución Asociada *</label>
+            <select 
+              className="form-select" 
+              value={institucionId} 
+              onChange={(e) => setInstitucionId(e.target.value)}
+              required
+            >
+              <option value="">Seleccione una institución</option>
+              {instituciones.map((inst) => (
+                <option key={inst.id} value={inst.id}>
+                  {inst.nombre}
+                </option>
+              ))}
+            </select>
+            {instituciones.length === 0 && (
+              <small className="text-muted">Cargando instituciones...</small>
+            )}
+          </div>
+
+          {/* ENLACE AL DOCUMENTO */}
+          <div className="mb-3">
+            <label className="form-label">Enlace al documento del convenio (opcional)</label>
+            <input 
+              type="url"
+              className="form-control" 
+              value={documentLink} 
+              onChange={(e) => setDocumentLink(e.target.value)}
+              placeholder="https://drive.google.com/... o https://..."
+            />
+            <small className="text-muted">
+              Pega aquí el enlace donde está almacenado el documento (Google Drive, OneDrive, etc.)
+            </small>
           </div>
 
           {/* FECHA, DURACIÓN, TIPO */}
