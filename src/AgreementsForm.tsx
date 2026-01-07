@@ -1,5 +1,5 @@
 // src/AgreementsForm.tsx
-// Versión reorganizada: Tipos de convenio primero, luego lógica condicional de responsables
+// Versión completa: Institución, múltiples subtipos docentes con responsables por subtipo
 import React, { useEffect, useMemo, useState } from "react";
 import Select, { MultiValue } from "react-select";
 import { supabase } from "./supabaseClient";
@@ -11,9 +11,15 @@ interface Option {
   label: string;
 }
 
+interface SubtipoConResponsables {
+  subtipo: string;
+  responsables: Option[];
+}
+
 export default function AgreementsForm({ existingAgreement, onSave, onCancel }: any) {
   const [loading, setLoading] = useState(false);
 
+  // Campos básicos
   const [name, setName] = useState<string>(existingAgreement?.name || "");
   const [institucionId, setInstitucionId] = useState<string>(existingAgreement?.institucion_id || "");
   const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_url || "");
@@ -23,17 +29,22 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
   const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
-  const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
 
+  // Estados para listas
   const [internos, setInternos] = useState<any[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
   const [contactoInstitucion, setContactoInstitucion] = useState<any>(null);
+  
+  // Responsables para convenios NO docente-asistenciales
   const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
     if (!existingAgreement) return [];
     const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
     if (!Array.isArray(list)) return [];
     return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
   });
+
+  // 🆕 Subtipos docentes con responsables por cada uno
+  const [subtiposConResponsables, setSubtiposConResponsables] = useState<SubtipoConResponsables[]>([]);
 
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
@@ -67,7 +78,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     []
   );
 
-  // 🆕 Verificar si incluye "Docente Asistencial"
   const incluyeDocenteAsistencial = tipoSeleccionados.includes("Docente Asistencial");
 
   useEffect(() => {
@@ -82,7 +92,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
-    if (internos.length > 0) fetchResponsablesInternos(existingAgreement.id);
+    if (internos.length > 0) {
+      fetchResponsablesInternos(existingAgreement.id);
+      fetchSubtiposConResponsables(existingAgreement.id);
+    }
   }, [internos, existingAgreement]);
 
   async function fetchEnumsAndLists() {
@@ -97,7 +110,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       setInstituciones(institucionesData || []);
       setAreas(areasData || []);
 
-      // Si es edición y hay institución seleccionada, cargar contacto
+      // Si es edición y hay institución, cargar contacto
       if (existingAgreement?.institucion_id && institucionesData) {
         const inst = institucionesData.find((i: any) => i.id === existingAgreement.institucion_id);
         if (inst) {
@@ -125,8 +138,63 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   }
 
+  async function fetchSubtiposConResponsables(agreementId: string) {
+    try {
+      // Obtener subtipos del convenio
+      const { data: subtypes } = await supabase
+        .from("agreement_subtypes")
+        .select("id, subtype_name")
+        .eq("agreement_id", agreementId);
+
+      if (!subtypes || subtypes.length === 0) return;
+
+      // Para cada subtipo, obtener sus responsables
+      const subtiposData: SubtipoConResponsables[] = [];
+
+      for (const subtype of subtypes) {
+        const { data: responsables } = await supabase
+          .from("subtype_internal_responsibles")
+          .select("internal_responsible_id")
+          .eq("subtype_id", subtype.id);
+
+        const responsableIds = (responsables || []).map((r: any) => r.internal_responsible_id);
+        const responsablesOptions = internos
+          .filter((i) => responsableIds.includes(i.id))
+          .map((i) => ({ value: i.id, label: i.full_name }));
+
+        subtiposData.push({
+          subtipo: subtype.subtype_name,
+          responsables: responsablesOptions,
+        });
+      }
+
+      setSubtiposConResponsables(subtiposData);
+    } catch (err) {
+      console.error("Error fetchSubtiposConResponsables:", err);
+    }
+  }
+
   const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  // 🆕 Agregar nuevo subtipo
+  const agregarSubtipo = (subtipo: string) => {
+    if (!subtiposConResponsables.find((s) => s.subtipo === subtipo)) {
+      setSubtiposConResponsables([...subtiposConResponsables, { subtipo, responsables: [] }]);
+    }
+  };
+
+  // 🆕 Eliminar subtipo
+  const eliminarSubtipo = (subtipo: string) => {
+    setSubtiposConResponsables(subtiposConResponsables.filter((s) => s.subtipo !== subtipo));
+  };
+
+  // 🆕 Actualizar responsables de un subtipo
+  const actualizarResponsablesSubtipo = (subtipo: string, responsables: Option[]) => {
+    setSubtiposConResponsables(
+      subtiposConResponsables.map((s) => (s.subtipo === subtipo ? { ...s, responsables } : s))
+    );
+  };
 
   const toYMD = (v: any): string | null => {
     if (!v) return null;
@@ -156,7 +224,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         "Resolución Rectoral": resolucion || null,
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
-        sub_tipo_docente: incluyeDocenteAsistencial ? subTipoDocente || null : null,
         area_vinculada_id: areaId ?? null,
         convenio_maestro_id: convenioMaestroId ?? null,
         version,
@@ -177,13 +244,49 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
       if (!agreementId) throw new Error("No se obtuvo ID del convenio guardado.");
 
-      // Sincronizar responsables internos
-      const internalIds = (selectedInternals || []).map((s) => s.value);
-      await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
-      if (internalIds.length > 0) {
-        const toInsert = internalIds.map((pid: any) => ({ agreement_id: agreementId, internal_responsible_id: pid }));
-        const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
-        if (error) throw error;
+      // Sincronizar responsables internos (para convenios NO docente-asistenciales)
+      if (!incluyeDocenteAsistencial) {
+        const internalIds = (selectedInternals || []).map((s) => s.value);
+        await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
+        if (internalIds.length > 0) {
+          const toInsert = internalIds.map((pid: any) => ({ agreement_id: agreementId, internal_responsible_id: pid }));
+          const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
+          if (error) throw error;
+        }
+      }
+
+      // 🆕 Sincronizar subtipos con responsables (para docente-asistencial)
+      if (incluyeDocenteAsistencial && subtiposConResponsables.length > 0) {
+        // Eliminar subtipos existentes
+        await supabase.from("agreement_subtypes").delete().eq("agreement_id", agreementId);
+
+        // Insertar nuevos subtipos y sus responsables
+        for (const item of subtiposConResponsables) {
+          // Insertar subtipo
+          const { data: subtypeData, error: subtypeError } = await supabase
+            .from("agreement_subtypes")
+            .insert([{ agreement_id: agreementId, subtype_name: item.subtipo }])
+            .select("id")
+            .single();
+
+          if (subtypeError) throw subtypeError;
+
+          const subtypeId = subtypeData.id;
+
+          // Insertar responsables del subtipo
+          if (item.responsables.length > 0) {
+            const responsablesToInsert = item.responsables.map((r) => ({
+              subtype_id: subtypeId,
+              internal_responsible_id: r.value,
+            }));
+
+            const { error: responsablesError } = await supabase
+              .from("subtype_internal_responsibles")
+              .insert(responsablesToInsert);
+
+            if (responsablesError) throw responsablesError;
+          }
+        }
       }
 
       // Sincronizar areas vinculadas
@@ -249,7 +352,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
               value={institucionId ? { value: institucionId, label: instituciones.find(i => i.id === institucionId)?.nombre || "" } : null}
               onChange={(option) => {
                 setInstitucionId(option?.value || "");
-                // Cargar datos de contacto de la institución seleccionada
                 if (option?.value) {
                   const inst = instituciones.find(i => i.id === option.value);
                   setContactoInstitucion(inst || null);
@@ -272,12 +374,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             <div className="mb-3 p-3 border rounded bg-light">
               <h6 className="text-secondary mb-2">🏛️ Información de la Institución</h6>
               
-              {/* País */}
               <div className="mb-2">
                 <strong>País:</strong> <span className="badge bg-primary">{contactoInstitucion.pais || "No especificado"}</span>
               </div>
               
-              {/* Contacto */}
               <h6 className="text-secondary mb-2 mt-3">📞 Contacto</h6>
               <div className="row">
                 <div className="col-md-6">
@@ -350,7 +450,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             <input className="form-control" value={resolucion} onChange={(e) => setResolucion(e.target.value)} placeholder="Nº de resolución" />
           </div>
 
-          {/* 🆕 TIPOS DE CONVENIO - MOVIDO ARRIBA */}
+          {/* TIPOS DE CONVENIO */}
           <div className="mb-3">
             <label className="form-label fw-bold">Tipos de convenio *</label>
             <div className="border rounded p-3 bg-light">
@@ -371,32 +471,74 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             )}
           </div>
 
-          {/* 🆕 LÓGICA CONDICIONAL */}
-          
-          {/* SI INCLUYE "Docente Asistencial" → Mostrar Subtipos */}
+          {/* 🆕 SI INCLUYE "Docente Asistencial" → Subtipos con responsables */}
           {incluyeDocenteAsistencial && (
             <div className="mb-3 p-3 border border-primary rounded bg-light">
               <h5 className="text-primary mb-3">📚 Configuración Docente Asistencial</h5>
               
+              {/* Selector para agregar subtipos */}
               <div className="mb-3">
-                <label className="form-label">Subtipo Docente</label>
-                <select className="form-select" value={subTipoDocente} onChange={(e) => setSubTipoDocente(e.target.value)}>
-                  <option value="">Seleccione un subtipo</option>
-                  {subTiposDocente.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                <label className="form-label">Agregar Subtipo Docente</label>
+                <select 
+                  className="form-select" 
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      agregarSubtipo(e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                >
+                  <option value="">Seleccione un subtipo para agregar...</option>
+                  {subTiposDocente
+                    .filter((s) => !subtiposConResponsables.find((sc) => sc.subtipo === s))
+                    .map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
                 </select>
               </div>
 
-              {/* TODO: Aquí irá la sección de Subtipos + Responsables por subtipo */}
-              <div className="alert alert-info">
-                <strong>📝 Próximamente:</strong> Selección de responsables por subtipo docente
-              </div>
+              {/* Lista de subtipos con sus responsables */}
+              {subtiposConResponsables.length > 0 ? (
+                <div className="mt-3">
+                  {subtiposConResponsables.map((item, index) => (
+                    <div key={index} className="card mb-3">
+                      <div className="card-header d-flex justify-content-between align-items-center">
+                        <strong>📋 {item.subtipo}</strong>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => eliminarSubtipo(item.subtipo)}
+                        >
+                          ❌ Eliminar
+                        </button>
+                      </div>
+                      <div className="card-body">
+                        <label className="form-label">Responsables Internos</label>
+                        <Select
+                          isMulti
+                          options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
+                          value={item.responsables}
+                          onChange={(val: MultiValue<Option>) =>
+                            actualizarResponsablesSubtipo(item.subtipo, Array.isArray(val) ? (val as Option[]) : [])
+                          }
+                          placeholder="Buscar y seleccionar responsables..."
+                          noOptionsMessage={() => "No hay responsables"}
+                          isDisabled={internos.length === 0}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="alert alert-info">
+                  <strong>ℹ️ No hay subtipos agregados.</strong> Selecciona un subtipo del menú desplegable arriba para comenzar.
+                </div>
+              )}
             </div>
           )}
 
-          {/* SI NO INCLUYE "Docente Asistencial" O incluye otros → Mostrar Responsables normales */}
-          {tipoSeleccionados.length > 0 && (
+          {/* SI NO INCLUYE "Docente Asistencial" → Responsables normales */}
+          {tipoSeleccionados.length > 0 && !incluyeDocenteAsistencial && (
             <div className="mb-3">
               <h5 className="mb-3">👥 Responsables Internos</h5>
               <div className="mb-3">
