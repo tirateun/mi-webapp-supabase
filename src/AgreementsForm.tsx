@@ -21,7 +21,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years ?? 1);
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
   const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
-  const [pais, setPais] = useState<string>(existingAgreement?.pais || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
   const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
   const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
@@ -43,8 +42,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [convenioMaestroId, setConvenioMaestroId] = useState<number | null>(existingAgreement?.convenio_maestro_id ?? null);
   const [version, setVersion] = useState<number>(existingAgreement?.version ?? 1);
   const [estado, setEstado] = useState<string>(existingAgreement?.estado ?? "ACTIVO");
-
-  const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
 
   const tipos = useMemo(
     () => [
@@ -92,7 +89,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     try {
       const [{ data: internosData }, { data: institucionesData }, { data: areasData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
-        supabase.from("instituciones").select("id, nombre, contacto, email, telefono, cargo").order("nombre"),
+        supabase.from("instituciones").select("id, nombre, contacto, email, telefono, cargo, pais").order("nombre"),
         supabase.from("areas_vinculadas").select("id, nombre"),
       ]);
 
@@ -155,7 +152,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         signature_date: toYMD(signatureDate) ?? null,
         duration_years: durationYears ?? null,
         convenio: tipoConvenio,
-        pais: pais || null,
+        pais: contactoInstitucion?.pais || null,
         "Resolución Rectoral": resolucion || null,
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
@@ -273,7 +270,15 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           {/* CONTACTO DE LA INSTITUCIÓN */}
           {contactoInstitucion && (
             <div className="mb-3 p-3 border rounded bg-light">
-              <h6 className="text-secondary mb-2">📞 Contacto de la Institución</h6>
+              <h6 className="text-secondary mb-2">🏛️ Información de la Institución</h6>
+              
+              {/* País */}
+              <div className="mb-2">
+                <strong>País:</strong> <span className="badge bg-primary">{contactoInstitucion.pais || "No especificado"}</span>
+              </div>
+              
+              {/* Contacto */}
+              <h6 className="text-secondary mb-2 mt-3">📞 Contacto</h6>
               <div className="row">
                 <div className="col-md-6">
                   <strong>Nombre:</strong> {contactoInstitucion.contacto || "No especificado"}
@@ -339,20 +344,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             </div>
           </div>
 
-          {/* RESOLUCIÓN Y PAÍS */}
+          {/* RESOLUCIÓN */}
           <div className="mb-3">
             <label className="form-label">Resolución Rectoral</label>
             <input className="form-control" value={resolucion} onChange={(e) => setResolucion(e.target.value)} placeholder="Nº de resolución" />
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">País</label>
-            <select className="form-select" value={pais} onChange={(e) => setPais(e.target.value)}>
-              <option value="">Seleccione un país</option>
-              {paises.map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
           </div>
 
           {/* 🆕 TIPOS DE CONVENIO - MOVIDO ARRIBA */}
