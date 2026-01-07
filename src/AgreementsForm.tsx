@@ -1,22 +1,17 @@
 // src/AgreementsForm.tsx
-// Versión con SUBTIPOS DOCENTES y responsables por subtipo
+// Versión reorganizada: Tipos de convenio primero, luego lógica condicional de responsables
 import React, { useEffect, useMemo, useState } from "react";
 import Select, { MultiValue } from "react-select";
 import { supabase } from "./supabaseClient";
 import generateYearsIfNeeded from "./utils/generateYearsIfNeeded";
+import { recalculateAgreementYears } from "./utils/recalculateAgreementYears";
 
 interface Option {
   value: string | number;
   label: string;
 }
 
-interface SubtipoConfig {
-  nombre: string;
-  responsables: Option[];
-}
-
 export default function AgreementsForm({ existingAgreement, onSave, onCancel }: any) {
-  // ---------- Estados principales ----------
   const [loading, setLoading] = useState(false);
 
   const [name, setName] = useState<string>(existingAgreement?.name || "");
@@ -27,39 +22,27 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [pais, setPais] = useState<string>(existingAgreement?.pais || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
   const [tipoSeleccionados, setTipoSeleccionados] = useState<string[]>(existingAgreement?.tipo_convenio || existingAgreement?.tipos || []);
-  const [documentUrl, setDocumentUrl] = useState<string>(existingAgreement?.document_url || "");
+  const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
 
-  // 🆕 NUEVO: Gestión de subtipos con responsables
-  const [subtipesConfig, setSubtipesConfig] = useState<Record<string, SubtipoConfig>>({});
-
-  // Responsables / áreas
   const [internos, setInternos] = useState<any[]>([]);
+  const [externos, setExternos] = useState<any[]>([]);
   const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
     if (!existingAgreement) return [];
     const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
     if (!Array.isArray(list)) return [];
     return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
   });
-  
-  // 🆕 Responsable externo como texto (desde institución.contacto)
-  const [externalResponsibleText, setExternalResponsibleText] = useState<string>(existingAgreement?.external_responsible || "");
+  const [externalResponsible, setExternalResponsible] = useState<string>(String(existingAgreement?.external_responsible || ""));
 
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
 
   const [areaId, setAreaId] = useState<number | null>(existingAgreement?.area_vinculada_id ?? null);
   const [convenioMaestroId, setConvenioMaestroId] = useState<number | null>(existingAgreement?.convenio_maestro_id ?? null);
-
   const [version, setVersion] = useState<number>(existingAgreement?.version ?? 1);
   const [estado, setEstado] = useState<string>(existingAgreement?.estado ?? "ACTIVO");
 
   const [paises, setPaises] = useState<string[]>(["Perú", "Argentina", "Chile", "Colombia", "México", "Brasil", "España"]);
-
-  // 🆕 Estados para instituciones
-  const [instituciones, setInstituciones] = useState<any[]>([]);
-  const [institucionSeleccionada, setInstitucionSeleccionada] = useState<string>(existingAgreement?.institucion_id || "");
-  const [busquedaInstitucion, setBusquedaInstitucion] = useState<string>("");
-  const [mostrarResultados, setMostrarResultados] = useState(false);
 
   const tipos = useMemo(
     () => [
@@ -85,7 +68,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     []
   );
 
-  // ---- Cargas iniciales ----
+  // 🆕 Verificar si incluye "Docente Asistencial"
+  const incluyeDocenteAsistencial = tipoSeleccionados.includes("Docente Asistencial");
+
   useEffect(() => {
     fetchEnumsAndLists();
   }, []);
@@ -98,43 +83,24 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
-    if (internos.length > 0) {
-      fetchResponsablesInternos(existingAgreement.id);
-      fetchSubtypes(existingAgreement.id);
-    }
+    if (internos.length > 0) fetchResponsablesInternos(existingAgreement.id);
   }, [internos, existingAgreement]);
 
   async function fetchEnumsAndLists() {
     try {
-      const [
-        { data: internosData }, 
-        { data: areasData },
-        { data: institucionesData }
-      ] = await Promise.all([
+      const [{ data: internosData }, { data: externosData }, { data: areasData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
+        supabase.from("profiles").select("id, full_name, role").eq("role", "external"),
         supabase.from("areas_vinculadas").select("id, nombre"),
-        supabase.from("instituciones").select("id, nombre, pais, contacto").order("nombre", { ascending: true })
       ]);
 
       setInternos(internosData || []);
+      setExternos(externosData || []);
       setAreas(areasData || []);
-      setInstituciones(institucionesData || []);
 
       if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
         const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
         setSelectedInternals(mapped);
-      }
-
-      // 🆕 Si hay institución existente, cargar su nombre para el buscador
-      if (existingAgreement?.institucion_id && institucionesData) {
-        const inst = institucionesData.find((i: any) => i.id === existingAgreement.institucion_id);
-        if (inst) {
-          setBusquedaInstitucion(inst.nombre);
-          // Autocompletar país desde la institución
-          if (inst.pais && !existingAgreement.pais) {
-            setPais(inst.pais);
-          }
-        }
       }
     } catch (err) {
       console.error("Error cargando listas:", err);
@@ -152,116 +118,13 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   }
 
-  // 🆕 Cargar subtipos existentes
-  async function fetchSubtypes(agreementId: string) {
-    try {
-      const { data: subtypesData } = await supabase
-        .from("agreement_subtypes")
-        .select("id, subtipo_nombre")
-        .eq("agreement_id", agreementId);
-
-      if (subtypesData && subtypesData.length > 0) {
-        const config: Record<string, SubtipoConfig> = {};
-
-        for (const subtype of subtypesData) {
-          // Cargar responsables de este subtipo
-          const { data: responsiblesData } = await supabase
-            .from("subtype_internal_responsibles")
-            .select("internal_responsible_id")
-            .eq("subtype_id", subtype.id);
-
-          const responsibleIds = (responsiblesData || []).map((r: any) => r.internal_responsible_id);
-          const responsables = internos
-            .filter((i) => responsibleIds.includes(i.id))
-            .map((i) => ({ value: i.id, label: i.full_name }));
-
-          config[subtype.subtipo_nombre] = {
-            nombre: subtype.subtipo_nombre,
-            responsables,
-          };
-        }
-
-        setSubtipesConfig(config);
-      }
-    } catch (err) {
-      console.error("Error cargando subtipos:", err);
-    }
-  }
-
   const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
-  
   const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
-  // 🆕 Filtrar instituciones según búsqueda
-  const institucionesFiltradas = useMemo(() => {
-    if (!busquedaInstitucion.trim()) return instituciones;
-    const busqueda = busquedaInstitucion.toLowerCase();
-    return instituciones.filter((inst: any) => 
-      inst.nombre.toLowerCase().includes(busqueda) || 
-      inst.pais?.toLowerCase().includes(busqueda)
-    );
-  }, [instituciones, busquedaInstitucion]);
-
-  // 🆕 Seleccionar institución
-  const seleccionarInstitucion = (inst: any) => {
-    setInstitucionSeleccionada(inst.id);
-    setBusquedaInstitucion(inst.nombre);
-    setMostrarResultados(false);
-    
-    // Autocompletar país desde la institución
-    if (inst.pais) {
-      setPais(inst.pais);
-    }
-    
-    // 🆕 Autocompletar responsable externo desde contacto de institución
-    if (inst.contacto) {
-      setExternalResponsibleText(inst.contacto);
-    }
-  };
-
-  // 🆕 Limpiar selección de institución
-  const limpiarInstitucion = () => {
-    setInstitucionSeleccionada("");
-    setBusquedaInstitucion("");
-    setMostrarResultados(false);
-    setExternalResponsibleText(""); // Limpiar también responsable externo
-  };
-
-  // 🆕 Toggle subtipo docente
-  const toggleSubtipo = (subtipo: string) => {
-    setSubtipesConfig((prev) => {
-      const newConfig = { ...prev };
-      if (newConfig[subtipo]) {
-        delete newConfig[subtipo];
-      } else {
-        newConfig[subtipo] = {
-          nombre: subtipo,
-          responsables: [],
-        };
-      }
-      return newConfig;
-    });
-  };
-
-  // 🆕 Actualizar responsables de un subtipo
-  const updateSubtipoResponsables = (subtipo: string, responsables: Option[]) => {
-    setSubtipesConfig((prev) => ({
-      ...prev,
-      [subtipo]: {
-        ...prev[subtipo],
-        responsables,
-      },
-    }));
-  };
 
   const toYMD = (v: any): string | null => {
     if (!v) return null;
-    if (typeof v === "string") {
-      return v.length >= 10 ? v.slice(0, 10) : v;
-    }
-    if (v instanceof Date) {
-      return v.toISOString().slice(0, 10);
-    }
+    if (typeof v === "string") return v.length >= 10 ? v.slice(0, 10) : v;
+    if (v instanceof Date) return v.toISOString().slice(0, 10);
     try {
       const s = String(v);
       return s.length >= 10 ? s.slice(0, 10) : s;
@@ -270,42 +133,8 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   };
 
-  const isValidUrl = (urlString: string): boolean => {
-    if (!urlString) return true;
-    try {
-      const url = new URL(urlString);
-      return url.protocol === "http:" || url.protocol === "https:";
-    } catch {
-      return false;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (documentUrl && !isValidUrl(documentUrl)) {
-      alert("❌ La URL del documento no es válida. Debe comenzar con http:// o https://");
-      return;
-    }
-
-    // 🆕 Validar que se haya seleccionado una institución
-    if (!institucionSeleccionada) {
-      alert("❌ Debe seleccionar una institución asociada al convenio.\n\nSi no existe, primero regístrela en el módulo 'Instituciones'.");
-      return;
-    }
-
-    // 🆕 Validar que subtipos tengan responsables
-    if (tipoSeleccionados.includes("Docente Asistencial") && Object.keys(subtipesConfig).length > 0) {
-      const subtypesSinResponsables = Object.entries(subtipesConfig)
-        .filter(([_, config]) => config.responsables.length === 0)
-        .map(([nombre, _]) => nombre);
-
-      if (subtypesSinResponsables.length > 0) {
-        alert(`❌ Los siguientes subtipos no tienen responsables asignados:\n- ${subtypesSinResponsables.join('\n- ')}`);
-        return;
-      }
-    }
-
     setLoading(true);
 
     try {
@@ -318,13 +147,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         "Resolución Rectoral": resolucion || null,
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,
-        sub_tipo_docente: null, // Ya no se usa este campo
+        sub_tipo_docente: incluyeDocenteAsistencial ? subTipoDocente || null : null,
         area_vinculada_id: areaId ?? null,
         convenio_maestro_id: convenioMaestroId ?? null,
         version,
         estado,
-        document_url: documentUrl || null,
-        institucion_id: institucionSeleccionada || null, // 🆕 Guardar institución
         updated_at: new Date().toISOString(),
       };
 
@@ -341,52 +168,16 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
       if (!agreementId) throw new Error("No se obtuvo ID del convenio guardado.");
 
-      // 🆕 Guardar subtipos y sus responsables
-      if (tipoSeleccionados.includes("Docente Asistencial") && Object.keys(subtipesConfig).length > 0) {
-        // Eliminar subtipos anteriores
-        await supabase.from("agreement_subtypes").delete().eq("agreement_id", agreementId);
-
-        // Insertar nuevos subtipos
-        for (const [_, config] of Object.entries(subtipesConfig)) {
-          const { data: subtypeData, error: subtypeError } = await supabase
-            .from("agreement_subtypes")
-            .insert({
-              agreement_id: agreementId,
-              subtipo_nombre: config.nombre,
-            })
-            .select("id")
-            .single();
-
-          if (subtypeError) throw subtypeError;
-
-          // Insertar responsables del subtipo
-          if (config.responsables.length > 0) {
-            const responsablesPayload = config.responsables.map((r) => ({
-              subtype_id: subtypeData.id,
-              internal_responsible_id: r.value,
-            }));
-
-            const { error: respError } = await supabase
-              .from("subtype_internal_responsibles")
-              .insert(responsablesPayload);
-
-            if (respError) throw respError;
-          }
-        }
+      // Sincronizar responsables internos
+      const internalIds = (selectedInternals || []).map((s) => s.value);
+      await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
+      if (internalIds.length > 0) {
+        const toInsert = internalIds.map((pid: any) => ({ agreement_id: agreementId, internal_responsible_id: pid }));
+        const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
+        if (error) throw error;
       }
 
-      // sincronizar responsables internos generales (solo si NO es docente asistencial con subtipos)
-      if (!(tipoSeleccionados.includes("Docente Asistencial") && Object.keys(subtipesConfig).length > 0)) {
-        const internalIds = (selectedInternals || []).map((s) => s.value);
-        await supabase.from("agreement_internal_responsibles").delete().eq("agreement_id", agreementId);
-        if (internalIds.length > 0) {
-          const toInsert = internalIds.map((pid: any) => ({ agreement_id: agreementId, internal_responsible_id: pid }));
-          const { error } = await supabase.from("agreement_internal_responsibles").insert(toInsert);
-          if (error) throw error;
-        }
-      }
-
-      // sincronizar areas vinculadas
+      // Sincronizar areas vinculadas
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
       if (areasSeleccionadas && areasSeleccionadas.length > 0) {
         const areaPayload = areasSeleccionadas.map((a: any) => ({ agreement_id: agreementId, area_vinculada_id: a }));
@@ -394,13 +185,10 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         if (error) throw error;
       }
 
-      // 🆕 Actualizar responsable externo como TEXTO (no foreign key)
-      await supabase
-        .from("agreements")
-        .update({ external_responsible: externalResponsibleText || null })
-        .eq("id", agreementId);
+      // Actualizar responsable externo
+      await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
 
-      // Generar años
+      // Recuperar agreement row
       const { data: agreementRow, error: agreementRowErr } = await supabase
         .from("agreements")
         .select("id, signature_date, expiration_date, duration_years")
@@ -414,6 +202,12 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         const signatureFinal = toYMD(agreementRow.signature_date) ?? toYMD(signatureDate) ?? null;
         const expirationFinal = toYMD(agreementRow.expiration_date) ?? null;
 
+        if (existingAgreement?.id && signatureFinal) {
+          console.log("🔄 Recalculando años existentes...");
+          await recalculateAgreementYears(agreementId, signatureFinal, durationFinal);
+        }
+
+        console.log("📅 Generando años faltantes si es necesario...");
         await generateYearsIfNeeded(agreementId, signatureFinal, expirationFinal, durationFinal);
       }
 
@@ -427,12 +221,12 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   };
 
-  const esDocenteAsistencial = tipoSeleccionados.includes("Docente Asistencial");
-
   return (
     <div className="container mt-4" style={{ maxWidth: 900 }}>
       <div className="card shadow-sm p-4" style={{ borderRadius: 12 }}>
-        <h3 className="text-center mb-3 text-primary fw-bold">{existingAgreement ? "✏️ Editar Convenio" : "➕ Nuevo Convenio"}</h3>
+        <h3 className="text-center mb-3 text-primary fw-bold">
+          {existingAgreement ? "✏️ Editar Convenio" : "➕ Nuevo Convenio"}
+        </h3>
 
         <form onSubmit={handleSubmit}>
           {/* NOMBRE */}
@@ -440,161 +234,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             <label className="form-label">Nombre del convenio</label>
             <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-
-          {/* ENLACE AL DOCUMENTO */}
-          <div className="mb-3">
-            <label className="form-label">
-              Enlace al documento del convenio <span className="text-muted">(opcional)</span>
-            </label>
-            <input 
-              type="url"
-              className="form-control" 
-              value={documentUrl} 
-              onChange={(e) => setDocumentUrl(e.target.value)}
-              placeholder="https://drive.google.com/... o https://..."
-            />
-            <small className="form-text text-muted">
-              💡 Pega aquí el enlace donde está almacenado el documento (Google Drive, OneDrive, etc.)
-            </small>
-            {documentUrl && !isValidUrl(documentUrl) && (
-              <div className="text-danger small mt-1">
-                ⚠️ La URL no es válida. Debe comenzar con http:// o https://
-              </div>
-            )}
-          </div>
-
-          {/* 🆕 BÚSQUEDA DE INSTITUCIÓN */}
-          <div className="mb-3">
-            <label className="form-label fw-bold">
-              🏢 Institución Asociada <span className="text-danger">*</span>
-            </label>
-            <div className="position-relative">
-              <div className="input-group">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Buscar institución por nombre o país..."
-                  value={busquedaInstitucion}
-                  onChange={(e) => {
-                    setBusquedaInstitucion(e.target.value);
-                    setMostrarResultados(true);
-                  }}
-                  onFocus={() => setMostrarResultados(true)}
-                  required={!institucionSeleccionada}
-                />
-                {institucionSeleccionada && (
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={limpiarInstitucion}
-                    title="Limpiar selección"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Resultados de búsqueda */}
-              {mostrarResultados && busquedaInstitucion && institucionesFiltradas.length > 0 && (
-                <div 
-                  className="position-absolute w-100 bg-white border rounded shadow-lg mt-1" 
-                  style={{ maxHeight: '300px', overflowY: 'auto', zIndex: 1000 }}
-                >
-                  {institucionesFiltradas.slice(0, 10).map((inst: any) => (
-                    <div
-                      key={inst.id}
-                      className="p-3 border-bottom cursor-pointer hover-bg-light"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => seleccionarInstitucion(inst)}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f9fa'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-                    >
-                      <div className="fw-bold">{inst.nombre}</div>
-                      <small className="text-muted">
-                        {inst.pais}
-                        {inst.contacto && ` • Contacto: ${inst.contacto}`}
-                      </small>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Mensaje si no hay resultados */}
-              {mostrarResultados && busquedaInstitucion && institucionesFiltradas.length === 0 && (
-                <div className="position-absolute w-100 bg-white border rounded shadow-lg mt-1 p-3" style={{ zIndex: 1000 }}>
-                  <div className="text-center text-muted">
-                    <div style={{ fontSize: '2rem', opacity: 0.3 }}>🏢</div>
-                    <p className="mb-2">No se encontraron instituciones</p>
-                    <small>Primero registra la institución en el módulo "Instituciones"</small>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Institución seleccionada */}
-            {institucionSeleccionada && (
-              <div className="mt-2 p-3 bg-success bg-opacity-10 border border-success rounded">
-                <div className="d-flex align-items-center">
-                  <span className="badge bg-success me-2">✓</span>
-                  <div>
-                    <strong>Institución seleccionada:</strong>
-                    <div className="text-success">
-                      {instituciones.find((i: any) => i.id === institucionSeleccionada)?.nombre}
-                      {' '}
-                      ({instituciones.find((i: any) => i.id === institucionSeleccionada)?.pais})
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <small className="form-text text-muted">
-              💡 Si la institución no aparece, primero regístrala en el módulo "Instituciones"
-            </small>
-          </div>
-
-          {/* RESPONSABLES INTERNOS y EXTERNOS - Solo si NO es docente asistencial con subtipos */}
-          {!(esDocenteAsistencial && Object.keys(subtipesConfig).length > 0) && (
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Responsables Internos</label>
-                <Select
-                  isMulti
-                  options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
-                  value={selectedInternals as any}
-                  onChange={(val: MultiValue<Option>) => setSelectedInternals(Array.isArray(val) ? (val as Option[]) : [])}
-                  placeholder="Buscar y seleccionar..."
-                  noOptionsMessage={() => "No hay responsables"}
-                  isDisabled={internos.length === 0}
-                />
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Contacto de la Institución</label>
-                
-                <input
-                  type="text"
-                  className="form-control"
-                  value={externalResponsibleText}
-                  onChange={(e) => setExternalResponsibleText(e.target.value)}
-                  placeholder="Nombre del contacto"
-                  readOnly={!!institucionSeleccionada} // Solo lectura si viene de institución
-                />
-                
-                {institucionSeleccionada && externalResponsibleText && (
-                  <small className="form-text text-success">
-                    ✓ Autocompletado desde la institución
-                  </small>
-                )}
-                
-                {!institucionSeleccionada && (
-                  <small className="form-text text-muted">
-                    Primero selecciona una institución para autocompletar
-                  </small>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* FECHA, DURACIÓN, TIPO */}
           <div className="row">
@@ -637,79 +276,77 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             </select>
           </div>
 
-          {/* TIPOS DE CONVENIO */}
+          {/* 🆕 TIPOS DE CONVENIO - MOVIDO ARRIBA */}
           <div className="mb-3">
-            <label className="form-label">Tipos de convenio</label>
+            <label className="form-label fw-bold">Tipos de convenio *</label>
             <div className="border rounded p-3 bg-light">
               {tipos.map((t) => (
-                <label key={t} className="me-3">
-                  <input type="checkbox" checked={tipoSeleccionados.includes(t)} onChange={() => toggleTipo(t)} className="me-1" />
+                <label key={t} className="me-3 d-block mb-2">
+                  <input 
+                    type="checkbox" 
+                    checked={tipoSeleccionados.includes(t)} 
+                    onChange={() => toggleTipo(t)} 
+                    className="me-2" 
+                  />
                   {t}
                 </label>
               ))}
             </div>
+            {tipoSeleccionados.length === 0 && (
+              <small className="text-danger">* Debe seleccionar al menos un tipo de convenio</small>
+            )}
           </div>
 
-          {/* 🆕 SUBTIPOS DOCENTES CON RESPONSABLES */}
-          {esDocenteAsistencial && (
+          {/* 🆕 LÓGICA CONDICIONAL */}
+          
+          {/* SI INCLUYE "Docente Asistencial" → Mostrar Subtipos */}
+          {incluyeDocenteAsistencial && (
+            <div className="mb-3 p-3 border border-primary rounded bg-light">
+              <h5 className="text-primary mb-3">📚 Configuración Docente Asistencial</h5>
+              
+              <div className="mb-3">
+                <label className="form-label">Subtipo Docente</label>
+                <select className="form-select" value={subTipoDocente} onChange={(e) => setSubTipoDocente(e.target.value)}>
+                  <option value="">Seleccione un subtipo</option>
+                  {subTiposDocente.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* TODO: Aquí irá la sección de Subtipos + Responsables por subtipo */}
+              <div className="alert alert-info">
+                <strong>📝 Próximamente:</strong> Selección de responsables por subtipo docente
+              </div>
+            </div>
+          )}
+
+          {/* SI NO INCLUYE "Docente Asistencial" O incluye otros → Mostrar Responsables normales */}
+          {tipoSeleccionados.length > 0 && (
             <div className="mb-3">
-              <div className="card border-primary">
-                <div className="card-header bg-primary text-white">
-                  <h6 className="mb-0">📚 Subtipos Docente-Asistenciales y Responsables</h6>
+              <h5 className="mb-3">👥 Responsables</h5>
+              <div className="row">
+                <div className="col-md-6 mb-3">
+                  <label className="form-label">Responsables Internos</label>
+                  <Select
+                    isMulti
+                    options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
+                    value={selectedInternals as any}
+                    onChange={(val: MultiValue<Option>) => setSelectedInternals(Array.isArray(val) ? (val as Option[]) : [])}
+                    placeholder="Buscar y seleccionar..."
+                    noOptionsMessage={() => "No hay responsables"}
+                    isDisabled={internos.length === 0}
+                  />
                 </div>
-                <div className="card-body">
-                  <p className="text-muted small mb-3">
-                    Seleccione los subtipos que aplican y asigne responsables internos a cada uno
-                  </p>
 
-                  {subTiposDocente.map((subtipo) => {
-                    const isSelected = subtipesConfig[subtipo] !== undefined;
-                    
-                    return (
-                      <div key={subtipo} className="mb-3 pb-3 border-bottom">
-                        <div className="form-check mb-2">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id={`subtipo-${subtipo}`}
-                            checked={isSelected}
-                            onChange={() => toggleSubtipo(subtipo)}
-                          />
-                          <label className="form-check-label fw-bold" htmlFor={`subtipo-${subtipo}`}>
-                            {subtipo}
-                          </label>
-                        </div>
-
-                        {isSelected && (
-                          <div className="ms-4">
-                            <label className="form-label small text-muted">
-                              Responsables internos para este subtipo:
-                            </label>
-                            <Select
-                              isMulti
-                              options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
-                              value={subtipesConfig[subtipo]?.responsables || []}
-                              onChange={(val: MultiValue<Option>) => 
-                                updateSubtipoResponsables(
-                                  subtipo, 
-                                  Array.isArray(val) ? (val as Option[]) : []
-                                )
-                              }
-                              placeholder="Seleccionar responsables..."
-                              noOptionsMessage={() => "No hay responsables"}
-                              isDisabled={internos.length === 0}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {Object.keys(subtipesConfig).length === 0 && (
-                    <div className="alert alert-warning small mb-0">
-                      ⚠️ Debe seleccionar al menos un subtipo docente
-                    </div>
-                  )}
+                <div className="col-md-6 mb-3">
+                  <label className="form-label">Responsable Externo</label>
+                  <select className="form-select" value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
+                    <option value="">Seleccione</option>
+                    {externos.map((p) => (
+                      <option key={p.id} value={String(p.id)}>{p.full_name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -718,7 +355,13 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           {/* OBJETIVOS */}
           <div className="mb-3">
             <label className="form-label">Objetivos</label>
-            <textarea className="form-control" rows={3} value={objetivos} onChange={(e) => setObjetivos(e.target.value)} placeholder="Describa los objetivos principales" />
+            <textarea 
+              className="form-control" 
+              rows={3} 
+              value={objetivos} 
+              onChange={(e) => setObjetivos(e.target.value)} 
+              placeholder="Describa los objetivos principales" 
+            />
           </div>
 
           {/* AREAS VINCULADAS */}
@@ -727,8 +370,13 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             <div className="border rounded p-3 bg-light">
               {areas.length > 0 ? (
                 areas.map((area) => (
-                  <label key={area.id} className="me-3">
-                    <input type="checkbox" checked={areasSeleccionadas.includes(area.id)} onChange={() => handleAreaChange(area.id)} className="me-1" />
+                  <label key={area.id} className="me-3 d-block mb-2">
+                    <input 
+                      type="checkbox" 
+                      checked={areasSeleccionadas.includes(area.id)} 
+                      onChange={() => handleAreaChange(area.id)} 
+                      className="me-2" 
+                    />
                     {area.nombre}
                   </label>
                 ))
@@ -740,8 +388,12 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
           {/* BOTONES */}
           <div className="d-flex justify-content-end gap-2">
-            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>Cancelar</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? "Guardando..." : "Guardar Convenio"}</button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={loading || tipoSeleccionados.length === 0}>
+              {loading ? "Guardando..." : "Guardar Convenio"}
+            </button>
           </div>
         </form>
       </div>
