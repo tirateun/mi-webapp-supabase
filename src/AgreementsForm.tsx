@@ -245,19 +245,15 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           {/* INSTITUCIÓN ASOCIADA */}
           <div className="mb-3">
             <label className="form-label">Institución Asociada *</label>
-            <select 
-              className="form-select" 
-              value={institucionId} 
-              onChange={(e) => setInstitucionId(e.target.value)}
-              required
-            >
-              <option value="">Seleccione una institución</option>
-              {instituciones.map((inst) => (
-                <option key={inst.id} value={inst.id}>
-                  {inst.nombre}
-                </option>
-              ))}
-            </select>
+            <Select
+              options={instituciones.map((inst) => ({ value: inst.id, label: inst.nombre }))}
+              value={institucionId ? { value: institucionId, label: instituciones.find(i => i.id === institucionId)?.nombre || "" } : null}
+              onChange={(option) => setInstitucionId(option?.value || "")}
+              placeholder="Buscar institución por nombre o país..."
+              noOptionsMessage={() => "No se encontraron instituciones"}
+              isDisabled={instituciones.length === 0}
+              isClearable
+            />
             {instituciones.length === 0 && (
               <small className="text-muted">Cargando instituciones...</small>
             )}
