@@ -143,7 +143,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       // Obtener subtipos del convenio
       const { data: subtypes } = await supabase
         .from("agreement_subtypes")
-        .select("id, subtype_name")
+        .select("id, subtipo_nombre")
         .eq("agreement_id", agreementId);
 
       if (!subtypes || subtypes.length === 0) return;
@@ -163,7 +163,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           .map((i) => ({ value: i.id, label: i.full_name }));
 
         subtiposData.push({
-          subtipo: subtype.subtype_name,
+          subtipo: subtype.subtipo_nombre,
           responsables: responsablesOptions,
         });
       }
@@ -265,7 +265,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           // Insertar subtipo
           const { data: subtypeData, error: subtypeError } = await supabase
             .from("agreement_subtypes")
-            .insert([{ agreement_id: agreementId, subtype_name: item.subtipo }])
+            .insert([{ agreement_id: agreementId, subtipo_nombre: item.subtipo }])
             .select("id")
             .single();
 
