@@ -27,15 +27,14 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [subTipoDocente, setSubTipoDocente] = useState<string>(existingAgreement?.sub_tipo_docente || existingAgreement?.subtipo_docente || "");
 
   const [internos, setInternos] = useState<any[]>([]);
-  const [externos, setExternos] = useState<any[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
+  const [contactoInstitucion, setContactoInstitucion] = useState<any>(null);
   const [selectedInternals, setSelectedInternals] = useState<Option[]>(() => {
     if (!existingAgreement) return [];
     const list = existingAgreement.internal_responsibles || existingAgreement.internals || [];
     if (!Array.isArray(list)) return [];
     return list.map((i: any) => (i?.id && i?.full_name ? { value: i.id, label: i.full_name } : { value: String(i), label: String(i) }));
   });
-  const [externalResponsible, setExternalResponsible] = useState<string>(String(existingAgreement?.external_responsible || ""));
 
   const [areas, setAreas] = useState<any[]>([]);
   const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
@@ -91,17 +90,23 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   async function fetchEnumsAndLists() {
     try {
-      const [{ data: internosData }, { data: externosData }, { data: areasData }, { data: institucionesData }] = await Promise.all([
+      const [{ data: internosData }, { data: institucionesData }, { data: areasData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
-        supabase.from("profiles").select("id, full_name, role").eq("role", "external"),
+        supabase.from("instituciones").select("id, nombre, contacto, email, telefono, cargo").order("nombre"),
         supabase.from("areas_vinculadas").select("id, nombre"),
-        supabase.from("instituciones").select("id, nombre").order("nombre"),
       ]);
 
       setInternos(internosData || []);
-      setExternos(externosData || []);
-      setAreas(areasData || []);
       setInstituciones(institucionesData || []);
+      setAreas(areasData || []);
+
+      // Si es edición y hay institución seleccionada, cargar contacto
+      if (existingAgreement?.institucion_id && institucionesData) {
+        const inst = institucionesData.find((i: any) => i.id === existingAgreement.institucion_id);
+        if (inst) {
+          setContactoInstitucion(inst);
+        }
+      }
 
       if (existingAgreement?.internal_responsibles && (!selectedInternals || selectedInternals.length === 0)) {
         const mapped = (existingAgreement.internal_responsibles || []).map((p: any) => ({ value: p.id, label: p.full_name }));
@@ -192,9 +197,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         if (error) throw error;
       }
 
-      // Actualizar responsable externo
-      await supabase.from("agreements").update({ external_responsible: externalResponsible || null }).eq("id", agreementId);
-
       // Recuperar agreement row
       const { data: agreementRow, error: agreementRowErr } = await supabase
         .from("agreements")
@@ -248,7 +250,16 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             <Select
               options={instituciones.map((inst) => ({ value: inst.id, label: inst.nombre }))}
               value={institucionId ? { value: institucionId, label: instituciones.find(i => i.id === institucionId)?.nombre || "" } : null}
-              onChange={(option) => setInstitucionId(option?.value || "")}
+              onChange={(option) => {
+                setInstitucionId(option?.value || "");
+                // Cargar datos de contacto de la institución seleccionada
+                if (option?.value) {
+                  const inst = instituciones.find(i => i.id === option.value);
+                  setContactoInstitucion(inst || null);
+                } else {
+                  setContactoInstitucion(null);
+                }
+              }}
               placeholder="Buscar institución por nombre o país..."
               noOptionsMessage={() => "No se encontraron instituciones"}
               isDisabled={instituciones.length === 0}
@@ -258,6 +269,35 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
               <small className="text-muted">Cargando instituciones...</small>
             )}
           </div>
+
+          {/* CONTACTO DE LA INSTITUCIÓN */}
+          {contactoInstitucion && (
+            <div className="mb-3 p-3 border rounded bg-light">
+              <h6 className="text-secondary mb-2">📞 Contacto de la Institución</h6>
+              <div className="row">
+                <div className="col-md-6">
+                  <strong>Nombre:</strong> {contactoInstitucion.contacto || "No especificado"}
+                </div>
+                {contactoInstitucion.cargo && (
+                  <div className="col-md-6">
+                    <strong>Cargo:</strong> {contactoInstitucion.cargo}
+                  </div>
+                )}
+              </div>
+              <div className="row mt-2">
+                {contactoInstitucion.email && (
+                  <div className="col-md-6">
+                    <strong>Email:</strong> <a href={`mailto:${contactoInstitucion.email}`}>{contactoInstitucion.email}</a>
+                  </div>
+                )}
+                {contactoInstitucion.telefono && (
+                  <div className="col-md-6">
+                    <strong>Teléfono:</strong> {contactoInstitucion.telefono}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ENLACE AL DOCUMENTO */}
           <div className="mb-3">
@@ -363,30 +403,18 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
           {/* SI NO INCLUYE "Docente Asistencial" O incluye otros → Mostrar Responsables normales */}
           {tipoSeleccionados.length > 0 && (
             <div className="mb-3">
-              <h5 className="mb-3">👥 Responsables</h5>
-              <div className="row">
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Responsables Internos</label>
-                  <Select
-                    isMulti
-                    options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
-                    value={selectedInternals as any}
-                    onChange={(val: MultiValue<Option>) => setSelectedInternals(Array.isArray(val) ? (val as Option[]) : [])}
-                    placeholder="Buscar y seleccionar..."
-                    noOptionsMessage={() => "No hay responsables"}
-                    isDisabled={internos.length === 0}
-                  />
-                </div>
-
-                <div className="col-md-6 mb-3">
-                  <label className="form-label">Responsable Externo</label>
-                  <select className="form-select" value={externalResponsible} onChange={(e) => setExternalResponsible(e.target.value)}>
-                    <option value="">Seleccione</option>
-                    {externos.map((p) => (
-                      <option key={p.id} value={String(p.id)}>{p.full_name}</option>
-                    ))}
-                  </select>
-                </div>
+              <h5 className="mb-3">👥 Responsables Internos</h5>
+              <div className="mb-3">
+                <label className="form-label">Responsables Internos</label>
+                <Select
+                  isMulti
+                  options={internos.map((p) => ({ value: p.id, label: p.full_name }))}
+                  value={selectedInternals as any}
+                  onChange={(val: MultiValue<Option>) => setSelectedInternals(Array.isArray(val) ? (val as Option[]) : [])}
+                  placeholder="Buscar y seleccionar..."
+                  noOptionsMessage={() => "No hay responsables"}
+                  isDisabled={internos.length === 0}
+                />
               </div>
             </div>
           )}
