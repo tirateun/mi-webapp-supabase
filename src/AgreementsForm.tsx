@@ -16,7 +16,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
   const [name, setName] = useState<string>(existingAgreement?.name || "");
   const [institucionId, setInstitucionId] = useState<string>(existingAgreement?.institucion_id || "");
-  const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_link || "");
+  const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_url || "");
   const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
   const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years ?? 1);
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
@@ -151,7 +151,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       const payload: any = {
         name,
         institucion_id: institucionId || null,
-        document_link: documentLink || null,
+        document_url: documentLink || null,
         signature_date: toYMD(signatureDate) ?? null,
         duration_years: durationYears ?? null,
         convenio: tipoConvenio,
