@@ -19,6 +19,7 @@ export default function InstitucionesForm({
   const [ciudad, setCiudad] = useState("");
   const [direccion, setDireccion] = useState("");
   const [contacto, setContacto] = useState("");
+  const [cargo, setCargo] = useState(""); // 🆕 AGREGAR
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
 
@@ -30,6 +31,7 @@ export default function InstitucionesForm({
       setCiudad(existingInstitucion.ciudad || "");
       setDireccion(existingInstitucion.direccion || "");
       setContacto(existingInstitucion.contacto || "");
+      setCargo(existingInstitucion.cargo || ""); // 🆕 AGREGAR
       setEmail(existingInstitucion.email || "");
       setTelefono(existingInstitucion.telefono || "");
     }
@@ -45,19 +47,18 @@ export default function InstitucionesForm({
       ciudad,
       direccion,
       contacto,
+      cargo, // 🆕 AGREGAR
       email,
       telefono,
     };
 
     let result;
     if (existingInstitucion) {
-      // 🧩 Actualizar institución existente
       result = await supabase
         .from("instituciones")
         .update(data)
         .eq("id", existingInstitucion.id);
     } else {
-      // 🧩 Crear nueva institución
       result = await supabase.from("instituciones").insert([data]);
     }
 
@@ -183,6 +184,18 @@ export default function InstitucionesForm({
             type="text"
             value={contacto}
             onChange={(e) => setContacto(e.target.value)}
+            style={{ width: "100%", padding: "8px" }}
+          />
+        </div>
+
+        {/* 🆕 CARGO */}
+        <div>
+          <label>Cargo</label>
+          <input
+            type="text"
+            value={cargo}
+            onChange={(e) => setCargo(e.target.value)}
+            placeholder="Ej: Director, Jefe de UADEI"
             style={{ width: "100%", padding: "8px" }}
           />
         </div>
