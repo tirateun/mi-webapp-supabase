@@ -6,11 +6,14 @@ interface SidebarProps {
       | "agreementsList"
       | "agreementsForm"
       | "instituciones"
+      | "institucionesForm"
       | "users"
       | "reportes"
+      | "contraprestaciones"
+      | "contraprestacionesEvidencias"
       | "areasVinculadas"
       | "consultaConvenios"
-      | "movilidades"  // 🆕 NUEVO
+      | "movilidades"
   ) => void;
   onLogout: () => void;
   role: string;
