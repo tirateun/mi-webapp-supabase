@@ -255,6 +255,10 @@ function MainLayout({
             role={role}
           />
         )}
+
+        {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
+        {activePage === "movilidades" && <MovilidadesManager />}
+        
       </div>
     </div>
   );
