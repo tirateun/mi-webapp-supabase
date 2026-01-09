@@ -125,25 +125,34 @@ export default function MovilidadForm({
 
   async function fetchConvenios() {
     try {
-      // Solo convenios tipo "Movilidad académica"
+      console.log("🔍 Buscando convenios de movilidad...");
+      
       const { data, error } = await supabase
         .from("agreements")
-        .select("id, name, tipo_convenio")
+        .select("id, name, tipo_convenio, estado")
         .eq("estado", "ACTIVO")
         .order("name");
   
-      if (error) throw error;
+      console.log("📊 Convenios obtenidos:", data);
   
-      // Filtrar manualmente los que incluyen "Movilidad académica"
+      if (error) {
+        console.error("❌ Error en query:", error);
+        throw error;
+      }
+  
+      // Filtrar manualmente
       const filtered = (data || []).filter((conv: any) => {
+        console.log(`Verificando convenio "${conv.name}":`, conv.tipo_convenio);
         if (!conv.tipo_convenio) return false;
-        // tipo_convenio es un array JSON
-        return conv.tipo_convenio.includes("Movilidad académica");
+        const incluye = conv.tipo_convenio.includes("Movilidad académica");
+        console.log(`  ¿Incluye "Movilidad académica"?`, incluye);
+        return incluye;
       });
   
+      console.log("✅ Convenios filtrados:", filtered);
       setConvenios(filtered);
     } catch (err) {
-      console.error("Error fetching convenios:", err);
+      console.error("❌ Error fetching convenios:", err);
     }
   }
 
