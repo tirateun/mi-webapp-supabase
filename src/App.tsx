@@ -43,6 +43,7 @@ function MainLayout({
     | "contraprestacionesEvidencias"
     | "areasVinculadas"
     | "consultaConvenios"  // 🆕 NUEVO
+    | "movilidades"
   >("agreementsList");
   console.log("🏠 App - activePage actual:", activePage); // 🆕 AGREGAR
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
