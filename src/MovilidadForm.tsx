@@ -130,7 +130,8 @@ export default function MovilidadForm({
       const { data, error } = await supabase
         .from("agreements")
         .select("id, name, tipo_convenio, estado")
-        .eq("estado", "ACTIVO")
+        // 🔧 Quitar el filtro de estado o incluir más estados
+        .in("estado", ["ACTIVO", "Vigente", "SIN_FECHA"])
         .order("name");
   
       console.log("📊 Convenios obtenidos:", data);
@@ -142,11 +143,8 @@ export default function MovilidadForm({
   
       // Filtrar manualmente
       const filtered = (data || []).filter((conv: any) => {
-        console.log(`Verificando convenio "${conv.name}":`, conv.tipo_convenio);
         if (!conv.tipo_convenio) return false;
-        const incluye = conv.tipo_convenio.includes("Movilidad académica");
-        console.log(`  ¿Incluye "Movilidad académica"?`, incluye);
-        return incluye;
+        return conv.tipo_convenio.includes("Movilidad académica");
       });
   
       console.log("✅ Convenios filtrados:", filtered);
