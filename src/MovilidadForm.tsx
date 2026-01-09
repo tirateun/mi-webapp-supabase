@@ -125,13 +125,24 @@ export default function MovilidadForm({
 
   async function fetchConvenios() {
     try {
-      // Solo convenios tipo "Movilidad académica"
+      // Obtener todos los convenios activos
       const { data, error } = await supabase
         .from("agreements")
-        .select("id, name")
-        .contains("tipo_convenio", ["Movilidad académica"])
+        .select("id, name, tipo_convenio")
         .eq("estado", "ACTIVO")
         .order("name");
+  
+      if (error) throw error;
+      
+      // Filtrar en JavaScript los que incluyen "Movilidad académica"
+      const conveniosMovilidad = (data || []).filter((conv: any) => 
+        conv.tipo_convenio && 
+        (Array.isArray(conv.tipo_convenio) 
+          ? conv.tipo_convenio.includes("Movilidad académica")
+          : conv.tipo_convenio === "Movilidad académica")
+      );
+      
+      setConvenios(conveniosMovilidad);
 
       if (error) throw error;
       setConvenios(data || []);
