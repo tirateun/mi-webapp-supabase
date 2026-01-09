@@ -16,6 +16,7 @@ import Reportes from "./Reportes";
 import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
+import MovilidadesManager from "./MovilidadesManager"; // 🆕 AGREGAR ESTA LÍNEA
 import React from "react";
 
 // ✅ Nuevo componente: Layout principal dentro del Router
