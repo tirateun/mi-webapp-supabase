@@ -9,7 +9,8 @@ interface SidebarProps {
       | "users"
       | "reportes"
       | "areasVinculadas"
-      | "consultaConvenios"  // 🆕 NUEVO
+      | "consultaConvenios"
+      | "movilidades"  // 🆕 NUEVO
   ) => void;
   onLogout: () => void;
   role: string;
@@ -24,10 +25,10 @@ export default function Sidebar({
 }: SidebarProps) {
   const [activePage, setActivePageState] = useState<string>("agreementsList");
 
-  console.log("📍 Sidebar - activePage actual:", activePage); // 🆕 AGREGAR
+  console.log("📍 Sidebar - activePage actual:", activePage);
 
   const handlePageChange = (page: any) => {
-    console.log("🔄 Cambiando página a:", page); // 🆕 AGREGAR
+    console.log("🔄 Cambiando página a:", page);
     setActivePageState(page);
     setActivePage(page);
   };
@@ -74,6 +75,14 @@ export default function Sidebar({
             label="Áreas Vinculadas"
             active={activePage === "areasVinculadas"}
             onClick={() => handlePageChange("areasVinculadas")}
+          />
+
+          {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
+          <SidebarItem
+            icon="🌍"
+            label="Movilidades"
+            active={activePage === "movilidades"}
+            onClick={() => handlePageChange("movilidades")}
           />
 
           {/* Sección Admin */}
@@ -223,4 +232,4 @@ function SidebarItem({
     </button>
   );
 }
-
+// Force redeploy
