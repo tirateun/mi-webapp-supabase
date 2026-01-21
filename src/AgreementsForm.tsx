@@ -113,8 +113,18 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   useEffect(() => {
     if (signatureDate && durationYears && durationYears !== "") {
       const inicio = new Date(signatureDate);
-      const diasTotal = Number(durationYears) * 365.25;
-      const termino = new Date(inicio.getTime() + (diasTotal * 24 * 60 * 60 * 1000));
+      const años = Math.floor(Number(durationYears));
+      const mesesRestantes = Math.round((Number(durationYears) - años) * 12);
+      
+      // Sumar años y meses
+      const termino = new Date(inicio);
+      termino.setFullYear(termino.getFullYear() + años);
+      termino.setMonth(termino.getMonth() + mesesRestantes);
+      
+      // Restar 1 día para que sea el último día del periodo
+      // Ejemplo: 01/01/2025 + 1.5 años = 30/06/2026 (no 01/07/2026)
+      termino.setDate(termino.getDate() - 1);
+      
       const fechaCalculada = termino.toISOString().split('T')[0];
       
       // Solo actualizar si es diferente (evitar loop infinito)
