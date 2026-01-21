@@ -26,6 +26,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
   const [expirationDate, setExpirationDate] = useState<string>(existingAgreement?.expiration_date || ""); // 🆕 Usar campo existente
   const [durationYears, setDurationYears] = useState<number | string>(existingAgreement?.duration_years ?? "");
+  const [isCalculatingFromDuration, setIsCalculatingFromDuration] = useState(false); // 🆕 Flag de control
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
   const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
@@ -95,7 +96,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   
   // Opción 1: Si cambias las fechas → Calcula duración automáticamente
   useEffect(() => {
-    if (signatureDate && expirationDate) {
+    if (signatureDate && expirationDate && !isCalculatingFromDuration) {
       const inicio = new Date(signatureDate);
       const termino = new Date(expirationDate);
       const diffMs = termino.getTime() - inicio.getTime();
@@ -107,7 +108,8 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         setDurationYears(duracionCalculada);
       }
     }
-  }, [signatureDate, expirationDate]);
+    setIsCalculatingFromDuration(false);
+  }, [signatureDate, expirationDate, isCalculatingFromDuration]);
 
   // Opción 2: Si cambias fecha inicio + duración → Calcula fecha vencimiento automáticamente
   useEffect(() => {
@@ -127,8 +129,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       
       const fechaCalculada = termino.toISOString().split('T')[0];
       
-      // Solo actualizar si es diferente (evitar loop infinito)
+      // Solo actualizar si es diferente
       if (fechaCalculada !== expirationDate) {
+        setIsCalculatingFromDuration(true);
         setExpirationDate(fechaCalculada);
       }
     }
