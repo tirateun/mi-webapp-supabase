@@ -49,16 +49,26 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     setDurationYears(newDuration);
     
     if (signatureDate && newDuration && newDuration !== "") {
-      const inicio = new Date(signatureDate);
+      // Usar formato local para evitar problemas de zona horaria
+      const [year, month, day] = signatureDate.split('-').map(Number);
+      const inicio = new Date(year, month - 1, day); // mes es 0-indexed
+      
       const años = Math.floor(Number(newDuration));
       const mesesRestantes = Math.round((Number(newDuration) - años) * 12);
       
       const termino = new Date(inicio);
       termino.setFullYear(termino.getFullYear() + años);
       termino.setMonth(termino.getMonth() + mesesRestantes);
+      
+      // Restar 1 día para obtener el último día del periodo
       termino.setDate(termino.getDate() - 1);
       
-      setExpirationDate(termino.toISOString().split('T')[0]);
+      // Formatear a YYYY-MM-DD
+      const yearStr = termino.getFullYear();
+      const monthStr = String(termino.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(termino.getDate()).padStart(2, '0');
+      
+      setExpirationDate(`${yearStr}-${monthStr}-${dayStr}`);
     }
   };
 
@@ -68,7 +78,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     
     // Si hay duración, recalcular fecha de vencimiento
     if (newDate && durationYears && durationYears !== "") {
-      const inicio = new Date(newDate);
+      const [year, month, day] = newDate.split('-').map(Number);
+      const inicio = new Date(year, month - 1, day);
+      
       const años = Math.floor(Number(durationYears));
       const mesesRestantes = Math.round((Number(durationYears) - años) * 12);
       
@@ -77,7 +89,11 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       termino.setMonth(termino.getMonth() + mesesRestantes);
       termino.setDate(termino.getDate() - 1);
       
-      setExpirationDate(termino.toISOString().split('T')[0]);
+      const yearStr = termino.getFullYear();
+      const monthStr = String(termino.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(termino.getDate()).padStart(2, '0');
+      
+      setExpirationDate(`${yearStr}-${monthStr}-${dayStr}`);
     }
   };
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
