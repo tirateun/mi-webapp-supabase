@@ -91,7 +91,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   }, [existingAgreement]);
 
-  // 🆕 Calcular duración automáticamente cuando cambien las fechas
+  // 🆕 LÓGICA BIDIRECCIONAL: Fechas ↔ Duración
+  
+  // Opción 1: Si cambias las fechas → Calcula duración automáticamente
   useEffect(() => {
     if (signatureDate && expirationDate) {
       const inicio = new Date(signatureDate);
@@ -106,6 +108,21 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       }
     }
   }, [signatureDate, expirationDate]);
+
+  // Opción 2: Si cambias fecha inicio + duración → Calcula fecha vencimiento automáticamente
+  useEffect(() => {
+    if (signatureDate && durationYears && durationYears !== "") {
+      const inicio = new Date(signatureDate);
+      const diasTotal = Number(durationYears) * 365.25;
+      const termino = new Date(inicio.getTime() + (diasTotal * 24 * 60 * 60 * 1000));
+      const fechaCalculada = termino.toISOString().split('T')[0];
+      
+      // Solo actualizar si es diferente (evitar loop infinito)
+      if (fechaCalculada !== expirationDate) {
+        setExpirationDate(fechaCalculada);
+      }
+    }
+  }, [signatureDate, durationYears]);
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
@@ -450,14 +467,14 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             </div>
 
             <div className="col-md-3 mb-3">
-              <label className="form-label">Fecha de vencimiento *</label>
+              <label className="form-label">Fecha de vencimiento</label>
               <input 
                 type="date" 
                 className="form-control" 
                 value={expirationDate || ""} 
                 onChange={(e) => setExpirationDate(e.target.value)}
-                required
               />
+              <small className="text-muted">O llena duración para calcular automáticamente</small>
             </div>
 
             <div className="col-md-3 mb-3">
@@ -470,9 +487,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
                 className="form-control" 
                 value={durationYears} 
                 onChange={(e) => setDurationYears(e.target.value)}
-                placeholder="Auto"
+                placeholder="Ej: 1, 1.5, 2"
               />
-              <small className="text-muted">Se calcula automáticamente</small>
+              <small className="text-muted">O llena fecha de vencimiento para calcular</small>
             </div>
 
             <div className="col-md-3 mb-3">
