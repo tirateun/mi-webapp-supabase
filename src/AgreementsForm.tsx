@@ -24,7 +24,8 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [institucionId, setInstitucionId] = useState<string>(existingAgreement?.institucion_id || "");
   const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_url || "");
   const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
-  const [durationYears, setDurationYears] = useState<number>(existingAgreement?.duration_years ?? 1);
+  const [expirationDate, setExpirationDate] = useState<string>(existingAgreement?.expiration_date || ""); // 🆕 Usar campo existente
+  const [durationYears, setDurationYears] = useState<number | string>(existingAgreement?.duration_years ?? "");
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
   const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
@@ -89,6 +90,22 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       setVersion(existingAgreement.version);
     }
   }, [existingAgreement]);
+
+  // 🆕 Calcular duración automáticamente cuando cambien las fechas
+  useEffect(() => {
+    if (signatureDate && expirationDate) {
+      const inicio = new Date(signatureDate);
+      const termino = new Date(expirationDate);
+      const diffMs = termino.getTime() - inicio.getTime();
+      const diffAnios = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+      
+      if (diffAnios > 0) {
+        // Redondear a 1 decimal
+        const duracionCalculada = Math.round(diffAnios * 10) / 10;
+        setDurationYears(duracionCalculada);
+      }
+    }
+  }, [signatureDate, expirationDate]);
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
@@ -421,21 +438,44 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
 
           {/* FECHA, DURACIÓN, TIPO */}
           <div className="row">
-            <div className="col-md-4 mb-3">
-              <label className="form-label">Fecha de firma</label>
-              <input type="date" className="form-control" value={signatureDate || ""} onChange={(e) => setSignatureDate(e.target.value)} />
+            <div className="col-md-3 mb-3">
+              <label className="form-label">Fecha de inicio *</label>
+              <input 
+                type="date" 
+                className="form-control" 
+                value={signatureDate || ""} 
+                onChange={(e) => setSignatureDate(e.target.value)}
+                required
+              />
             </div>
 
-            <div className="col-md-4 mb-3">
+            <div className="col-md-3 mb-3">
+              <label className="form-label">Fecha de vencimiento *</label>
+              <input 
+                type="date" 
+                className="form-control" 
+                value={expirationDate || ""} 
+                onChange={(e) => setExpirationDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="col-md-3 mb-3">
               <label className="form-label">Duración (años)</label>
-              <select className="form-select" value={durationYears} onChange={(e) => setDurationYears(Number(e.target.value))}>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((y) => (
-                  <option key={y} value={y}>{y} {y === 1 ? "año" : "años"}</option>
-                ))}
-              </select>
+              <input 
+                type="number"
+                step="0.1"
+                min="0.1"
+                max="99"
+                className="form-control" 
+                value={durationYears} 
+                onChange={(e) => setDurationYears(e.target.value)}
+                placeholder="Auto"
+              />
+              <small className="text-muted">Se calcula automáticamente</small>
             </div>
 
-            <div className="col-md-4 mb-3">
+            <div className="col-md-3 mb-3">
               <label className="form-label">Tipo de convenio</label>
               <select className="form-select" value={tipoConvenio} onChange={(e) => setTipoConvenio(e.target.value)}>
                 <option value="marco">Marco</option>
