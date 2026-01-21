@@ -24,9 +24,62 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [institucionId, setInstitucionId] = useState<string>(existingAgreement?.institucion_id || "");
   const [documentLink, setDocumentLink] = useState<string>(existingAgreement?.document_url || "");
   const [signatureDate, setSignatureDate] = useState<string>(existingAgreement?.signature_date || "");
-  const [expirationDate, setExpirationDate] = useState<string>(existingAgreement?.expiration_date || ""); // 🆕 Usar campo existente
+  const [expirationDate, setExpirationDate] = useState<string>(existingAgreement?.expiration_date || "");
   const [durationYears, setDurationYears] = useState<number | string>(existingAgreement?.duration_years ?? "");
-  const [isCalculatingFromDuration, setIsCalculatingFromDuration] = useState(false); // 🆕 Flag de control
+
+  // Calcular duración cuando cambien las fechas
+  const handleExpirationDateChange = (newDate: string) => {
+    setExpirationDate(newDate);
+    
+    if (signatureDate && newDate) {
+      const inicio = new Date(signatureDate);
+      const termino = new Date(newDate);
+      const diffMs = termino.getTime() - inicio.getTime();
+      const diffAnios = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+      
+      if (diffAnios > 0) {
+        const duracionCalculada = Math.round(diffAnios * 10) / 10;
+        setDurationYears(duracionCalculada);
+      }
+    }
+  };
+
+  // Calcular fecha de vencimiento cuando cambie la duración
+  const handleDurationChange = (newDuration: string) => {
+    setDurationYears(newDuration);
+    
+    if (signatureDate && newDuration && newDuration !== "") {
+      const inicio = new Date(signatureDate);
+      const años = Math.floor(Number(newDuration));
+      const mesesRestantes = Math.round((Number(newDuration) - años) * 12);
+      
+      const termino = new Date(inicio);
+      termino.setFullYear(termino.getFullYear() + años);
+      termino.setMonth(termino.getMonth() + mesesRestantes);
+      termino.setDate(termino.getDate() - 1);
+      
+      setExpirationDate(termino.toISOString().split('T')[0]);
+    }
+  };
+
+  // Recalcular cuando cambie fecha de inicio
+  const handleSignatureDateChange = (newDate: string) => {
+    setSignatureDate(newDate);
+    
+    // Si hay duración, recalcular fecha de vencimiento
+    if (newDate && durationYears && durationYears !== "") {
+      const inicio = new Date(newDate);
+      const años = Math.floor(Number(durationYears));
+      const mesesRestantes = Math.round((Number(durationYears) - años) * 12);
+      
+      const termino = new Date(inicio);
+      termino.setFullYear(termino.getFullYear() + años);
+      termino.setMonth(termino.getMonth() + mesesRestantes);
+      termino.setDate(termino.getDate() - 1);
+      
+      setExpirationDate(termino.toISOString().split('T')[0]);
+    }
+  };
   const [tipoConvenio, setTipoConvenio] = useState<string>(existingAgreement?.convenio || "marco");
   const [resolucion, setResolucion] = useState<string>(existingAgreement?.["Resolución Rectoral"] || existingAgreement?.resolucion || "");
   const [objetivos, setObjetivos] = useState<string>(existingAgreement?.objetivos || "");
@@ -91,51 +144,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       setVersion(existingAgreement.version);
     }
   }, [existingAgreement]);
-
-  // 🆕 LÓGICA BIDIRECCIONAL: Fechas ↔ Duración
-  
-  // Opción 1: Si cambias las fechas → Calcula duración automáticamente
-  useEffect(() => {
-    if (signatureDate && expirationDate && !isCalculatingFromDuration) {
-      const inicio = new Date(signatureDate);
-      const termino = new Date(expirationDate);
-      const diffMs = termino.getTime() - inicio.getTime();
-      const diffAnios = diffMs / (1000 * 60 * 60 * 24 * 365.25);
-      
-      if (diffAnios > 0) {
-        // Redondear a 1 decimal
-        const duracionCalculada = Math.round(diffAnios * 10) / 10;
-        setDurationYears(duracionCalculada);
-      }
-    }
-    setIsCalculatingFromDuration(false);
-  }, [signatureDate, expirationDate, isCalculatingFromDuration]);
-
-  // Opción 2: Si cambias fecha inicio + duración → Calcula fecha vencimiento automáticamente
-  useEffect(() => {
-    if (signatureDate && durationYears && durationYears !== "") {
-      const inicio = new Date(signatureDate);
-      const años = Math.floor(Number(durationYears));
-      const mesesRestantes = Math.round((Number(durationYears) - años) * 12);
-      
-      // Sumar años y meses
-      const termino = new Date(inicio);
-      termino.setFullYear(termino.getFullYear() + años);
-      termino.setMonth(termino.getMonth() + mesesRestantes);
-      
-      // Restar 1 día para que sea el último día del periodo
-      // Ejemplo: 01/01/2025 + 1.5 años = 30/06/2026 (no 01/07/2026)
-      termino.setDate(termino.getDate() - 1);
-      
-      const fechaCalculada = termino.toISOString().split('T')[0];
-      
-      // Solo actualizar si es diferente
-      if (fechaCalculada !== expirationDate) {
-        setIsCalculatingFromDuration(true);
-        setExpirationDate(fechaCalculada);
-      }
-    }
-  }, [signatureDate, durationYears]);
 
   useEffect(() => {
     if (!existingAgreement?.id) return;
@@ -474,7 +482,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
                 type="date" 
                 className="form-control" 
                 value={signatureDate || ""} 
-                onChange={(e) => setSignatureDate(e.target.value)}
+                onChange={(e) => handleSignatureDateChange(e.target.value)}
                 required
               />
             </div>
@@ -485,7 +493,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
                 type="date" 
                 className="form-control" 
                 value={expirationDate || ""} 
-                onChange={(e) => setExpirationDate(e.target.value)}
+                onChange={(e) => handleExpirationDateChange(e.target.value)}
               />
               <small className="text-muted">O llena duración para calcular automáticamente</small>
             </div>
@@ -499,7 +507,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
                 max="99"
                 className="form-control" 
                 value={durationYears} 
-                onChange={(e) => setDurationYears(e.target.value)}
+                onChange={(e) => handleDurationChange(e.target.value)}
                 placeholder="Ej: 1, 1.5, 2"
               />
               <small className="text-muted">O llena fecha de vencimiento para calcular</small>
