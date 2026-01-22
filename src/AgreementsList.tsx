@@ -254,8 +254,10 @@ export default function AgreementsList({
 
   /* ------------------ Helpers vigencia ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
-    // el campo expiration_date puede venir como string|null
-    if (a?.expiration_date) return new Date(String(a.expiration_date));
+    // 🔧 CORRECCIÓN: Usar parseLocalDate para evitar problemas de zona horaria
+    if (a?.expiration_date) {
+      return parseLocalDate(a.expiration_date);
+    }
     if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
     if (!sig) return null;
