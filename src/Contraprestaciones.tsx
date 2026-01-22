@@ -21,6 +21,14 @@ interface Subtype {
   subtipo_nombre: string;
 }
 
+/* =========================
+   HELPER: Parsear fechas en zona horaria local
+   ========================= */
+function parseLocalDate(dateString: string): Date {
+  const [y, m, d] = dateString.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 export default function Contraprestaciones({
   agreementId,
   onBack,
@@ -97,10 +105,11 @@ export default function Contraprestaciones({
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     
-    const inicio = new Date(yearStart);
+    // 🔧 CORRECCIÓN: Usar parseLocalDate para evitar problemas de zona horaria
+    const inicio = parseLocalDate(yearStart);
     inicio.setHours(0, 0, 0, 0);
     
-    const fin = new Date(yearEnd);
+    const fin = parseLocalDate(yearEnd);
     fin.setHours(0, 0, 0, 0);
     
     if (hoy < inicio) {
@@ -364,7 +373,8 @@ export default function Contraprestaciones({
 
   function formatDate(d: string) {
     try {
-      return new Date(d).toLocaleDateString("es-PE");
+      // 🔧 CORRECCIÓN: Usar parseLocalDate para evitar problemas de zona horaria
+      return parseLocalDate(d).toLocaleDateString("es-PE");
     } catch {
       return d;
     }
@@ -636,6 +646,3 @@ export default function Contraprestaciones({
     </div>
   );
 }
-
-
-
