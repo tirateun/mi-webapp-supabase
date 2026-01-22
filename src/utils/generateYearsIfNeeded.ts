@@ -31,6 +31,10 @@ export default async function generateYearsIfNeeded(
     return;
   }
 
+  // Redondear duración hacia arriba para generar años completos
+  // Ejemplo: 1.5 años → genera Año 1 y Año 2
+  const totalYears = Math.ceil(durationYears);
+
   // ---- Verificar si ya existen años ----
   const { data: existing, error: checkErr } = await supabase
     .from("agreement_years")
@@ -43,7 +47,7 @@ export default async function generateYearsIfNeeded(
   }
 
   // Si ya existen TODOS los años, no hacer nada
-  if (existing && existing.length === durationYears) {
+  if (existing && existing.length === totalYears) {
     console.log("agreement_years ya completos, no se generan nuevamente");
     return;
   }
@@ -54,23 +58,32 @@ export default async function generateYearsIfNeeded(
     .delete()
     .eq("agreement_id", agreementId);
 
-  // ---- Calcular años ----
-  const baseDate = new Date(signatureDate);
+  // ---- Calcular años usando zona horaria local ----
+  // 🔧 CORRECCIÓN: Parsear fecha manualmente para evitar problemas de zona horaria
+  const [year, month, day] = signatureDate.split('-').map(Number);
+  const baseDate = new Date(year, month - 1, day); // mes es 0-indexed en JS
+
   const rows: any[] = [];
 
-  for (let i = 0; i < durationYears; i++) {
+  for (let i = 0; i < totalYears; i++) {
+    // Año N empieza en la fecha base + i años
     const start = new Date(baseDate);
     start.setFullYear(baseDate.getFullYear() + i);
 
-    const end = new Date(baseDate);
-    end.setFullYear(baseDate.getFullYear() + i + 1);
-    end.setDate(end.getDate() - 1); // inclusivo
+    // Año N termina exactamente 1 año después - 1 día
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+    end.setDate(end.getDate() - 1);
+
+    // Formatear a YYYY-MM-DD manualmente
+    const startStr = formatDate(start);
+    const endStr = formatDate(end);
 
     rows.push({
       agreement_id: agreementId,
       year_number: i + 1,
-      year_start: start.toISOString().slice(0, 10), // YYYY-MM-DD
-      year_end: end.toISOString().slice(0, 10),
+      year_start: startStr,
+      year_end: endStr,
     });
   }
 
@@ -86,4 +99,12 @@ export default async function generateYearsIfNeeded(
   }
 }
 
-
+/**
+ * Formatea Date a YYYY-MM-DD sin problemas de zona horaria
+ */
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
