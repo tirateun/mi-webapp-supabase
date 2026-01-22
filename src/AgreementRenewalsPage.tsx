@@ -26,7 +26,8 @@ export default function AgreementRenewalsPage() {
 
   // Form fields
   const [renewalDate, setRenewalDate] = useState<string>("");
-  const [years, setYears] = useState<number>(1);
+  const [renewalEndDate, setRenewalEndDate] = useState<string>(""); // 🆕 NUEVO
+  const [years, setYears] = useState<number | string>(""); // 🆕 Cambiado a string para permitir decimales
 
   // Calculated
   const [oldExpiration, setOldExpiration] = useState<string | null>(null);
@@ -123,25 +124,81 @@ export default function AgreementRenewalsPage() {
     }
   }
 
-  // Recalcular newExpiration cuando cambian fecha o años
-  useEffect(() => {
-    if (!renewalDate) {
-      setNewExpiration(null);
-      return;
+  // 🔧 HANDLERS BIDIRECCIONALES
+  
+  // Cuando cambia la fecha de inicio o duración → Calcular fecha de término
+  const handleRenewalDateChange = (newDate: string) => {
+    setRenewalDate(newDate);
+    
+    if (newDate && years && years !== "") {
+      const [y, m, d] = newDate.split('-').map(Number);
+      const inicio = new Date(y, m - 1, d);
+      const años = Math.floor(Number(years));
+      const mesesRestantes = Math.round((Number(years) - años) * 12);
+      
+      const termino = new Date(inicio);
+      termino.setFullYear(termino.getFullYear() + años);
+      termino.setMonth(termino.getMonth() + mesesRestantes);
+      termino.setDate(termino.getDate() - 1);
+      
+      const yearStr = termino.getFullYear();
+      const monthStr = String(termino.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(termino.getDate()).padStart(2, '0');
+      
+      setRenewalEndDate(`${yearStr}-${monthStr}-${dayStr}`);
+      setNewExpiration(`${yearStr}-${monthStr}-${dayStr}`);
     }
-    const d = new Date(renewalDate);
-    d.setFullYear(d.getFullYear() + Number(years));
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    setNewExpiration(`${year}-${month}-${day}`);
-  }, [renewalDate, years]);
+  };
+
+  const handleYearsChange = (newYears: string) => {
+    setYears(newYears);
+    
+    if (renewalDate && newYears && newYears !== "") {
+      const [y, m, d] = renewalDate.split('-').map(Number);
+      const inicio = new Date(y, m - 1, d);
+      const años = Math.floor(Number(newYears));
+      const mesesRestantes = Math.round((Number(newYears) - años) * 12);
+      
+      const termino = new Date(inicio);
+      termino.setFullYear(termino.getFullYear() + años);
+      termino.setMonth(termino.getMonth() + mesesRestantes);
+      termino.setDate(termino.getDate() - 1);
+      
+      const yearStr = termino.getFullYear();
+      const monthStr = String(termino.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(termino.getDate()).padStart(2, '0');
+      
+      setRenewalEndDate(`${yearStr}-${monthStr}-${dayStr}`);
+      setNewExpiration(`${yearStr}-${monthStr}-${dayStr}`);
+    }
+  };
+
+  // Cuando cambia la fecha de término → Calcular duración
+  const handleRenewalEndDateChange = (newEndDate: string) => {
+    setRenewalEndDate(newEndDate);
+    
+    if (renewalDate && newEndDate) {
+      const [y1, m1, d1] = renewalDate.split('-').map(Number);
+      const [y2, m2, d2] = newEndDate.split('-').map(Number);
+      const inicio = new Date(y1, m1 - 1, d1);
+      const termino = new Date(y2, m2 - 1, d2);
+      const diffMs = termino.getTime() - inicio.getTime();
+      const diffAnios = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+      
+      if (diffAnios > 0) {
+        const duracionCalculada = Math.round(diffAnios * 10) / 10;
+        setYears(duracionCalculada);
+      }
+      
+      setNewExpiration(newEndDate);
+    }
+  };
 
   // 🆕 Autocompletar fecha de renovación cuando se abre el modal
   useEffect(() => {
     if (showModal && oldExpiration && !renewalDate) {
-      // Calcular día siguiente al vencimiento actual
-      const expDate = new Date(oldExpiration);
+      const [y, m, d] = oldExpiration.split('-').map(Number);
+      const expDate = new Date(y, m - 1, d);
       expDate.setDate(expDate.getDate() + 1);
       
       const year = expDate.getFullYear();
@@ -149,9 +206,10 @@ export default function AgreementRenewalsPage() {
       const day = String(expDate.getDate()).padStart(2, "0");
       const nextDay = `${year}-${month}-${day}`;
       
-      setRenewalDate(nextDay);
+      handleRenewalDateChange(nextDay);
+      setYears(1); // Default a 1 año
     }
-  }, [showModal, oldExpiration, renewalDate]);
+  }, [showModal, oldExpiration]);
 
   async function saveRenewal() {
     if (!agreementId) {
@@ -162,8 +220,8 @@ export default function AgreementRenewalsPage() {
       alert("Selecciona la fecha de renovación.");
       return;
     }
-    if (!years || years < 1) {
-      alert("Selecciona la duración en años.");
+    if (!years || Number(years) <= 0) {
+      alert("La duración debe ser mayor a 0.");
       return;
     }
     if (!newExpiration) {
@@ -194,9 +252,12 @@ export default function AgreementRenewalsPage() {
       // 2️⃣ CREAR LOS AÑOS RENOVADOS en agreement_years
       const newYears: any[] = [];
       const startYear = currentMaxYear + 1;
-      let currentStartDate = new Date(renewalDate);
+      const totalYearsToCreate = Math.ceil(Number(years)); // Redondear hacia arriba
+      
+      const [y, m, d] = renewalDate.split('-').map(Number);
+      let currentStartDate = new Date(y, m - 1, d);
 
-      for (let i = 0; i < years; i++) {
+      for (let i = 0; i < totalYearsToCreate; i++) {
         const yearNumber = startYear + i;
         
         // Fecha de inicio del año
@@ -296,11 +357,12 @@ export default function AgreementRenewalsPage() {
       setShowModal(false);
       setRenewalDate("");
       setYears(1);
+      const yearsNum = Math.ceil(Number(years));
       alert(
-        `✅ Renovación registrada exitosamente.\n\n📅 Se crearon ${years} año${
-          years > 1 ? "s" : ""
-        } adicional${years > 1 ? "es" : ""} (Año ${startYear} al ${
-          startYear + years - 1
+        `✅ Renovación registrada exitosamente.\n\n📅 Se crearon ${yearsNum} año${
+          yearsNum > 1 ? "s" : ""
+        } adicional${yearsNum > 1 ? "es" : ""} (Año ${startYear} al ${
+          startYear + yearsNum - 1
         }).`
       );
     } catch (err) {
@@ -484,9 +546,9 @@ export default function AgreementRenewalsPage() {
               }}
             >
               <strong>📌 Nota:</strong> Se crearán automáticamente{" "}
-              <strong>{years}</strong> año{years > 1 ? "s" : ""} adicional
-              {years > 1 ? "es" : ""} (Año {currentMaxYear + 1} al{" "}
-              {currentMaxYear + years}) para contraprestaciones.
+              <strong>{years ? Math.ceil(Number(years)) : 0}</strong> año{Math.ceil(Number(years)) > 1 ? "s" : ""} adicional
+              {Math.ceil(Number(years)) > 1 ? "es" : ""} (Año {currentMaxYear + 1} al{" "}
+              {currentMaxYear + Math.ceil(Number(years))}) para contraprestaciones.
             </div>
 
             <label
@@ -502,7 +564,7 @@ export default function AgreementRenewalsPage() {
             <input
               type="date"
               value={renewalDate}
-              onChange={(e) => setRenewalDate(e.target.value)}
+              onChange={(e) => handleRenewalDateChange(e.target.value)}
               style={{
                 width: "100%",
                 padding: 10,
@@ -520,11 +582,12 @@ export default function AgreementRenewalsPage() {
                 marginBottom: 6,
               }}
             >
-              Duración de la renovación *
+              Fecha de término de renovación
             </label>
-            <select
-              value={years}
-              onChange={(e) => setYears(Number(e.target.value))}
+            <input
+              type="date"
+              value={renewalEndDate}
+              onChange={(e) => handleRenewalEndDateChange(e.target.value)}
               style={{
                 width: "100%",
                 padding: 10,
@@ -532,13 +595,40 @@ export default function AgreementRenewalsPage() {
                 border: "1px solid #ced4da",
                 borderRadius: 6,
               }}
+            />
+            <small style={{ color: "#6c757d", fontSize: 13 }}>
+              O llena duración para calcular automáticamente
+            </small>
+
+            <label
+              style={{
+                display: "block",
+                marginTop: 16,
+                fontWeight: 600,
+                marginBottom: 6,
+              }}
             >
-              {[1, 2, 3, 4, 5].map((y) => (
-                <option key={y} value={y}>
-                  {y} año{y > 1 ? "s" : ""}
-                </option>
-              ))}
-            </select>
+              Duración de la renovación (años)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              max="99"
+              value={years}
+              onChange={(e) => handleYearsChange(e.target.value)}
+              placeholder="Ej: 1, 1.5, 2"
+              style={{
+                width: "100%",
+                padding: 10,
+                fontSize: 15,
+                border: "1px solid #ced4da",
+                borderRadius: 6,
+              }}
+            />
+            <small style={{ color: "#6c757d", fontSize: 13 }}>
+              O llena fecha de término para calcular
+            </small>
 
             <div
               style={{
@@ -606,5 +696,3 @@ export default function AgreementRenewalsPage() {
     </div>
   );
 }
-
-
