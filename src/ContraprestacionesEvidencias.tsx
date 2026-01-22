@@ -78,9 +78,10 @@ interface Props {
 /* ------------------ Helpers fecha ------------------ */
 function parseLocalDate(dateString?: string | null): Date | null {
   if (!dateString) return null;
-  const d = new Date(dateString);
-  if (isNaN(d.getTime())) return null;
-  return d;
+  // 🔧 CORRECCIÓN: Parsear en zona horaria local
+  const [y, m, d] = dateString.split("-").map(Number);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  return new Date(y, m - 1, d);
 }
 function formatDate(d?: string | Date | null) {
   if (!d) return "-";
@@ -843,11 +844,4 @@ export default function ContraprestacionesEvidencias({ agreementId: propAgreemen
       </div>
     );
   }
-
-
-
-
-
-
-
 
