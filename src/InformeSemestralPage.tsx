@@ -4,6 +4,12 @@ import { supabase } from "./supabaseClient";
 import { useNavigate, useParams } from "react-router-dom";
 import * as XLSX from 'xlsx';
 
+/* ------------------ HELPER: Parsear fechas en zona horaria local ------------------ */
+function parseLocalDate(dateString: string): Date {
+  const [y, m, d] = dateString.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 interface AgreementYear {
   id: string;
   agreement_id: string;
@@ -71,8 +77,9 @@ export default function InformeSemestralPage() {
     hoy.setHours(0, 0, 0, 0);
 
     return agreementYears.map((y) => {
-      const inicio = new Date(y.year_start!);
-      const fin = new Date(y.year_end!);
+      // 🔧 CORRECCIÓN: Usar parseLocalDate
+      const inicio = parseLocalDate(y.year_start!);
+      const fin = parseLocalDate(y.year_end!);
       
       const fechaInformarDesde = new Date(fin);
       fechaInformarDesde.setMonth(fechaInformarDesde.getMonth() - 2);
@@ -483,7 +490,7 @@ export default function InformeSemestralPage() {
           'Responsable': inf.user_full_name ?? profilesCache[inf.user_id || ""] ?? "Usuario",
           'Subtipo': subtype?.subtipo_nombre ?? 'General', // 🆕
           'Año': `Año ${year?.year_number ?? "?"}`,
-          'Periodo': year ? `${new Date(year.year_start!).toLocaleDateString('es-PE')} - ${new Date(year.year_end!).toLocaleDateString('es-PE')}` : '-',
+          'Periodo': year ? `${parseLocalDate(year.year_start!).toLocaleDateString('es-PE')} - ${parseLocalDate(year.year_end!).toLocaleDateString('es-PE')}` : '-',
           'Contenido': inf.contenido ?? "Sin contenido",
           'Dificultades/Observaciones': inf.dificultades ?? "Sin observaciones",
           'Fecha de Envío': inf.created_at ? new Date(inf.created_at).toLocaleDateString('es-PE') : '-',
@@ -596,7 +603,7 @@ export default function InformeSemestralPage() {
                     value={y.id}
                     disabled={!y.puedeInformar}
                   >
-                    {y.icono} Año {y.year_number} ({y.year_start ? new Date(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? new Date(y.year_end).toLocaleDateString("es-PE") : "—"}) - {y.razon}
+                    {y.icono} Año {y.year_number} ({y.year_start ? parseLocalDate(y.year_start).toLocaleDateString("es-PE") : "—"} — {y.year_end ? parseLocalDate(y.year_end).toLocaleDateString("es-PE") : "—"}) - {y.razon}
                   </option>
                 ))}
               </select>
