@@ -379,7 +379,7 @@ export default function AgreementsList({
             <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
               Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
               {renewalsMap[a.id].latest_new_expiration_date
-                ? ` — último: ${new Date(String(renewalsMap[a.id].latest_new_expiration_date)).toLocaleDateString("es-PE")}`
+                ? ` — último: ${parseLocalDate(renewalsMap[a.id].latest_new_expiration_date)?.toLocaleDateString("es-PE")}`
                 : ""}
             </div>
           )}
