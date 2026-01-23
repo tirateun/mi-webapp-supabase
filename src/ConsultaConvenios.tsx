@@ -3,6 +3,26 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
+// ✅ Función para formatear fechas sin problemas de zona horaria
+const formatDateLocal = (dateString: string | null | undefined, formato: "corto" | "largo" = "corto"): string => {
+  if (!dateString) return "Sin fecha";
+  
+  // Parsear manualmente para evitar conversión UTC
+  const [year, month, day] = dateString.split("-").map(Number);
+  if (!year || !month || !day) return "Sin fecha";
+  
+  if (formato === "largo") {
+    const meses = [
+      "enero", "febrero", "marzo", "abril", "mayo", "junio",
+      "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+    ];
+    return `${day.toString().padStart(2, "0")} de ${meses[month - 1]} de ${year}`;
+  }
+  
+  // Formato corto: dd/mm/yyyy (formato Perú)
+  return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}`;
+};
+
 interface Convenio {
   id: string;
   name: string;
@@ -799,9 +819,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
           </span>
         </td>
         <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D", fontSize: "0.9rem" }}>
-          {conv.expiration_date 
-            ? new Date(conv.expiration_date).toLocaleDateString("es-PE")
-            : "Sin fecha"}
+          {formatDateLocal(conv.expiration_date)}
         </td>
         {/* 🆕 NUEVA COLUMNA: ACCIONES */}
         <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", textAlign: "center" }}>
@@ -1079,13 +1097,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
               <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Firma</strong>
             </div>
             <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-              {convenioSeleccionado.signature_date
-                ? new Date(convenioSeleccionado.signature_date).toLocaleDateString("es-PE", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric"
-                  })
-                : "No especificada"}
+              {formatDateLocal(convenioSeleccionado.signature_date, "largo") || "No especificada"}
             </p>
           </div>
 
@@ -1103,13 +1115,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
               <strong style={{ color: "#3D1A4F", fontSize: "0.9rem" }}>Fecha de Vencimiento</strong>
             </div>
             <p style={{ margin: 0, color: "#495057", fontSize: "1rem" }}>
-              {convenioSeleccionado.expiration_date
-                ? new Date(convenioSeleccionado.expiration_date).toLocaleDateString("es-PE", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric"
-                  })
-                : "Sin fecha"}
+              {formatDateLocal(convenioSeleccionado.expiration_date, "largo")}
             </p>
           </div>
         </div>
