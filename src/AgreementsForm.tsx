@@ -33,13 +33,24 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     setExpirationDate(newDate);
     
     if (signatureDate && newDate) {
-      const inicio = new Date(signatureDate);
-      const termino = new Date(newDate);
-      const diffMs = termino.getTime() - inicio.getTime();
+      // Parsear fechas manualmente para evitar problemas de zona horaria
+      const [yearI, monthI, dayI] = signatureDate.split('-').map(Number);
+      const [yearF, monthF, dayF] = newDate.split('-').map(Number);
+      
+      const inicio = new Date(yearI, monthI - 1, dayI);
+      const termino = new Date(yearF, monthF - 1, dayF);
+      
+      // Sumar 1 día para incluir el día de vencimiento como completo
+      const diffMs = termino.getTime() - inicio.getTime() + (1000 * 60 * 60 * 24);
       const diffAnios = diffMs / (1000 * 60 * 60 * 24 * 365.25);
       
       if (diffAnios > 0) {
-        const duracionCalculada = Math.round(diffAnios * 10) / 10;
+        // Redondear a 1 decimal, pero si está muy cerca de un entero, usar el entero
+        let duracionCalculada = Math.round(diffAnios * 10) / 10;
+        const parteDecimal = duracionCalculada % 1;
+        if (parteDecimal >= 0.95 || parteDecimal <= 0.05) {
+          duracionCalculada = Math.round(duracionCalculada);
+        }
         setDurationYears(duracionCalculada);
       }
     }
