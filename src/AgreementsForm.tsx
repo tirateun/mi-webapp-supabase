@@ -1,5 +1,6 @@
 // src/AgreementsForm.tsx
 // Versión completa: Institución, múltiples subtipos docentes con responsables por subtipo
+// ACTUALIZADO: Áreas vinculadas con react-select multiselect con buscador
 import React, { useEffect, useMemo, useState } from "react";
 import Select, { MultiValue } from "react-select";
 import { supabase } from "./supabaseClient";
@@ -118,7 +119,9 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   const [subtiposConResponsables, setSubtiposConResponsables] = useState<SubtipoConResponsables[]>([]);
 
   const [areas, setAreas] = useState<any[]>([]);
-  const [areasSeleccionadas, setAreasSeleccionadas] = useState<any[]>(existingAgreement?.areasSeleccionadas || existingAgreement?.areas || []);
+  
+  // ✅ ACTUALIZADO: Áreas seleccionadas ahora usa Option[] para react-select
+  const [areasSeleccionadas, setAreasSeleccionadas] = useState<Option[]>([]);
 
   const [areaId, setAreaId] = useState<number | null>(existingAgreement?.area_vinculada_id ?? null);
   const [convenioMaestroId, setConvenioMaestroId] = useState<number | null>(existingAgreement?.convenio_maestro_id ?? null);
@@ -169,12 +172,18 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
     }
   }, [internos, existingAgreement]);
 
+  // ✅ NUEVO: Cargar áreas seleccionadas cuando se edita un convenio existente
+  useEffect(() => {
+    if (!existingAgreement?.id || areas.length === 0) return;
+    fetchAreasVinculadas(existingAgreement.id);
+  }, [areas, existingAgreement]);
+
   async function fetchEnumsAndLists() {
     try {
       const [{ data: internosData }, { data: institucionesData }, { data: areasData }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role").eq("role", "internal"),
         supabase.from("instituciones").select("id, nombre, contacto, email, telefono, cargo, pais").order("nombre"),
-        supabase.from("areas_vinculadas").select("id, nombre"),
+        supabase.from("areas_vinculadas").select("id, nombre").order("nombre"),
       ]);
 
       setInternos(internosData || []);
@@ -195,6 +204,28 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
       }
     } catch (err) {
       console.error("Error cargando listas:", err);
+    }
+  }
+
+  // ✅ NUEVO: Función para cargar áreas vinculadas del convenio existente
+  async function fetchAreasVinculadas(agreementId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("agreement_areas_vinculadas")
+        .select("area_vinculada_id")
+        .eq("agreement_id", agreementId);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const areaIds = data.map((r: any) => r.area_vinculada_id);
+        const seleccionadas = areas
+          .filter((a) => areaIds.includes(a.id))
+          .map((a) => ({ value: a.id, label: a.nombre }));
+        setAreasSeleccionadas(seleccionadas);
+      }
+    } catch (err) {
+      console.error("Error fetchAreasVinculadas:", err);
     }
   }
 
@@ -246,7 +277,6 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
   }
 
   const toggleTipo = (t: string) => setTipoSeleccionados((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
-  const handleAreaChange = (id: any) => setAreasSeleccionadas((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   // 🆕 Agregar nuevo subtipo
   const agregarSubtipo = (subtipo: string) => {
@@ -360,10 +390,13 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         }
       }
 
-      // Sincronizar areas vinculadas
+      // ✅ ACTUALIZADO: Sincronizar áreas vinculadas usando el nuevo formato Option[]
       await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
       if (areasSeleccionadas && areasSeleccionadas.length > 0) {
-        const areaPayload = areasSeleccionadas.map((a: any) => ({ agreement_id: agreementId, area_vinculada_id: a }));
+        const areaPayload = areasSeleccionadas.map((a: Option) => ({ 
+          agreement_id: agreementId, 
+          area_vinculada_id: a.value 
+        }));
         const { error } = await supabase.from("agreement_areas_vinculadas").insert(areaPayload);
         if (error) throw error;
       }
@@ -662,26 +695,52 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
             />
           </div>
 
-          {/* AREAS VINCULADAS */}
+          {/* ✅ ACTUALIZADO: ÁREAS VINCULADAS CON REACT-SELECT MULTISELECT */}
           <div className="mb-3">
             <label className="form-label">Áreas vinculadas</label>
-            <div className="border rounded p-3 bg-light">
-              {areas.length > 0 ? (
-                areas.map((area) => (
-                  <label key={area.id} className="me-3 d-block mb-2">
-                    <input 
-                      type="checkbox" 
-                      checked={areasSeleccionadas.includes(area.id)} 
-                      onChange={() => handleAreaChange(area.id)} 
-                      className="me-2" 
-                    />
-                    {area.nombre}
-                  </label>
-                ))
-              ) : (
-                <div className="text-muted">No hay áreas registradas</div>
-              )}
-            </div>
+            <Select
+              isMulti
+              options={areas.map((area) => ({ value: area.id, label: area.nombre }))}
+              value={areasSeleccionadas}
+              onChange={(val: MultiValue<Option>) => 
+                setAreasSeleccionadas(Array.isArray(val) ? (val as Option[]) : [])
+              }
+              placeholder="Buscar y seleccionar áreas..."
+              noOptionsMessage={() => "No hay áreas disponibles"}
+              isDisabled={areas.length === 0}
+              styles={{
+                control: (base) => ({
+                  ...base,
+                  minHeight: '42px',
+                }),
+                multiValue: (base) => ({
+                  ...base,
+                  backgroundColor: '#e7f1ff',
+                  borderRadius: '4px',
+                }),
+                multiValueLabel: (base) => ({
+                  ...base,
+                  color: '#0d6efd',
+                  fontWeight: 500,
+                }),
+                multiValueRemove: (base) => ({
+                  ...base,
+                  color: '#0d6efd',
+                  ':hover': {
+                    backgroundColor: '#0d6efd',
+                    color: 'white',
+                  },
+                }),
+              }}
+            />
+            {areas.length === 0 && (
+              <small className="text-muted">Cargando áreas...</small>
+            )}
+            {areasSeleccionadas.length > 0 && (
+              <small className="text-muted">
+                {areasSeleccionadas.length} área(s) seleccionada(s)
+              </small>
+            )}
           </div>
 
           {/* BOTONES */}
