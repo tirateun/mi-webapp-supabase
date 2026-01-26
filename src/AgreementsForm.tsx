@@ -332,7 +332,7 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         signature_date: toYMD(signatureDate) ?? null,
         duration_years: durationYears ?? null,
         convenio: tipoConvenio,
-        pais: contactoInstitucion?.pais || null,
+        pais: contactoInstitucion?.pais ? contactoInstitucion.pais.toUpperCase() : null,
         "Resolución Rectoral": resolucion || null,
         tipo_convenio: tipoSeleccionados || null,
         objetivos: objetivos || null,

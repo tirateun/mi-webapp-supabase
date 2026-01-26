@@ -36,6 +36,12 @@ interface ConvenioPorPais {
   cantidad: number;
 }
 
+// 🆕 Resumen nacional vs internacional
+interface ResumenNacionalInternacional {
+  nacionales: number;
+  internacionales: number;
+}
+
 interface ReporteEjecucion {
   estado: string;
   cantidad: number;
@@ -49,10 +55,29 @@ interface Responsable {
 // Colores para gráficos
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
+// ✅ Función para formatear fechas sin problemas de zona horaria
+const formatDateLocal = (dateString: string | null | undefined): string => {
+  if (!dateString) return "-";
+  
+  // Si es un timestamp con hora, usar solo la parte de fecha
+  let fechaPura = dateString;
+  if (dateString.includes('T')) {
+    fechaPura = dateString.split('T')[0];
+  } else if (dateString.includes(' ')) {
+    fechaPura = dateString.split(' ')[0];
+  }
+  
+  const [year, month, day] = fechaPura.split("-").map(Number);
+  if (!year || !month || !day) return "-";
+  
+  return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}`;
+};
+
 export default function Reportes() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
   const [conveniosPorTipo, setConveniosPorTipo] = useState<ConvenioPorTipo[]>([]);
   const [conveniosPorPais, setConveniosPorPais] = useState<ConvenioPorPais[]>([]);
+  const [resumenNacInter, setResumenNacInter] = useState<ResumenNacionalInternacional>({ nacionales: 0, internacionales: 0 });
   const [ejecucionContraprestaciones, setEjecucionContraprestaciones] = useState<ReporteEjecucion[]>([]);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,13 +155,30 @@ export default function Reportes() {
       
       setConveniosPorTipo(tiposProcesados);
 
-      // Agrupar por país (top 10)
+      // Agrupar por país - SEPARAR NACIONALES E INTERNACIONALES
       const conteoPais: Record<string, number> = {};
+      let conteoNacionales = 0;
+      let conteoInternacionales = 0;
+      
       conveniosData?.forEach((c) => {
-        const pais = c.pais || "No especificado";
-        conteoPais[pais] = (conteoPais[pais] || 0) + 1;
+        // Normalizar país a mayúsculas para comparación
+        const paisOriginal = c.pais || "No especificado";
+        const paisNormalizado = paisOriginal.toUpperCase().trim();
+        
+        // Contar nacionales vs internacionales
+        if (paisNormalizado === "PERÚ" || paisNormalizado === "PERU") {
+          conteoNacionales++;
+        } else {
+          conteoInternacionales++;
+          // Solo agregar al conteo de países si es internacional
+          conteoPais[paisOriginal] = (conteoPais[paisOriginal] || 0) + 1;
+        }
       });
       
+      // Guardar resumen
+      setResumenNacInter({ nacionales: conteoNacionales, internacionales: conteoInternacionales });
+      
+      // Top 10 países INTERNACIONALES (sin Perú)
       const paisesProcesados = Object.entries(conteoPais)
         .map(([pais, cantidad]) => ({ pais, cantidad }))
         .sort((a, b) => b.cantidad - a.cantidad)
@@ -483,11 +525,19 @@ export default function Reportes() {
           </div>
         </div>
 
-        {/* Convenios por País */}
+        {/* Convenios por País - SOLO INTERNACIONALES */}
         <div className="col-lg-6">
           <div className="card border-0 shadow-sm h-100">
             <div className="card-header bg-white border-0 p-4">
-              <h5 className="mb-0 fw-bold">🌍 Top 10 Países con Convenios</h5>
+              <h5 className="mb-0 fw-bold">🌍 Convenios Internacionales (Top 10)</h5>
+              <div className="d-flex gap-2 mt-2">
+                <span className="badge bg-primary-subtle text-primary">
+                  🇵🇪 Nacionales: {resumenNacInter.nacionales}
+                </span>
+                <span className="badge bg-success-subtle text-success">
+                  🌎 Internacionales: {resumenNacInter.internacionales}
+                </span>
+              </div>
             </div>
             <div className="card-body p-4">
               {conveniosPorPais.length > 0 ? (
@@ -509,7 +559,7 @@ export default function Reportes() {
               ) : (
                 <div className="text-center text-muted py-5">
                   <div style={{ fontSize: '3rem', opacity: 0.3 }}>🌎</div>
-                  <p className="mt-2">No hay datos para mostrar</p>
+                  <p className="mt-2">No hay convenios internacionales</p>
                 </div>
               )}
             </div>
@@ -634,9 +684,7 @@ export default function Reportes() {
                       </td>
                       <td className="px-4 py-3">
                         <small>
-                          {c.signature_date
-                            ? new Date(c.signature_date).toLocaleDateString("es-PE")
-                            : "-"}
+                          {formatDateLocal(c.signature_date)}
                         </small>
                       </td>
                     </tr>
