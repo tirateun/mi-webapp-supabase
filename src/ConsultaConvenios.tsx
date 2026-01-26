@@ -269,21 +269,31 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   
       setConvenios(conveniosConDatos);
   
-      // Extraer tipos únicos (separando los que vienen en array/coma)
+      // Extraer tipos únicos (separando los que vienen en array)
       const todosLosTipos: string[] = [];
       (data || []).forEach((conv: any) => {
+        let tipos: string[] = [];
+        
+        // Manejar diferentes formatos de tipo_convenio
         if (Array.isArray(conv.tipo_convenio)) {
-          conv.tipo_convenio.forEach((t: string) => {
-            if (t && !todosLosTipos.includes(t.trim())) {
-              todosLosTipos.push(t.trim());
-            }
-          });
-        } else if (conv.tipo_convenio) {
-          const t = conv.tipo_convenio.trim();
-          if (!todosLosTipos.includes(t)) {
-            todosLosTipos.push(t);
+          tipos = conv.tipo_convenio;
+        } else if (typeof conv.tipo_convenio === 'string') {
+          // Si viene como string JSON, parsearlo
+          try {
+            const parsed = JSON.parse(conv.tipo_convenio);
+            tipos = Array.isArray(parsed) ? parsed : [conv.tipo_convenio];
+          } catch {
+            // Si no es JSON, puede ser un valor simple o separado por comas
+            tipos = conv.tipo_convenio.split(',').map((t: string) => t.trim());
           }
         }
+        
+        tipos.forEach((t: string) => {
+          const tipoLimpio = t.trim();
+          if (tipoLimpio && !todosLosTipos.includes(tipoLimpio)) {
+            todosLosTipos.push(tipoLimpio);
+          }
+        });
       });
       setTipos(todosLosTipos.sort());
   

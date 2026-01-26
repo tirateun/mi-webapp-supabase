@@ -194,9 +194,24 @@ export default function AgreementDetailsModal({
     }
   };
 
+  // ✅ Función para formatear fechas sin problemas de zona horaria
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString("es-PE");
+    
+    // Si es un timestamp con hora (contiene T o espacio), usar solo la parte de fecha
+    let fechaPura = dateString;
+    if (dateString.includes('T')) {
+      fechaPura = dateString.split('T')[0];
+    } else if (dateString.includes(' ')) {
+      fechaPura = dateString.split(' ')[0];
+    }
+    
+    // Parsear manualmente para evitar conversión UTC
+    const [year, month, day] = fechaPura.split("-").map(Number);
+    if (!year || !month || !day) return "-";
+    
+    // Formato dd/mm/yyyy (Perú)
+    return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}`;
   };
 
   if (!show) return null;
