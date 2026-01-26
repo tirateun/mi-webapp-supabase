@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import Select from "react-select";
 import { supabase } from "./supabaseClient";
-import countries from "./countries.json";
 
 interface MovilidadFormProps {
   existingMovilidad?: any;
@@ -15,6 +14,52 @@ interface Option {
   label: string;
 }
 
+// ==========================================
+// CATÁLOGOS
+// ==========================================
+
+const ESCUELAS_PREGRADO = [
+  "Escuela Profesional de Medicina Humana",
+  "Escuela Profesional de Nutrición",
+  "Escuela Profesional de Obstetricia",
+  "Escuela de Tecnología Médica",
+  "Escuela Profesional de Tecnología Médica",
+];
+
+const PROGRAMAS_POSTGRADO = [
+  "Programa de Segunda Especialización en Medicina Humana",
+  "Programa de Segunda Especialización en Enfermería",
+  "Programa de Segunda Especialidad para Nutricionista",
+  "Programa de Segunda Especialidad para Obstetras",
+  "Sección Maestría",
+  "Sección Segunda Especialidad",
+  "Sección Educación Médica Continua",
+  "Sección Doctorado",
+];
+
+const TIPOS_ESTANCIA_ESTUDIANTE = [
+  "Estancia académica",
+  "Estancia en investigación",
+  "Estancia de prácticas pre profesionales",
+  "Estancia de pasantía",
+  "Otra",
+];
+
+const TIPOS_ESTANCIA_DOCENTE = [
+  "Estancia académica",
+  "Estancia en investigación",
+  "Estancia de pasantía",
+  "Ponencia en evento científico",
+  "Otra",
+];
+
+const PAISES_COMUNES = [
+  "PERÚ", "ARGENTINA", "BRASIL", "CHILE", "COLOMBIA", "MÉXICO", "ESPAÑA",
+  "ESTADOS UNIDOS", "ALEMANIA", "FRANCIA", "ITALIA", "REINO UNIDO", "JAPÓN",
+  "CHINA", "CANADÁ", "AUSTRALIA", "PORTUGAL", "ECUADOR", "BOLIVIA", "PARAGUAY",
+  "URUGUAY", "VENEZUELA", "COSTA RICA", "PANAMÁ", "CUBA", "REPÚBLICA DOMINICANA"
+].sort();
+
 export default function MovilidadForm({
   existingMovilidad,
   onSave,
@@ -22,151 +67,185 @@ export default function MovilidadForm({
 }: MovilidadFormProps) {
   const [loading, setLoading] = useState(false);
 
-  // Datos del estudiante
-  const [studentName, setStudentName] = useState("");
-  const [studentCode, setStudentCode] = useState("");
-  const [studentEmail, setStudentEmail] = useState("");
-  const [studentPhone, setStudentPhone] = useState("");
+  // ==========================================
+  // CLASIFICACIÓN
+  // ==========================================
+  const [tipoParticipante, setTipoParticipante] = useState<"estudiante" | "docente">("estudiante");
+  const [tipoPrograma, setTipoPrograma] = useState<"intercambio" | "libre">("intercambio");
+  const [direccion, setDireccion] = useState<"entrante" | "saliente">("entrante");
 
-  // Escuela y nivel
-  const [escuela, setEscuela] = useState("");
-  const [nivelAcademico, setNivelAcademico] = useState("");
-  const [programa, setPrograma] = useState("");
-  const [cicloAcademico, setCicloAcademico] = useState("");
+  // ==========================================
+  // IDENTIFICACIÓN
+  // ==========================================
+  const [documentoIdentidad, setDocumentoIdentidad] = useState("");
+  const [codigoMatricula, setCodigoMatricula] = useState("");
+  const [codigoDocente, setCodigoDocente] = useState("");
+  const [nombresCompletos, setNombresCompletos] = useState("");
 
-  // Convenio y responsable
+  // ==========================================
+  // ORIGEN/DESTINO
+  // ==========================================
   const [convenios, setConvenios] = useState<any[]>([]);
-  const [selectedConvenio, setSelectedConvenio] = useState<string>("");
-  const [responsables, setResponsables] = useState<any[]>([]);
-  const [selectedResponsable, setSelectedResponsable] = useState<string>("");
+  const [selectedConvenio, setSelectedConvenio] = useState<Option | null>(null);
+  const [instituciones, setInstituciones] = useState<any[]>([]);
+  const [selectedInstitucion, setSelectedInstitucion] = useState<Option | null>(null);
+  const [paisTexto, setPaisTexto] = useState("");
+  const [institucionTexto, setInstitucionTexto] = useState("");
+  const [paisConvenio, setPaisConvenio] = useState("");
 
-  // Destino
-  const [destinationPlace, setDestinationPlace] = useState("");
-  const [destinationCountry, setDestinationCountry] = useState("");
-  const [destinationCity, setDestinationCity] = useState("");
+  // ==========================================
+  // NIVEL ACADÉMICO
+  // ==========================================
+  const [nivelAcademico, setNivelAcademico] = useState<"pregrado" | "postgrado" | "">("");
+  const [escuelaPrograma, setEscuelaPrograma] = useState("");
 
-  // Fechas
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [durationMonths, setDurationMonths] = useState<number>(0);
+  // ==========================================
+  // ESTANCIA
+  // ==========================================
+  const [tipoEstancia, setTipoEstancia] = useState("");
+  const [tipoEstanciaOtra, setTipoEstanciaOtra] = useState("");
 
-  // Tipo y notas
-  const [mobilityType, setMobilityType] = useState("Intercambio");
-  const [notes, setNotes] = useState("");
+  // ==========================================
+  // PERIODO Y FECHAS
+  // ==========================================
+  const [periodo, setPeriodo] = useState("");
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaTermino, setFechaTermino] = useState("");
 
-  const escuelas = [
-    "Medicina",
-    "Enfermería",
-    "Nutrición",
-    "Obstetricia",
-    "Tecnología Médica",
-  ];
+  // ==========================================
+  // ADMINISTRATIVO
+  // ==========================================
+  const [expedienteMesaPartes, setExpedienteMesaPartes] = useState("");
+  const [sedeRotacion, setSedeRotacion] = useState("");
+  const [especialidad, setEspecialidad] = useState("");
 
-  const nivelesAcademicos = [
-    "Pregrado",
-    "Maestría",
-    "Doctorado",
-    "Segunda Especialidad",
-    "Residentado",
-  ];
+  // ==========================================
+  // SOLO SALIENTES
+  // ==========================================
+  const [resolucionAutorizacion, setResolucionAutorizacion] = useState("");
+  const [antecedentesSeleccion, setAntecedentesSeleccion] = useState("");
+  const [apoyoEconomicoResolucion, setApoyoEconomicoResolucion] = useState("");
+  const [modalidad, setModalidad] = useState<"presencial" | "virtual" | "">("");
 
-  const tiposMovilidad = [
-    "Intercambio",
-    "Pasantía",
-    "Investigación",
-    "Rotación",
-  ];
+  // ==========================================
+  // NOTAS
+  // ==========================================
+  const [notas, setNotas] = useState("");
 
-  const ciclosAcademicos = [
-    "2025-1",
-    "2025-2",
-    "2024-1",
-    "2024-2",
-    "2023-1",
-    "2023-2",
-  ];
+  // ==========================================
+  // EFECTOS
+  // ==========================================
 
   useEffect(() => {
     fetchConvenios();
-    fetchResponsables();
+    fetchInstituciones();
+  }, []);
 
+  useEffect(() => {
     if (existingMovilidad) {
-      // Cargar datos existentes
-      setStudentName(existingMovilidad.student_name || "");
-      setStudentCode(existingMovilidad.student_code || "");
-      setStudentEmail(existingMovilidad.student_email || "");
-      setStudentPhone(existingMovilidad.student_phone || "");
-      setEscuela(existingMovilidad.escuela || "");
-      setNivelAcademico(existingMovilidad.nivel_academico || "");
-      setPrograma(existingMovilidad.programa || "");
-      setCicloAcademico(existingMovilidad.ciclo_academico || "");
-      setSelectedConvenio(existingMovilidad.agreement_id || "");
-      setSelectedResponsable(existingMovilidad.responsible_id || "");
-      setDestinationPlace(existingMovilidad.destination_place || "");
-      setDestinationCountry(existingMovilidad.destination_country || "");
-      setDestinationCity(existingMovilidad.destination_city || "");
-      setStartDate(existingMovilidad.start_date || "");
-      setEndDate(existingMovilidad.end_date || "");
-      setMobilityType(existingMovilidad.mobility_type || "Intercambio");
-      setNotes(existingMovilidad.notes || "");
+      cargarDatosExistentes();
     }
   }, [existingMovilidad]);
 
+  // Cuando cambia el convenio, actualizar país e institución
   useEffect(() => {
-    // Calcular duración cuando cambien las fechas
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
-      setDurationMonths(diffMonths);
+    if (selectedConvenio && tipoPrograma === "intercambio") {
+      const convenio = convenios.find(c => c.id === selectedConvenio.value);
+      if (convenio) {
+        setPaisConvenio(convenio.pais || "");
+        // Buscar la institución del convenio
+        if (convenio.institucion_id) {
+          const inst = instituciones.find(i => i.id === convenio.institucion_id);
+          if (inst) {
+            setSelectedInstitucion({ value: inst.id, label: inst.nombre });
+          }
+        }
+      }
     }
-  }, [startDate, endDate]);
+  }, [selectedConvenio, convenios, instituciones, tipoPrograma]);
+
+  // ==========================================
+  // FUNCIONES
+  // ==========================================
+
+  const cargarDatosExistentes = () => {
+    const m = existingMovilidad;
+    setTipoParticipante(m.tipo_participante || "estudiante");
+    setTipoPrograma(m.tipo_programa || "intercambio");
+    setDireccion(m.direccion || "entrante");
+    setDocumentoIdentidad(m.documento_identidad || "");
+    setCodigoMatricula(m.codigo_matricula || "");
+    setCodigoDocente(m.codigo_docente || "");
+    setNombresCompletos(m.nombres_completos || "");
+    setPaisTexto(m.pais_texto || "");
+    setInstitucionTexto(m.institucion_texto || "");
+    setNivelAcademico(m.nivel_academico || "");
+    setEscuelaPrograma(m.escuela_programa || "");
+    setTipoEstancia(m.tipo_estancia || "");
+    setTipoEstanciaOtra(m.tipo_estancia_otra || "");
+    setPeriodo(m.periodo || "");
+    setFechaInicio(m.fecha_inicio || "");
+    setFechaTermino(m.fecha_termino || "");
+    setExpedienteMesaPartes(m.expediente_mesa_partes || "");
+    setSedeRotacion(m.sede_rotacion || "");
+    setEspecialidad(m.especialidad || "");
+    setResolucionAutorizacion(m.resolucion_autorizacion || "");
+    setAntecedentesSeleccion(m.antecedentes_seleccion || "");
+    setApoyoEconomicoResolucion(m.apoyo_economico_resolucion || "");
+    setModalidad(m.modalidad || "");
+    setNotas(m.notas || "");
+
+    // Cargar convenio si existe
+    if (m.agreement_id) {
+      const conv = convenios.find(c => c.id === m.agreement_id);
+      if (conv) {
+        setSelectedConvenio({ value: conv.id, label: conv.name });
+      }
+    }
+
+    // Cargar institución si existe
+    if (m.institucion_id) {
+      const inst = instituciones.find(i => i.id === m.institucion_id);
+      if (inst) {
+        setSelectedInstitucion({ value: inst.id, label: inst.nombre });
+      }
+    }
+  };
 
   async function fetchConvenios() {
     try {
-      console.log("🔍 Buscando convenios de movilidad...");
-      
       const { data, error } = await supabase
         .from("agreements")
-        .select("id, name, tipo_convenio")
+        .select("id, name, tipo_convenio, pais, institucion_id")
         .order("name");
-  
-      console.log("📊 Convenios obtenidos:", data);
-  
-      if (error) {
-        console.error("❌ Error en query:", error);
-        throw error;
-      }
-  
-      // Filtrar manualmente los que incluyen "Movilidad académica"
+
+      if (error) throw error;
+
+      // Filtrar convenios que incluyen "Movilidad académica"
       const filtered = (data || []).filter((conv: any) => {
-        console.log(`Verificando convenio "${conv.name}":`, conv.tipo_convenio);
         if (!conv.tipo_convenio) return false;
-        const incluye = conv.tipo_convenio.includes("Movilidad académica");
-        console.log(`  ¿Incluye "Movilidad académica"?`, incluye);
-        return incluye;
+        return conv.tipo_convenio.some((t: string) => 
+          t.toLowerCase().includes("movilidad")
+        );
       });
-  
-      console.log("✅ Convenios filtrados:", filtered);
+
       setConvenios(filtered);
     } catch (err) {
-      console.error("❌ Error fetching convenios:", err);
+      console.error("Error fetching convenios:", err);
     }
   }
 
-  async function fetchResponsables() {
+  async function fetchInstituciones() {
     try {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .eq("role", "internal")
-        .order("full_name");
+        .from("instituciones")
+        .select("id, nombre, pais")
+        .order("nombre");
 
       if (error) throw error;
-      setResponsables(data || []);
+      setInstituciones(data || []);
     } catch (err) {
-      console.error("Error fetching responsables:", err);
+      console.error("Error fetching instituciones:", err);
     }
   }
 
@@ -176,20 +255,32 @@ export default function MovilidadForm({
 
     try {
       // Validaciones
-      if (!selectedConvenio) {
-        alert("⚠️ Debe seleccionar un convenio");
+      if (!nombresCompletos.trim()) {
+        alert("⚠️ Debe ingresar los nombres completos");
         setLoading(false);
         return;
       }
 
-      if (!selectedResponsable) {
-        alert("⚠️ Debe seleccionar un responsable interno");
+      if (tipoPrograma === "intercambio" && !selectedConvenio) {
+        alert("⚠️ Debe seleccionar un convenio para programa de intercambio");
         setLoading(false);
         return;
       }
 
-      if (new Date(endDate) < new Date(startDate)) {
-        alert("⚠️ La fecha de fin debe ser posterior a la fecha de inicio");
+      if (tipoPrograma === "libre" && direccion === "entrante" && !paisTexto) {
+        alert("⚠️ Debe ingresar el país de origen");
+        setLoading(false);
+        return;
+      }
+
+      if (!fechaInicio || !fechaTermino) {
+        alert("⚠️ Debe ingresar las fechas de inicio y término");
+        setLoading(false);
+        return;
+      }
+
+      if (new Date(fechaTermino) < new Date(fechaInicio)) {
+        alert("⚠️ La fecha de término debe ser posterior a la fecha de inicio");
         setLoading(false);
         return;
       }
@@ -202,30 +293,48 @@ export default function MovilidadForm({
         .eq("user_id", user?.id)
         .single();
 
-      const payload = {
-        agreement_id: selectedConvenio,
-        student_name: studentName.trim(),
-        student_code: studentCode.trim() || null,
-        student_email: studentEmail.trim() || null,
-        student_phone: studentPhone.trim() || null,
-        escuela,
-        nivel_academico: nivelAcademico,
-        programa: programa.trim() || null,
-        ciclo_academico: cicloAcademico || null,
-        responsible_id: selectedResponsable,
-        destination_place: destinationPlace.trim(),
-        destination_country: destinationCountry,
-        destination_city: destinationCity.trim() || null,
-        start_date: startDate,
-        end_date: endDate,
-        mobility_type: mobilityType,
-        status: "Pendiente",
-        notes: notes.trim() || null,
-        created_by: profile?.id,
+      // Determinar país
+      let paisFinal = "";
+      if (tipoPrograma === "intercambio") {
+        paisFinal = paisConvenio;
+      } else {
+        paisFinal = paisTexto.toUpperCase();
+      }
+
+      const payload: any = {
+        tipo_participante: tipoParticipante,
+        tipo_programa: tipoPrograma,
+        direccion,
+        documento_identidad: direccion === "entrante" ? documentoIdentidad.trim() || null : null,
+        codigo_matricula: direccion === "saliente" && tipoParticipante === "estudiante" ? codigoMatricula.trim() || null : null,
+        codigo_docente: direccion === "saliente" && tipoParticipante === "docente" ? codigoDocente.trim() || null : null,
+        nombres_completos: nombresCompletos.trim(),
+        agreement_id: tipoPrograma === "intercambio" ? selectedConvenio?.value || null : null,
+        institucion_id: tipoPrograma === "intercambio" ? selectedInstitucion?.value || null : null,
+        pais_texto: tipoPrograma === "libre" ? paisTexto.trim() || null : null,
+        institucion_texto: tipoPrograma === "libre" ? institucionTexto.trim() || null : null,
+        pais: paisFinal || null,
+        nivel_academico: nivelAcademico || null,
+        escuela_programa: escuelaPrograma || null,
+        tipo_estancia: tipoEstancia || null,
+        tipo_estancia_otra: tipoEstancia === "Otra" ? tipoEstanciaOtra.trim() || null : null,
+        periodo: periodo.trim() || null,
+        fecha_inicio: fechaInicio || null,
+        fecha_termino: fechaTermino || null,
+        expediente_mesa_partes: expedienteMesaPartes.trim() || null,
+        sede_rotacion: sedeRotacion.trim() || null,
+        especialidad: especialidad.trim() || null,
+        // Solo para salientes
+        resolucion_autorizacion: direccion === "saliente" ? resolucionAutorizacion.trim() || null : null,
+        antecedentes_seleccion: direccion === "saliente" ? antecedentesSeleccion.trim() || null : null,
+        apoyo_economico_resolucion: direccion === "saliente" ? apoyoEconomicoResolucion.trim() || null : null,
+        modalidad: direccion === "saliente" ? modalidad || null : null,
+        notas: notas.trim() || null,
+        status: "pendiente",
+        updated_at: new Date().toISOString(),
       };
 
       if (existingMovilidad) {
-        // Actualizar
         const { error } = await supabase
           .from("movilidades")
           .update(payload)
@@ -234,7 +343,7 @@ export default function MovilidadForm({
         if (error) throw error;
         alert("✅ Movilidad actualizada correctamente");
       } else {
-        // Crear
+        payload.created_by = profile?.id;
         const { error } = await supabase.from("movilidades").insert([payload]);
 
         if (error) throw error;
@@ -250,313 +359,536 @@ export default function MovilidadForm({
     }
   };
 
+  // ==========================================
+  // HELPERS PARA OPCIONES
+  // ==========================================
+
+  const getTiposEstancia = () => {
+    return tipoParticipante === "docente" ? TIPOS_ESTANCIA_DOCENTE : TIPOS_ESTANCIA_ESTUDIANTE;
+  };
+
+  const getEscuelasProgramas = () => {
+    return nivelAcademico === "pregrado" ? ESCUELAS_PREGRADO : PROGRAMAS_POSTGRADO;
+  };
+
+  const conveniosOptions: Option[] = convenios.map(c => ({
+    value: c.id,
+    label: `${c.name} (${c.pais || 'Sin país'})`
+  }));
+
+  const institucionesOptions: Option[] = instituciones.map(i => ({
+    value: i.id,
+    label: `${i.nombre} (${i.pais || 'Sin país'})`
+  }));
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
-    <div className="container mt-4">
+    <div style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
       <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white">
+        <div
+          className="card-header text-white"
+          style={{
+            background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+          }}
+        >
           <h4 className="mb-0">
-            {existingMovilidad ? "✏️ Editar Movilidad" : "🌍 Registrar Nueva Movilidad"}
+            {existingMovilidad ? "✏️ Editar Movilidad" : "➕ Registrar Nueva Movilidad"}
           </h4>
         </div>
 
         <div className="card-body">
           <form onSubmit={handleSubmit}>
-            {/* CONVENIO */}
-            <div className="mb-3">
-              <label className="form-label fw-bold">Convenio de Movilidad Académica *</label>
-              <Select
-                options={convenios.map((c) => ({ value: c.id, label: c.name }))}
-                value={
-                  selectedConvenio
-                    ? {
-                        value: selectedConvenio,
-                        label: convenios.find((c) => c.id === selectedConvenio)?.name || "",
-                      }
-                    : null
-                }
-                onChange={(option) => setSelectedConvenio(option?.value || "")}
-                placeholder="Buscar convenio..."
-                noOptionsMessage={() => "No hay convenios de movilidad disponibles"}
-                isClearable
-              />
-              {convenios.length === 0 && (
-                <small className="text-danger">
-                  No hay convenios tipo "Movilidad académica" registrados
-                </small>
-              )}
-            </div>
-
-            <hr className="my-4" />
-
-            {/* DATOS DEL ESTUDIANTE */}
-            <h5 className="mb-3">🎓 Datos del Estudiante</h5>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Nombre completo *</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  required
-                />
+            
+            {/* ==========================================
+                SECCIÓN 1: CLASIFICACIÓN
+            ========================================== */}
+            <div className="card mb-4 border-primary">
+              <div className="card-header bg-primary text-white">
+                <h5 className="mb-0">📋 Tipo de Movilidad</h5>
               </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Participante *</label>
+                    <select
+                      className="form-select"
+                      value={tipoParticipante}
+                      onChange={(e) => {
+                        setTipoParticipante(e.target.value as "estudiante" | "docente");
+                        setTipoEstancia(""); // Reset tipo estancia
+                      }}
+                      required
+                    >
+                      <option value="estudiante">🎓 Estudiante</option>
+                      <option value="docente">👨‍🏫 Docente</option>
+                    </select>
+                  </div>
 
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Código de alumno</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                  placeholder="Ej: 20201234"
-                />
-              </div>
-            </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Programa *</label>
+                    <select
+                      className="form-select"
+                      value={tipoPrograma}
+                      onChange={(e) => {
+                        setTipoPrograma(e.target.value as "intercambio" | "libre");
+                        setSelectedConvenio(null);
+                        setSelectedInstitucion(null);
+                        setPaisTexto("");
+                        setInstitucionTexto("");
+                      }}
+                      required
+                    >
+                      <option value="intercambio">🤝 Programa de Intercambio</option>
+                      <option value="libre">📝 Programa Libre</option>
+                    </select>
+                    <small className="text-muted">
+                      {tipoPrograma === "intercambio" 
+                        ? "Vinculado a un convenio existente" 
+                        : "Sin convenio (texto libre)"}
+                    </small>
+                  </div>
 
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Email</label>
-                <input
-                  type="email"
-                  className="form-control"
-                  value={studentEmail}
-                  onChange={(e) => setStudentEmail(e.target.value)}
-                  placeholder="estudiante@unmsm.edu.pe"
-                />
-              </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Dirección *</label>
+                    <select
+                      className="form-select"
+                      value={direccion}
+                      onChange={(e) => setDireccion(e.target.value as "entrante" | "saliente")}
+                      required
+                    >
+                      <option value="entrante">📥 Entrante (viene a UNMSM)</option>
+                      <option value="saliente">📤 Saliente (va desde UNMSM)</option>
+                    </select>
+                  </div>
+                </div>
 
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Teléfono</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={studentPhone}
-                  onChange={(e) => setStudentPhone(e.target.value)}
-                  placeholder="+51 999 999 999"
-                />
+                {/* Resumen visual */}
+                <div className="alert alert-info mb-0">
+                  <strong>Resumen:</strong> {tipoParticipante === "estudiante" ? "🎓 Estudiante" : "👨‍🏫 Docente"} 
+                  {" / "}
+                  {tipoPrograma === "intercambio" ? "🤝 Intercambio" : "📝 Libre"}
+                  {" / "}
+                  {direccion === "entrante" ? "📥 Entrante" : "📤 Saliente"}
+                </div>
               </div>
             </div>
 
-            <hr className="my-4" />
-
-            {/* ESCUELA Y NIVEL ACADÉMICO */}
-            <h5 className="mb-3">🏫 Escuela y Nivel Académico</h5>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Escuela *</label>
-                <select
-                  className="form-select"
-                  value={escuela}
-                  onChange={(e) => setEscuela(e.target.value)}
-                  required
-                >
-                  <option value="">Seleccione escuela...</option>
-                  {escuelas.map((e) => (
-                    <option key={e} value={e}>
-                      {e}
-                    </option>
-                  ))}
-                </select>
+            {/* ==========================================
+                SECCIÓN 2: DATOS PERSONALES
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">👤 Datos del {tipoParticipante === "estudiante" ? "Estudiante" : "Docente"}</h5>
               </div>
+              <div className="card-body">
+                <div className="row">
+                  {/* Documento/Código según dirección */}
+                  <div className="col-md-4 mb-3">
+                    {direccion === "entrante" ? (
+                      <>
+                        <label className="form-label fw-bold">N° Documento de Identidad</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={documentoIdentidad}
+                          onChange={(e) => setDocumentoIdentidad(e.target.value)}
+                          placeholder="Pasaporte u otro"
+                        />
+                      </>
+                    ) : tipoParticipante === "estudiante" ? (
+                      <>
+                        <label className="form-label fw-bold">Código de Matrícula</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={codigoMatricula}
+                          onChange={(e) => setCodigoMatricula(e.target.value)}
+                          placeholder="Ej: 20180001"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <label className="form-label fw-bold">Código de Docente</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={codigoDocente}
+                          onChange={(e) => setCodigoDocente(e.target.value)}
+                          placeholder="Código institucional"
+                        />
+                      </>
+                    )}
+                  </div>
 
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Nivel Académico *</label>
-                <select
-                  className="form-select"
-                  value={nivelAcademico}
-                  onChange={(e) => setNivelAcademico(e.target.value)}
-                  required
-                >
-                  <option value="">Seleccione nivel...</option>
-                  {nivelesAcademicos.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Programa/Carrera</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={programa}
-                  onChange={(e) => setPrograma(e.target.value)}
-                  placeholder="Ej: Medicina Humana"
-                />
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Ciclo Académico</label>
-                <select
-                  className="form-select"
-                  value={cicloAcademico}
-                  onChange={(e) => setCicloAcademico(e.target.value)}
-                >
-                  <option value="">Seleccione ciclo...</option>
-                  {ciclosAcademicos.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
+                  <div className="col-md-8 mb-3">
+                    <label className="form-label fw-bold">Nombres Completos *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={nombresCompletos}
+                      onChange={(e) => setNombresCompletos(e.target.value)}
+                      placeholder="Apellidos y nombres completos"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <hr className="my-4" />
-
-            {/* RESPONSABLE INTERNO */}
-            <h5 className="mb-3">👤 Responsable Interno</h5>
-
-            <div className="mb-3">
-              <label className="form-label">Responsable asignado *</label>
-              <Select
-                options={responsables.map((r) => ({
-                  value: r.id,
-                  label: `${r.full_name} (${r.email})`,
-                }))}
-                value={
-                  selectedResponsable
-                    ? {
-                        value: selectedResponsable,
-                        label:
-                          responsables.find((r) => r.id === selectedResponsable)?.full_name ||
-                          "",
-                      }
-                    : null
-                }
-                onChange={(option) => setSelectedResponsable(option?.value || "")}
-                placeholder="Buscar responsable..."
-                noOptionsMessage={() => "No hay responsables disponibles"}
-                isClearable
-              />
-              <small className="text-muted">
-                Este responsable será el encargado de subir el informe de viaje
-              </small>
-            </div>
-
-            <hr className="my-4" />
-
-            {/* DESTINO */}
-            <h5 className="mb-3">🌍 Destino</h5>
-
-            <div className="mb-3">
-              <label className="form-label">Universidad/Institución Destino *</label>
-              <input
-                type="text"
-                className="form-control"
-                value={destinationPlace}
-                onChange={(e) => setDestinationPlace(e.target.value)}
-                placeholder="Ej: Universidad de Chile"
-                required
-              />
-            </div>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">País *</label>
-                <select
-                  className="form-select"
-                  value={destinationCountry}
-                  onChange={(e) => setDestinationCountry(e.target.value)}
-                  required
-                >
-                  <option value="">Seleccione país...</option>
-                  {countries.map((c) => (
-                    <option key={c.code} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+            {/* ==========================================
+                SECCIÓN 3: ORIGEN/DESTINO
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">
+                  🌍 {direccion === "entrante" ? "Origen" : "Destino"}
+                </h5>
               </div>
+              <div className="card-body">
+                {tipoPrograma === "intercambio" ? (
+                  <>
+                    {/* INTERCAMBIO: Seleccionar convenio e institución */}
+                    <div className="row">
+                      <div className="col-md-12 mb-3">
+                        <label className="form-label fw-bold">Convenio de Movilidad *</label>
+                        <Select
+                          options={conveniosOptions}
+                          value={selectedConvenio}
+                          onChange={(option) => setSelectedConvenio(option)}
+                          placeholder="Buscar convenio..."
+                          noOptionsMessage={() => "No hay convenios de movilidad disponibles"}
+                          isClearable
+                        />
+                      </div>
+                    </div>
 
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Ciudad</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={destinationCity}
-                  onChange={(e) => setDestinationCity(e.target.value)}
-                  placeholder="Ej: Santiago"
-                />
-              </div>
-            </div>
+                    <div className="row">
+                      <div className="col-md-6 mb-3">
+                        <label className="form-label fw-bold">Institución</label>
+                        <Select
+                          options={institucionesOptions}
+                          value={selectedInstitucion}
+                          onChange={(option) => setSelectedInstitucion(option)}
+                          placeholder="Seleccionar institución..."
+                          isClearable
+                        />
+                      </div>
 
-            <hr className="my-4" />
+                      <div className="col-md-6 mb-3">
+                        <label className="form-label fw-bold">País (del convenio)</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={paisConvenio}
+                          readOnly
+                          style={{ backgroundColor: "#e9ecef" }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* LIBRE: Texto libre */}
+                    <div className="row">
+                      <div className="col-md-6 mb-3">
+                        <label className="form-label fw-bold">
+                          {direccion === "entrante" ? "País de Origen *" : "País de Destino *"}
+                        </label>
+                        <select
+                          className="form-select"
+                          value={paisTexto}
+                          onChange={(e) => setPaisTexto(e.target.value)}
+                          required
+                        >
+                          <option value="">Seleccione país...</option>
+                          {PAISES_COMUNES.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
 
-            {/* FECHAS */}
-            <h5 className="mb-3">📅 Fechas</h5>
-
-            <div className="row">
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Fecha de inicio *</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="col-md-6 mb-3">
-                <label className="form-label">Fecha de fin *</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                />
+                      <div className="col-md-6 mb-3">
+                        <label className="form-label fw-bold">
+                          {direccion === "entrante" ? "Institución de Origen" : "Institución de Destino"}
+                        </label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={institucionTexto}
+                          onChange={(e) => setInstitucionTexto(e.target.value)}
+                          placeholder="Nombre de la institución"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {durationMonths > 0 && (
-              <div className="alert alert-info">
-                ⏱️ <strong>Duración calculada:</strong> {durationMonths}{" "}
-                {durationMonths === 1 ? "mes" : "meses"}
+            {/* ==========================================
+                SECCIÓN 4: NIVEL ACADÉMICO
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">🏫 Nivel Académico</h5>
+              </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Nivel *</label>
+                    <select
+                      className="form-select"
+                      value={nivelAcademico}
+                      onChange={(e) => {
+                        setNivelAcademico(e.target.value as "pregrado" | "postgrado");
+                        setEscuelaPrograma(""); // Reset
+                      }}
+                      required
+                    >
+                      <option value="">Seleccione...</option>
+                      <option value="pregrado">Pregrado</option>
+                      <option value="postgrado">Postgrado</option>
+                    </select>
+                  </div>
+
+                  <div className="col-md-8 mb-3">
+                    <label className="form-label fw-bold">
+                      {nivelAcademico === "pregrado" ? "Escuela Profesional *" : "Programa *"}
+                    </label>
+                    <select
+                      className="form-select"
+                      value={escuelaPrograma}
+                      onChange={(e) => setEscuelaPrograma(e.target.value)}
+                      disabled={!nivelAcademico}
+                      required
+                    >
+                      <option value="">Seleccione...</option>
+                      {getEscuelasProgramas().map(ep => (
+                        <option key={ep} value={ep}>{ep}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ==========================================
+                SECCIÓN 5: TIPO DE ESTANCIA
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">📚 Tipo de Estancia</h5>
+              </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label fw-bold">Tipo de Estancia *</label>
+                    <select
+                      className="form-select"
+                      value={tipoEstancia}
+                      onChange={(e) => setTipoEstancia(e.target.value)}
+                      required
+                    >
+                      <option value="">Seleccione...</option>
+                      {getTiposEstancia().map(te => (
+                        <option key={te} value={te}>{te}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {tipoEstancia === "Otra" && (
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-bold">Especificar</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={tipoEstanciaOtra}
+                        onChange={(e) => setTipoEstanciaOtra(e.target.value)}
+                        placeholder="Especifique el tipo de estancia"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ==========================================
+                SECCIÓN 6: PERIODO Y FECHAS
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">📅 Periodo y Fechas</h5>
+              </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Periodo</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={periodo}
+                      onChange={(e) => setPeriodo(e.target.value)}
+                      placeholder="Ej: Semestre 2025-I"
+                    />
+                  </div>
+
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Fecha de Inicio *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={fechaInicio}
+                      onChange={(e) => setFechaInicio(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Fecha de Término *</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={fechaTermino}
+                      onChange={(e) => setFechaTermino(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ==========================================
+                SECCIÓN 7: DATOS ADMINISTRATIVOS
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">📋 Datos Administrativos</h5>
+              </div>
+              <div className="card-body">
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">N° Expediente Mesa de Partes</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={expedienteMesaPartes}
+                      onChange={(e) => setExpedienteMesaPartes(e.target.value)}
+                      placeholder="N° de expediente"
+                    />
+                  </div>
+
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Sede de Rotación</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={sedeRotacion}
+                      onChange={(e) => setSedeRotacion(e.target.value)}
+                      placeholder="Sede donde realizará la rotación"
+                    />
+                  </div>
+
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label fw-bold">Especialidad</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={especialidad}
+                      onChange={(e) => setEspecialidad(e.target.value)}
+                      placeholder="Especialidad o área"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ==========================================
+                SECCIÓN 8: SOLO SALIENTES
+            ========================================== */}
+            {direccion === "saliente" && (
+              <div className="card mb-4 border-warning">
+                <div className="card-header bg-warning bg-opacity-25">
+                  <h5 className="mb-0">📤 Datos Adicionales (Solo Salientes)</h5>
+                </div>
+                <div className="card-body">
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-bold">Resolución de Autorización</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={resolucionAutorizacion}
+                        onChange={(e) => setResolucionAutorizacion(e.target.value)}
+                        placeholder="N° de resolución"
+                      />
+                    </div>
+
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-bold">Modalidad</label>
+                      <select
+                        className="form-select"
+                        value={modalidad}
+                        onChange={(e) => setModalidad(e.target.value as "presencial" | "virtual")}
+                      >
+                        <option value="">Seleccione...</option>
+                        <option value="presencial">Presencial</option>
+                        <option value="virtual">Virtual</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-bold">Antecedentes de Selección</label>
+                      <textarea
+                        className="form-control"
+                        rows={2}
+                        value={antecedentesSeleccion}
+                        onChange={(e) => setAntecedentesSeleccion(e.target.value)}
+                        placeholder="Proceso de selección, requisitos cumplidos, etc."
+                      />
+                    </div>
+
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label fw-bold">Apoyo Económico (Resolución Decanal)</label>
+                      <textarea
+                        className="form-control"
+                        rows={2}
+                        value={apoyoEconomicoResolucion}
+                        onChange={(e) => setApoyoEconomicoResolucion(e.target.value)}
+                        placeholder="Detalles del apoyo económico si aplica"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
-            <hr className="my-4" />
-
-            {/* TIPO Y NOTAS */}
-            <h5 className="mb-3">📝 Información Adicional</h5>
-
-            <div className="mb-3">
-              <label className="form-label">Tipo de movilidad</label>
-              <select
-                className="form-select"
-                value={mobilityType}
-                onChange={(e) => setMobilityType(e.target.value)}
-              >
-                {tiposMovilidad.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+            {/* ==========================================
+                SECCIÓN 9: NOTAS
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">📝 Notas Adicionales</h5>
+              </div>
+              <div className="card-body">
+                <textarea
+                  className="form-control"
+                  rows={3}
+                  value={notas}
+                  onChange={(e) => setNotas(e.target.value)}
+                  placeholder="Observaciones, comentarios adicionales..."
+                />
+              </div>
             </div>
 
-            <div className="mb-3">
-              <label className="form-label">Notas adicionales</label>
-              <textarea
-                className="form-control"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Observaciones, requisitos especiales, etc."
-              />
-            </div>
-
-            {/* BOTONES */}
-            <div className="d-flex justify-content-end gap-2 mt-4">
+            {/* ==========================================
+                BOTONES
+            ========================================== */}
+            <div className="d-flex justify-content-end gap-2">
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -565,9 +897,25 @@ export default function MovilidadForm({
               >
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? "Guardando..." : existingMovilidad ? "Actualizar" : "Registrar"}{" "}
-                Movilidad
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading}
+                style={{
+                  background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
+                  border: "none",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" />
+                    Guardando...
+                  </>
+                ) : existingMovilidad ? (
+                  "Actualizar Movilidad"
+                ) : (
+                  "Registrar Movilidad"
+                )}
               </button>
             </div>
           </form>
