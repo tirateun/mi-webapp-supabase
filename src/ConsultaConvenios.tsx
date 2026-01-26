@@ -34,6 +34,7 @@ interface Convenio {
   estado: string;
   institucion_nombre?: string;
   areas_vinculadas?: string[];
+  subtipos_docente?: string[]; // 🆕 Array de subtipos
   // 🆕 Nuevos campos:
   objetivos?: string;
   convenio?: string; // marco o específico
@@ -72,6 +73,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [filtroArea, setFiltroArea] = useState<string>("");
   const [filtroTipo, setFiltroTipo] = useState<string>("");
+  const [filtroSubtipo, setFiltroSubtipo] = useState<string>("");
   const [filtroPais, setFiltroPais] = useState<string>("");
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
   const [busquedaTexto, setBusquedaTexto] = useState<string>("");
@@ -79,6 +81,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Catálogos para dropdowns
   const [areas, setAreas] = useState<any[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  const [subtiposDocente, setSubtiposDocente] = useState<string[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
 
@@ -99,7 +102,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Aplicar filtros cuando cambian
   useEffect(() => {
     aplicarFiltros();
-  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, busquedaTexto]);
+  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroSubtipo, filtroPais, filtroInstitucion, busquedaTexto]);
 
   const cargarCatalogos = async () => {
     // Cargar áreas vinculadas
@@ -195,6 +198,16 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             .map((a: any) => a.areas_vinculadas?.nombre)
             .filter(Boolean);
 
+          // 🆕 Obtener subtipos docente
+          const { data: subtipesData } = await supabase
+            .from("agreement_subtypes")
+            .select("subtipo_nombre")
+            .eq("agreement_id", conv.id);
+          
+          const subtiposNombres = (subtipesData || [])
+            .map((s: any) => s.subtipo_nombre)
+            .filter(Boolean);
+
             const { data: historial } = await supabase
             .from("agreements_history")
             .select("action, changed_at")
@@ -239,6 +252,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             duration_years: conv.duration_years,
             estado,
             areas_vinculadas: areasNombres,
+            subtipos_docente: subtiposNombres, // 🆕
             // Datos de institución:
             institucion_nombre: institucionData?.nombre || "Sin institución",
             institucion_email: institucionData?.email,
@@ -296,6 +310,19 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
         });
       });
       setTipos(todosLosTipos.sort());
+
+      // 🆕 Extraer subtipos docente únicos
+      const todosLosSubtipos: string[] = [];
+      conveniosConDatos.forEach((conv: any) => {
+        if (conv.subtipos_docente && Array.isArray(conv.subtipos_docente)) {
+          conv.subtipos_docente.forEach((s: string) => {
+            if (s && !todosLosSubtipos.includes(s)) {
+              todosLosSubtipos.push(s);
+            }
+          });
+        }
+      });
+      setSubtiposDocente(todosLosSubtipos.sort());
   
       // Extraer países únicos
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
@@ -337,6 +364,13 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       );
     }
 
+    // 🆕 Filtro por subtipo docente
+    if (filtroSubtipo) {
+      resultado = resultado.filter(c => 
+        c.subtipos_docente?.includes(filtroSubtipo)
+      );
+    }
+
     // Filtro por país
     if (filtroPais) {
       resultado = resultado.filter(c => c.pais === filtroPais);
@@ -360,6 +394,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroEstado("todos");
     setFiltroArea("");
     setFiltroTipo("");
+    setFiltroSubtipo("");
     setFiltroPais("");
     setFiltroInstitucion("");
     setBusquedaTexto("");
@@ -591,7 +626,13 @@ const verDetalleConvenio = (convenio: Convenio) => {
               </label>
               <select
                 value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
+                onChange={(e) => {
+                  setFiltroTipo(e.target.value);
+                  // Limpiar subtipo si no es Docente Asistencial
+                  if (e.target.value !== "Docente Asistencial") {
+                    setFiltroSubtipo("");
+                  }
+                }}
                 style={{
                   width: "100%",
                   padding: "0.75rem",
@@ -609,6 +650,47 @@ const verDetalleConvenio = (convenio: Convenio) => {
                 ))}
               </select>
             </div>
+
+            {/* 🆕 Filtro por Subtipo Docente - Solo visible cuando tipo es Docente Asistencial */}
+            {(filtroTipo === "Docente Asistencial" || subtiposDocente.length > 0) && (
+              <div>
+                <label style={{ 
+                  display: "block", 
+                  marginBottom: "0.5rem", 
+                  color: "#3D1A4F", 
+                  fontWeight: 600, 
+                  fontSize: "0.9rem" 
+                }}>
+                  <i className="bi bi-mortarboard"></i> Subtipo Docente
+                </label>
+                <select
+                  value={filtroSubtipo}
+                  onChange={(e) => setFiltroSubtipo(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "2px solid #E9ECEF",
+                    borderRadius: "8px",
+                    fontSize: "0.95rem",
+                    cursor: "pointer",
+                    backgroundColor: filtroTipo !== "Docente Asistencial" ? "#f8f9fa" : "white"
+                  }}
+                  disabled={filtroTipo !== "" && filtroTipo !== "Docente Asistencial"}
+                >
+                  <option value="">Todos los subtipos</option>
+                  {subtiposDocente.map((subtipo) => (
+                    <option key={subtipo} value={subtipo}>
+                      {subtipo}
+                    </option>
+                  ))}
+                </select>
+                {filtroTipo !== "" && filtroTipo !== "Docente Asistencial" && (
+                  <small style={{ color: "#6c757d", fontSize: "0.75rem" }}>
+                    Solo disponible para Docente Asistencial
+                  </small>
+                )}
+              </div>
+            )}
 
             {/* Filtro por País */}
             <div>
