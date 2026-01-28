@@ -15,7 +15,7 @@ interface Option {
 }
 
 // ==========================================
-// CATÁLOGOS
+// CATÁLOGOS SEGÚN DOCUMENTOS
 // ==========================================
 
 const ESCUELAS_PREGRADO = [
@@ -37,18 +37,35 @@ const PROGRAMAS_POSTGRADO = [
   "Sección Doctorado",
 ];
 
+// Mapeo de escuela_programa a escuela (para constraint)
+const ESCUELA_MAP: Record<string, string> = {
+  "Escuela Profesional de Medicina Humana": "Medicina",
+  "Escuela Profesional de Nutrición": "Nutrición",
+  "Escuela Profesional de Obstetricia": "Obstetricia",
+  "Escuela de Tecnología Médica": "Tecnología Médica",
+  "Escuela Profesional de Tecnología Médica": "Tecnología Médica",
+  "Programa de Segunda Especialización en Medicina Humana": "Medicina",
+  "Programa de Segunda Especialización en Enfermería": "Enfermería",
+  "Programa de Segunda Especialidad para Nutricionista": "Nutrición",
+  "Programa de Segunda Especialidad para Obstetras": "Obstetricia",
+  "Sección Maestría": "Medicina",
+  "Sección Segunda Especialidad": "Medicina",
+  "Sección Educación Médica Continua": "Medicina",
+  "Sección Doctorado": "Medicina",
+};
+
 const TIPOS_ESTANCIA_ESTUDIANTE = [
   "Estancia académica",
   "Estancia en investigación",
   "Estancia de prácticas pre profesionales",
-  "Estancia de pasantía",
+  "Estancia de Pasantía",
   "Otra",
 ];
 
 const TIPOS_ESTANCIA_DOCENTE = [
   "Estancia académica",
   "Estancia en investigación",
-  "Estancia de pasantía",
+  "Estancia de Pasantía",
   "Ponencia en evento científico",
   "Otra",
 ];
@@ -57,7 +74,11 @@ const PAISES_COMUNES = [
   "PERÚ", "ARGENTINA", "BRASIL", "CHILE", "COLOMBIA", "MÉXICO", "ESPAÑA",
   "ESTADOS UNIDOS", "ALEMANIA", "FRANCIA", "ITALIA", "REINO UNIDO", "JAPÓN",
   "CHINA", "CANADÁ", "AUSTRALIA", "PORTUGAL", "ECUADOR", "BOLIVIA", "PARAGUAY",
-  "URUGUAY", "VENEZUELA", "COSTA RICA", "PANAMÁ", "CUBA", "REPÚBLICA DOMINICANA"
+  "URUGUAY", "VENEZUELA", "COSTA RICA", "PANAMÁ", "CUBA", "REPÚBLICA DOMINICANA",
+  "GUATEMALA", "HONDURAS", "EL SALVADOR", "NICARAGUA", "PUERTO RICO", "SUIZA",
+  "BÉLGICA", "PAÍSES BAJOS", "AUSTRIA", "SUECIA", "NORUEGA", "DINAMARCA",
+  "FINLANDIA", "POLONIA", "REPÚBLICA CHECA", "HUNGRÍA", "GRECIA", "TURQUÍA",
+  "RUSIA", "INDIA", "COREA DEL SUR", "TAIWÁN", "SINGAPUR", "NUEVA ZELANDA"
 ].sort();
 
 export default function MovilidadForm({
@@ -70,7 +91,7 @@ export default function MovilidadForm({
   // ==========================================
   // CLASIFICACIÓN
   // ==========================================
-  const [tipoParticipante, setTipoParticipante] = useState<"estudiante" | "docente">("estudiante");
+  const [categoria, setCategoria] = useState<"estudiante" | "docente">("estudiante");
   const [tipoPrograma, setTipoPrograma] = useState<"intercambio" | "libre">("intercambio");
   const [direccion, setDireccion] = useState<"entrante" | "saliente">("entrante");
 
@@ -80,7 +101,9 @@ export default function MovilidadForm({
   const [documentoIdentidad, setDocumentoIdentidad] = useState("");
   const [codigoMatricula, setCodigoMatricula] = useState("");
   const [codigoDocente, setCodigoDocente] = useState("");
-  const [nombresCompletos, setNombresCompletos] = useState("");
+  const [nombreCompleto, setNombreCompleto] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefono, setTelefono] = useState("");
 
   // ==========================================
   // ORIGEN/DESTINO
@@ -89,35 +112,45 @@ export default function MovilidadForm({
   const [selectedConvenio, setSelectedConvenio] = useState<Option | null>(null);
   const [instituciones, setInstituciones] = useState<any[]>([]);
   const [selectedInstitucion, setSelectedInstitucion] = useState<Option | null>(null);
-  const [paisTexto, setPaisTexto] = useState("");
-  const [institucionTexto, setInstitucionTexto] = useState("");
+  
+  // Para programa libre (texto)
+  const [paisOrigen, setPaisOrigen] = useState("");
+  const [institucionOrigen, setInstitucionOrigen] = useState("");
+  const [paisDestino, setPaisDestino] = useState("");
+  const [institucionDestino, setInstitucionDestino] = useState("");
+  const [destinationCity, setDestinationCity] = useState("");
+  
+  // País del convenio (readonly)
   const [paisConvenio, setPaisConvenio] = useState("");
 
   // ==========================================
   // NIVEL ACADÉMICO
   // ==========================================
-  const [nivelAcademico, setNivelAcademico] = useState<"pregrado" | "postgrado" | "">("");
+  const [nivelAcademico, setNivelAcademico] = useState<"Pregrado" | "Postgrado" | "">("");
   const [escuelaPrograma, setEscuelaPrograma] = useState("");
+  const [programa, setPrograma] = useState("");
+  const [cicloAcademico, setCicloAcademico] = useState("");
 
   // ==========================================
   // ESTANCIA
   // ==========================================
   const [tipoEstancia, setTipoEstancia] = useState("");
-  const [tipoEstanciaOtra, setTipoEstanciaOtra] = useState("");
+  const [tipoEstanciaOtro, setTipoEstanciaOtro] = useState("");
 
   // ==========================================
   // PERIODO Y FECHAS
   // ==========================================
   const [periodo, setPeriodo] = useState("");
-  const [fechaInicio, setFechaInicio] = useState("");
-  const [fechaTermino, setFechaTermino] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [durationMonths, setDurationMonths] = useState<number>(0);
 
   // ==========================================
   // ADMINISTRATIVO
   // ==========================================
-  const [expedienteMesaPartes, setExpedienteMesaPartes] = useState("");
+  const [numExpediente, setNumExpediente] = useState("");
   const [sedeRotacion, setSedeRotacion] = useState("");
-  const [especialidad, setEspecialidad] = useState("");
+  const [especialidadTexto, setEspecialidadTexto] = useState("");
 
   // ==========================================
   // SOLO SALIENTES
@@ -125,12 +158,14 @@ export default function MovilidadForm({
   const [resolucionAutorizacion, setResolucionAutorizacion] = useState("");
   const [antecedentesSeleccion, setAntecedentesSeleccion] = useState("");
   const [apoyoEconomico, setApoyoEconomico] = useState("");
-  const [modalidad, setModalidad] = useState<"presencial" | "virtual" | "">("");
+  const [modalidad, setModalidad] = useState<"Presencial" | "Virtual" | "">("");
 
   // ==========================================
-  // NOTAS
+  // RESPONSABLE Y NOTAS
   // ==========================================
-  const [notas, setNotas] = useState("");
+  const [responsables, setResponsables] = useState<any[]>([]);
+  const [selectedResponsable, setSelectedResponsable] = useState<Option | null>(null);
+  const [notes, setNotes] = useState("");
 
   // ==========================================
   // EFECTOS
@@ -139,13 +174,25 @@ export default function MovilidadForm({
   useEffect(() => {
     fetchConvenios();
     fetchInstituciones();
+    fetchResponsables();
   }, []);
 
   useEffect(() => {
-    if (existingMovilidad) {
+    if (existingMovilidad && convenios.length > 0 && responsables.length > 0) {
       cargarDatosExistentes();
     }
-  }, [existingMovilidad, convenios, instituciones]);
+  }, [existingMovilidad, convenios, responsables, instituciones]);
+
+  // Calcular duración cuando cambian las fechas
+  useEffect(() => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
+      setDurationMonths(diffMonths);
+    }
+  }, [startDate, endDate]);
 
   // Cuando cambia el convenio, actualizar país e institución
   useEffect(() => {
@@ -153,82 +200,112 @@ export default function MovilidadForm({
       const convenio = convenios.find(c => c.id === selectedConvenio.value);
       if (convenio) {
         setPaisConvenio(convenio.pais || "");
-        if (convenio.institucion_id) {
+        // Si el convenio tiene institución, seleccionarla
+        if (convenio.institucion_id && instituciones.length > 0) {
           const inst = instituciones.find(i => i.id === convenio.institucion_id);
           if (inst) {
             setSelectedInstitucion({ value: inst.id, label: inst.nombre });
+            if (direccion === "entrante") {
+              setInstitucionOrigen(inst.nombre);
+              setPaisOrigen(convenio.pais || "");
+            } else {
+              setInstitucionDestino(inst.nombre);
+              setPaisDestino(convenio.pais || "");
+            }
           }
         }
       }
     }
-  }, [selectedConvenio, convenios, instituciones, tipoPrograma]);
+  }, [selectedConvenio, convenios, instituciones, tipoPrograma, direccion]);
 
   // ==========================================
-  // FUNCIONES
+  // FUNCIONES DE CARGA
   // ==========================================
 
   const cargarDatosExistentes = () => {
     const m = existingMovilidad;
-    // Clasificación - usar categoria si existe
-    setTipoParticipante(m.tipo_participante || (m.categoria === 'docente' ? 'docente' : 'estudiante'));
-    setTipoPrograma(m.tipo_programa || "intercambio");
-    setDireccion(m.direccion || "entrante");
+    
+    // Clasificación
+    const cat = m.categoria?.toLowerCase() === 'docente' || m.categoria === 'Docente' ? 'docente' : 'estudiante';
+    setCategoria(cat);
+    
+    const prog = m.tipo_programa?.toLowerCase().includes('libre') ? 'libre' : 'intercambio';
+    setTipoPrograma(prog);
+    
+    const dir = m.direccion?.toLowerCase() === 'saliente' || m.direccion === 'Saliente' ? 'saliente' : 'entrante';
+    setDireccion(dir);
     
     // Identificación
     setDocumentoIdentidad(m.documento_identidad || "");
     setCodigoMatricula(m.codigo_matricula || "");
     setCodigoDocente(m.codigo_docente || "");
-    setNombresCompletos(m.nombres_completos || m.nombre_completo || "");
+    setNombreCompleto(m.nombre_completo || "");
+    setEmail(m.email || "");
+    setTelefono(m.telefono || "");
     
     // Origen/Destino
-    if (m.direccion === "entrante") {
-      setPaisTexto(m.pais_origen || m.pais_texto || "");
-      setInstitucionTexto(m.institucion_origen || m.institucion_texto || "");
-    } else {
-      setPaisTexto(m.pais_destino || m.pais_texto || "");
-      setInstitucionTexto(m.institucion_destino || m.institucion_texto || m.destination_place || "");
-    }
+    setPaisOrigen(m.pais_origen || "");
+    setInstitucionOrigen(m.institucion_origen || "");
+    setPaisDestino(m.pais_destino || m.destination_country || "");
+    setInstitucionDestino(m.institucion_destino || m.destination_place || "");
+    setDestinationCity(m.destination_city || "");
     
     // Nivel académico
-    setNivelAcademico(m.nivel_pregrado_postgrado || m.nivel_academico || "");
-    setEscuelaPrograma(m.programa_especifico || m.escuela_programa || m.escuela || "");
+    const nivel = m.nivel_pregrado_postgrado || m.nivel_academico || "";
+    if (nivel.toLowerCase().includes('post') || ['Maestría', 'Doctorado', 'Segunda Especialidad', 'Residentado'].includes(nivel)) {
+      setNivelAcademico("Postgrado");
+    } else if (nivel) {
+      setNivelAcademico("Pregrado");
+    }
+    setEscuelaPrograma(m.programa_especifico || m.escuela_programa || "");
+    setPrograma(m.programa || "");
+    setCicloAcademico(m.ciclo_academico || "");
     
     // Estancia
     setTipoEstancia(m.tipo_estancia || "");
-    setTipoEstanciaOtra(m.tipo_estancia_otro || m.tipo_estancia_otra || "");
+    setTipoEstanciaOtro(m.tipo_estancia_otro || "");
     
     // Periodo y fechas
     setPeriodo(m.periodo || "");
-    setFechaInicio(m.fecha_inicio || m.start_date || "");
-    setFechaTermino(m.fecha_termino || m.end_date || "");
+    setStartDate(m.start_date || "");
+    setEndDate(m.end_date || "");
     
     // Administrativo
-    setExpedienteMesaPartes(m.num_expediente_mesa_partes || m.expediente_mesa_partes || "");
+    setNumExpediente(m.num_expediente_mesa_partes || "");
     setSedeRotacion(m.sede_rotacion || "");
-    setEspecialidad(m.especialidad_texto || m.especialidad || "");
+    setEspecialidadTexto(m.especialidad_texto || "");
     
     // Solo salientes
     setResolucionAutorizacion(m.resolucion_autorizacion || "");
     setAntecedentesSeleccion(m.antecedentes_seleccion || "");
-    setApoyoEconomico(m.apoyo_economico || m.apoyo_economico_resolucion || "");
+    setApoyoEconomico(m.apoyo_economico || "");
     setModalidad(m.modalidad || "");
     
     // Notas
-    setNotas(m.notas || m.notes || "");
+    setNotes(m.notes || "");
 
-    // Cargar convenio si existe
-    if (m.agreement_id && convenios.length > 0) {
+    // Convenio
+    if (m.agreement_id) {
       const conv = convenios.find(c => c.id === m.agreement_id);
       if (conv) {
         setSelectedConvenio({ value: conv.id, label: conv.name });
+        setPaisConvenio(conv.pais || "");
       }
     }
 
-    // Cargar institución si existe
-    if (m.institucion_id && instituciones.length > 0) {
+    // Institución
+    if (m.institucion_id) {
       const inst = instituciones.find(i => i.id === m.institucion_id);
       if (inst) {
         setSelectedInstitucion({ value: inst.id, label: inst.nombre });
+      }
+    }
+
+    // Responsable
+    if (m.responsible_id) {
+      const resp = responsables.find(r => r.id === m.responsible_id);
+      if (resp) {
+        setSelectedResponsable({ value: resp.id, label: resp.full_name });
       }
     }
   };
@@ -250,7 +327,7 @@ export default function MovilidadForm({
             t.toLowerCase().includes("movilidad")
           );
         }
-        return conv.tipo_convenio.toLowerCase().includes("movilidad");
+        return String(conv.tipo_convenio).toLowerCase().includes("movilidad");
       });
 
       setConvenios(filtered);
@@ -273,13 +350,31 @@ export default function MovilidadForm({
     }
   }
 
+  async function fetchResponsables() {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .order("full_name");
+
+      if (error) throw error;
+      setResponsables(data || []);
+    } catch (err) {
+      console.error("Error fetching responsables:", err);
+    }
+  }
+
+  // ==========================================
+  // SUBMIT
+  // ==========================================
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       // Validaciones
-      if (!nombresCompletos.trim()) {
+      if (!nombreCompleto.trim()) {
         alert("⚠️ Debe ingresar los nombres completos");
         setLoading(false);
         return;
@@ -292,7 +387,7 @@ export default function MovilidadForm({
       }
 
       if (!nivelAcademico) {
-        alert("⚠️ Debe seleccionar el nivel académico");
+        alert("⚠️ Debe seleccionar el nivel académico (Pregrado o Postgrado)");
         setLoading(false);
         return;
       }
@@ -303,13 +398,19 @@ export default function MovilidadForm({
         return;
       }
 
-      if (!fechaInicio || !fechaTermino) {
+      if (!selectedResponsable) {
+        alert("⚠️ Debe seleccionar un responsable interno");
+        setLoading(false);
+        return;
+      }
+
+      if (!startDate || !endDate) {
         alert("⚠️ Debe ingresar las fechas de inicio y término");
         setLoading(false);
         return;
       }
 
-      if (new Date(fechaTermino) < new Date(fechaInicio)) {
+      if (new Date(endDate) < new Date(startDate)) {
         alert("⚠️ La fecha de término debe ser posterior a la fecha de inicio");
         setLoading(false);
         return;
@@ -323,73 +424,94 @@ export default function MovilidadForm({
         .eq("user_id", user?.id)
         .single();
 
+      // Determinar escuela para el constraint (valor corto)
+      const escuelaCorta = ESCUELA_MAP[escuelaPrograma] || "Medicina";
+
+      // Determinar país y lugar de destino
+      let destinationCountry = "N/A";
+      let destinationPlace = "N/A";
+      
+      if (direccion === "saliente") {
+        if (tipoPrograma === "intercambio") {
+          destinationCountry = paisConvenio || paisDestino || "N/A";
+          destinationPlace = selectedInstitucion?.label || institucionDestino || "N/A";
+        } else {
+          destinationCountry = paisDestino || "N/A";
+          destinationPlace = institucionDestino || "N/A";
+        }
+      }
+
       // ==========================================
-      // PAYLOAD CON NOMBRES EXACTOS DE TU TABLA
+      // PAYLOAD COMPLETO
       // ==========================================
       const payload: any = {
-        // Clasificación
-        tipo_participante: tipoParticipante,
-        tipo_programa: tipoPrograma,
-        categoria: tipoParticipante, // Columna existente
-        direccion,
+        // Clasificación (valores que aceptan tanto mayúscula como minúscula)
+        categoria: categoria === "estudiante" ? "Estudiantil" : "Docente",
+        tipo_programa: tipoPrograma === "intercambio" ? "Programa de Intercambio" : "Programa Libre",
+        direccion: direccion === "entrante" ? "Entrante" : "Saliente",
         
         // Identificación
         documento_identidad: direccion === "entrante" ? documentoIdentidad.trim() || null : null,
-        codigo_matricula: direccion === "saliente" && tipoParticipante === "estudiante" ? codigoMatricula.trim() || null : null,
-        codigo_docente: direccion === "saliente" && tipoParticipante === "docente" ? codigoDocente.trim() || null : null,
-        nombre_completo: nombresCompletos.trim(), // Columna existente (NOT NULL)
-        nombres_completos: nombresCompletos.trim(), // Columna nueva
+        codigo_matricula: direccion === "saliente" && categoria === "estudiante" ? codigoMatricula.trim() || null : null,
+        codigo_docente: direccion === "saliente" && categoria === "docente" ? codigoDocente.trim() || null : null,
+        nombre_completo: nombreCompleto.trim(),
+        email: email.trim() || null,
+        telefono: telefono.trim() || null,
         
-        // Convenio (para intercambio)
+        // Convenio e institución
         agreement_id: tipoPrograma === "intercambio" ? selectedConvenio?.value || null : null,
+        institucion_id: selectedInstitucion?.value || null,
         
-        // Origen/Destino según dirección
-        pais_origen: direccion === "entrante" ? paisTexto.toUpperCase() || null : null,
-        institucion_origen: direccion === "entrante" ? institucionTexto.trim() || null : null,
-        pais_destino: direccion === "saliente" ? (tipoPrograma === "intercambio" ? paisConvenio : paisTexto.toUpperCase()) || null : null,
-        institucion_destino: direccion === "saliente" ? institucionTexto.trim() || null : null,
-        destination_country: direccion === "saliente" ? (tipoPrograma === "intercambio" ? paisConvenio : paisTexto.toUpperCase()) || "N/A" : "N/A",
-        destination_place: direccion === "saliente" ? institucionTexto.trim() || "N/A" : "N/A",
+        // Origen/Destino
+        pais_origen: direccion === "entrante" ? (tipoPrograma === "intercambio" ? paisConvenio : paisOrigen) || null : null,
+        institucion_origen: direccion === "entrante" ? (tipoPrograma === "intercambio" ? selectedInstitucion?.label : institucionOrigen) || null : null,
+        pais_destino: direccion === "saliente" ? (tipoPrograma === "intercambio" ? paisConvenio : paisDestino) || null : null,
+        institucion_destino: direccion === "saliente" ? (tipoPrograma === "intercambio" ? selectedInstitucion?.label : institucionDestino) || null : null,
+        destination_country: destinationCountry,
+        destination_place: destinationPlace,
+        destination_city: destinationCity.trim() || null,
         
         // Nivel académico
-        nivel_academico: nivelAcademico, // Columna existente (NOT NULL)
+        nivel_academico: nivelAcademico,
         nivel_pregrado_postgrado: nivelAcademico,
-        escuela: escuelaPrograma, // Columna existente (NOT NULL)
-        programa_especifico: escuelaPrograma,
+        escuela: escuelaCorta, // Valor corto para el constraint
+        programa_especifico: escuelaPrograma, // Valor completo
         escuela_programa: escuelaPrograma,
+        programa: programa.trim() || null,
+        ciclo_academico: cicloAcademico.trim() || null,
         
         // Estancia
         tipo_estancia: tipoEstancia || null,
-        tipo_estancia_otro: tipoEstancia === "Otra" ? tipoEstanciaOtra.trim() || null : null,
+        tipo_estancia_otro: tipoEstancia === "Otra" ? tipoEstanciaOtro.trim() || null : null,
         
         // Periodo y fechas
         periodo: periodo.trim() || null,
-        start_date: fechaInicio, // Columna existente (NOT NULL)
-        end_date: fechaTermino, // Columna existente (NOT NULL)
-        fecha_inicio: fechaInicio,
-        fecha_termino: fechaTermino,
+        start_date: startDate,
+        end_date: endDate,
+        duration_months: durationMonths,
         
         // Administrativo
-        num_expediente_mesa_partes: expedienteMesaPartes.trim() || null,
+        num_expediente_mesa_partes: numExpediente.trim() || null,
         sede_rotacion: sedeRotacion.trim() || null,
-        especialidad_texto: especialidad.trim() || null, // Columna correcta
+        especialidad_texto: especialidadTexto.trim() || null,
         
         // Solo para salientes
         resolucion_autorizacion: direccion === "saliente" ? resolucionAutorizacion.trim() || null : null,
         antecedentes_seleccion: direccion === "saliente" ? antecedentesSeleccion.trim() || null : null,
         apoyo_economico: direccion === "saliente" ? apoyoEconomico.trim() || null : null,
-        modalidad: direccion === "saliente" ? modalidad || null : null,
+        modalidad: direccion === "saliente" && modalidad ? modalidad : null,
         
         // Estado y notas
-        status: existingMovilidad?.status || "pendiente",
-        notes: notas.trim() || null, // Columna existente
-        notas: notas.trim() || null,
+        status: existingMovilidad?.status || "Pendiente",
+        notes: notes.trim() || null,
         
-        // Columnas requeridas con valores por defecto
-        responsible_id: profile?.id, // Columna existente (NOT NULL)
+        // Responsable
+        responsible_id: selectedResponsable?.value,
         
         updated_at: new Date().toISOString(),
       };
+
+      console.log("📤 Payload a enviar:", payload);
 
       if (existingMovilidad) {
         const { error } = await supabase
@@ -419,15 +541,15 @@ export default function MovilidadForm({
   };
 
   // ==========================================
-  // HELPERS PARA OPCIONES
+  // HELPERS
   // ==========================================
 
   const getTiposEstancia = () => {
-    return tipoParticipante === "docente" ? TIPOS_ESTANCIA_DOCENTE : TIPOS_ESTANCIA_ESTUDIANTE;
+    return categoria === "docente" ? TIPOS_ESTANCIA_DOCENTE : TIPOS_ESTANCIA_ESTUDIANTE;
   };
 
   const getEscuelasProgramas = () => {
-    return nivelAcademico === "pregrado" ? ESCUELAS_PREGRADO : PROGRAMAS_POSTGRADO;
+    return nivelAcademico === "Pregrado" ? ESCUELAS_PREGRADO : PROGRAMAS_POSTGRADO;
   };
 
   const conveniosOptions: Option[] = convenios.map(c => ({
@@ -440,12 +562,17 @@ export default function MovilidadForm({
     label: `${i.nombre} (${i.pais || 'Sin país'})`
   }));
 
+  const responsablesOptions: Option[] = responsables.map(r => ({
+    value: r.id,
+    label: `${r.full_name} (${r.email})`
+  }));
+
   // ==========================================
   // RENDER
   // ==========================================
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "2rem", maxWidth: "950px", margin: "0 auto" }}>
       <div className="card shadow-sm">
         <div
           className="card-header text-white"
@@ -453,9 +580,16 @@ export default function MovilidadForm({
             background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
           }}
         >
-          <h4 className="mb-0">
-            {existingMovilidad ? "✏️ Editar Movilidad" : "➕ Registrar Nueva Movilidad"}
-          </h4>
+          <div className="d-flex justify-content-between align-items-center">
+            <h4 className="mb-0">
+              {existingMovilidad ? "✏️ Editar Movilidad" : "➕ Registrar Nueva Movilidad"}
+            </h4>
+            <span className="badge bg-light text-dark">
+              {categoria === "estudiante" ? "🎓 Estudiante" : "👨‍🏫 Docente"} | 
+              {tipoPrograma === "intercambio" ? " 🤝 Intercambio" : " 📝 Libre"} | 
+              {direccion === "entrante" ? " 📥 Entrante" : " 📤 Saliente"}
+            </span>
+          </div>
         </div>
 
         <div className="card-body">
@@ -465,8 +599,8 @@ export default function MovilidadForm({
                 SECCIÓN 1: CLASIFICACIÓN
             ========================================== */}
             <div className="card mb-4 border-primary">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">📋 Tipo de Movilidad</h5>
+              <div className="card-header bg-primary text-white py-2">
+                <h6 className="mb-0">📋 Tipo de Movilidad</h6>
               </div>
               <div className="card-body">
                 <div className="row">
@@ -474,10 +608,10 @@ export default function MovilidadForm({
                     <label className="form-label fw-bold">Participante *</label>
                     <select
                       className="form-select"
-                      value={tipoParticipante}
+                      value={categoria}
                       onChange={(e) => {
-                        setTipoParticipante(e.target.value as "estudiante" | "docente");
-                        setTipoEstancia("");
+                        setCategoria(e.target.value as "estudiante" | "docente");
+                        setTipoEstancia(""); // Reset tipo estancia
                       }}
                       required
                     >
@@ -495,8 +629,11 @@ export default function MovilidadForm({
                         setTipoPrograma(e.target.value as "intercambio" | "libre");
                         setSelectedConvenio(null);
                         setSelectedInstitucion(null);
-                        setPaisTexto("");
-                        setInstitucionTexto("");
+                        setPaisConvenio("");
+                        setPaisOrigen("");
+                        setPaisDestino("");
+                        setInstitucionOrigen("");
+                        setInstitucionDestino("");
                       }}
                       required
                     >
@@ -523,14 +660,6 @@ export default function MovilidadForm({
                     </select>
                   </div>
                 </div>
-
-                <div className="alert alert-info mb-0">
-                  <strong>Resumen:</strong> {tipoParticipante === "estudiante" ? "🎓 Estudiante" : "👨‍🏫 Docente"} 
-                  {" / "}
-                  {tipoPrograma === "intercambio" ? "🤝 Intercambio" : "📝 Libre"}
-                  {" / "}
-                  {direccion === "entrante" ? "📥 Entrante" : "📤 Saliente"}
-                </div>
               </div>
             </div>
 
@@ -538,15 +667,16 @@ export default function MovilidadForm({
                 SECCIÓN 2: DATOS PERSONALES
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">👤 Datos del {tipoParticipante === "estudiante" ? "Estudiante" : "Docente"}</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">👤 Datos del {categoria === "estudiante" ? "Estudiante" : "Docente"}</h6>
               </div>
               <div className="card-body">
                 <div className="row">
-                  <div className="col-md-4 mb-3">
+                  {/* Documento/Código según dirección y categoría */}
+                  <div className="col-md-3 mb-3">
                     {direccion === "entrante" ? (
                       <>
-                        <label className="form-label fw-bold">N° Documento de Identidad</label>
+                        <label className="form-label fw-bold">N° Documento</label>
                         <input
                           type="text"
                           className="form-control"
@@ -554,10 +684,11 @@ export default function MovilidadForm({
                           onChange={(e) => setDocumentoIdentidad(e.target.value)}
                           placeholder="Pasaporte u otro"
                         />
+                        <small className="text-muted">Principalmente pasaporte</small>
                       </>
-                    ) : tipoParticipante === "estudiante" ? (
+                    ) : categoria === "estudiante" ? (
                       <>
-                        <label className="form-label fw-bold">Código de Matrícula</label>
+                        <label className="form-label fw-bold">Código Matrícula</label>
                         <input
                           type="text"
                           className="form-control"
@@ -568,7 +699,7 @@ export default function MovilidadForm({
                       </>
                     ) : (
                       <>
-                        <label className="form-label fw-bold">Código de Docente</label>
+                        <label className="form-label fw-bold">Código Docente</label>
                         <input
                           type="text"
                           className="form-control"
@@ -580,15 +711,37 @@ export default function MovilidadForm({
                     )}
                   </div>
 
-                  <div className="col-md-8 mb-3">
+                  <div className="col-md-5 mb-3">
                     <label className="form-label fw-bold">Nombres Completos *</label>
                     <input
                       type="text"
                       className="form-control"
-                      value={nombresCompletos}
-                      onChange={(e) => setNombresCompletos(e.target.value)}
+                      value={nombreCompleto}
+                      onChange={(e) => setNombreCompleto(e.target.value)}
                       placeholder="Apellidos y nombres completos"
                       required
+                    />
+                  </div>
+
+                  <div className="col-md-2 mb-3">
+                    <label className="form-label fw-bold">Email</label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="correo@ejemplo.com"
+                    />
+                  </div>
+
+                  <div className="col-md-2 mb-3">
+                    <label className="form-label fw-bold">Teléfono</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value)}
+                      placeholder="+51 999..."
                     />
                   </div>
                 </div>
@@ -599,14 +752,15 @@ export default function MovilidadForm({
                 SECCIÓN 3: ORIGEN/DESTINO
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">
-                  🌍 {direccion === "entrante" ? "Origen" : "Destino"}
-                </h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">
+                  🌍 {direccion === "entrante" ? "Institución de Origen" : "Institución de Destino"}
+                </h6>
               </div>
               <div className="card-body">
                 {tipoPrograma === "intercambio" ? (
                   <>
+                    {/* INTERCAMBIO: Seleccionar convenio */}
                     <div className="row">
                       <div className="col-md-12 mb-3">
                         <label className="form-label fw-bold">Convenio de Movilidad *</label>
@@ -614,16 +768,25 @@ export default function MovilidadForm({
                           options={conveniosOptions}
                           value={selectedConvenio}
                           onChange={(option) => setSelectedConvenio(option)}
-                          placeholder="Buscar convenio..."
+                          placeholder="Buscar convenio de movilidad..."
                           noOptionsMessage={() => "No hay convenios de movilidad disponibles"}
                           isClearable
+                          styles={{
+                            control: (base) => ({
+                              ...base,
+                              borderColor: '#ced4da',
+                            })
+                          }}
                         />
+                        <small className="text-muted">
+                          Solo se muestran convenios con tipo "Movilidad académica"
+                        </small>
                       </div>
                     </div>
 
                     <div className="row">
                       <div className="col-md-6 mb-3">
-                        <label className="form-label fw-bold">Institución</label>
+                        <label className="form-label fw-bold">Institución Académica</label>
                         <Select
                           options={institucionesOptions}
                           value={selectedInstitucion}
@@ -633,7 +796,7 @@ export default function MovilidadForm({
                         />
                       </div>
 
-                      <div className="col-md-6 mb-3">
+                      <div className="col-md-4 mb-3">
                         <label className="form-label fw-bold">País (del convenio)</label>
                         <input
                           type="text"
@@ -641,42 +804,91 @@ export default function MovilidadForm({
                           value={paisConvenio}
                           readOnly
                           style={{ backgroundColor: "#e9ecef" }}
+                          placeholder="Se carga del convenio"
+                        />
+                      </div>
+
+                      <div className="col-md-2 mb-3">
+                        <label className="form-label fw-bold">Ciudad</label>
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={destinationCity}
+                          onChange={(e) => setDestinationCity(e.target.value)}
+                          placeholder="Ciudad"
                         />
                       </div>
                     </div>
                   </>
                 ) : (
                   <>
+                    {/* LIBRE: Texto libre */}
                     <div className="row">
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label fw-bold">
-                          {direccion === "entrante" ? "País de Origen *" : "País de Destino *"}
-                        </label>
-                        <select
-                          className="form-select"
-                          value={paisTexto}
-                          onChange={(e) => setPaisTexto(e.target.value)}
-                          required={tipoPrograma === "libre"}
-                        >
-                          <option value="">Seleccione país...</option>
-                          {PAISES_COMUNES.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="col-md-6 mb-3">
-                        <label className="form-label fw-bold">
-                          {direccion === "entrante" ? "Institución de Origen" : "Institución de Destino"}
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={institucionTexto}
-                          onChange={(e) => setInstitucionTexto(e.target.value)}
-                          placeholder="Nombre de la institución"
-                        />
-                      </div>
+                      {direccion === "entrante" ? (
+                        <>
+                          <div className="col-md-5 mb-3">
+                            <label className="form-label fw-bold">País de Origen *</label>
+                            <select
+                              className="form-select"
+                              value={paisOrigen}
+                              onChange={(e) => setPaisOrigen(e.target.value)}
+                              required
+                            >
+                              <option value="">Seleccione país...</option>
+                              {PAISES_COMUNES.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-md-7 mb-3">
+                            <label className="form-label fw-bold">Institución Académica de Origen</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={institucionOrigen}
+                              onChange={(e) => setInstitucionOrigen(e.target.value)}
+                              placeholder="Universidad o institución de origen"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="col-md-4 mb-3">
+                            <label className="form-label fw-bold">País de Destino *</label>
+                            <select
+                              className="form-select"
+                              value={paisDestino}
+                              onChange={(e) => setPaisDestino(e.target.value)}
+                              required
+                            >
+                              <option value="">Seleccione país...</option>
+                              {PAISES_COMUNES.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-md-6 mb-3">
+                            <label className="form-label fw-bold">Institución de Destino</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={institucionDestino}
+                              onChange={(e) => setInstitucionDestino(e.target.value)}
+                              placeholder="Universidad o institución de destino"
+                            />
+                          </div>
+                          <div className="col-md-2 mb-3">
+                            <label className="form-label fw-bold">Ciudad</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              value={destinationCity}
+                              onChange={(e) => setDestinationCity(e.target.value)}
+                              placeholder="Ciudad"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -687,31 +899,31 @@ export default function MovilidadForm({
                 SECCIÓN 4: NIVEL ACADÉMICO
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">🏫 Nivel Académico</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">🏫 Nivel Académico</h6>
               </div>
               <div className="card-body">
                 <div className="row">
-                  <div className="col-md-4 mb-3">
+                  <div className="col-md-3 mb-3">
                     <label className="form-label fw-bold">Nivel *</label>
                     <select
                       className="form-select"
                       value={nivelAcademico}
                       onChange={(e) => {
-                        setNivelAcademico(e.target.value as "pregrado" | "postgrado");
-                        setEscuelaPrograma("");
+                        setNivelAcademico(e.target.value as "Pregrado" | "Postgrado");
+                        setEscuelaPrograma(""); // Reset escuela/programa
                       }}
                       required
                     >
                       <option value="">Seleccione...</option>
-                      <option value="pregrado">Pregrado</option>
-                      <option value="postgrado">Postgrado</option>
+                      <option value="Pregrado">Pregrado</option>
+                      <option value="Postgrado">Postgrado</option>
                     </select>
                   </div>
 
-                  <div className="col-md-8 mb-3">
+                  <div className="col-md-6 mb-3">
                     <label className="form-label fw-bold">
-                      {nivelAcademico === "pregrado" ? "Escuela Profesional *" : "Programa *"}
+                      {nivelAcademico === "Pregrado" ? "Escuela Profesional *" : nivelAcademico === "Postgrado" ? "Programa *" : "Escuela/Programa *"}
                     </label>
                     <select
                       className="form-select"
@@ -725,6 +937,20 @@ export default function MovilidadForm({
                         <option key={ep} value={ep}>{ep}</option>
                       ))}
                     </select>
+                    {!nivelAcademico && (
+                      <small className="text-muted">Primero seleccione el nivel académico</small>
+                    )}
+                  </div>
+
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Ciclo Académico</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={cicloAcademico}
+                      onChange={(e) => setCicloAcademico(e.target.value)}
+                      placeholder="Ej: 2025-I"
+                    />
                   </div>
                 </div>
               </div>
@@ -734,17 +960,18 @@ export default function MovilidadForm({
                 SECCIÓN 5: TIPO DE ESTANCIA
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">📚 Tipo de Estancia</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">📚 Tipo de Estancia</h6>
               </div>
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-6 mb-3">
-                    <label className="form-label fw-bold">Tipo de Estancia</label>
+                    <label className="form-label fw-bold">Tipo de Estancia *</label>
                     <select
                       className="form-select"
                       value={tipoEstancia}
                       onChange={(e) => setTipoEstancia(e.target.value)}
+                      required
                     >
                       <option value="">Seleccione...</option>
                       {getTiposEstancia().map(te => (
@@ -755,12 +982,12 @@ export default function MovilidadForm({
 
                   {tipoEstancia === "Otra" && (
                     <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Especificar</label>
+                      <label className="form-label fw-bold">Especificar tipo de estancia</label>
                       <input
                         type="text"
                         className="form-control"
-                        value={tipoEstanciaOtra}
-                        onChange={(e) => setTipoEstanciaOtra(e.target.value)}
+                        value={tipoEstanciaOtro}
+                        onChange={(e) => setTipoEstanciaOtro(e.target.value)}
                         placeholder="Especifique el tipo de estancia"
                       />
                     </div>
@@ -770,15 +997,38 @@ export default function MovilidadForm({
             </div>
 
             {/* ==========================================
-                SECCIÓN 6: PERIODO Y FECHAS
+                SECCIÓN 6: RESPONSABLE
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">📅 Periodo y Fechas</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">👤 Responsable Interno</h6>
+              </div>
+              <div className="card-body">
+                <label className="form-label fw-bold">Responsable Asignado *</label>
+                <Select
+                  options={responsablesOptions}
+                  value={selectedResponsable}
+                  onChange={(option) => setSelectedResponsable(option)}
+                  placeholder="Buscar responsable interno..."
+                  noOptionsMessage={() => "No hay responsables disponibles"}
+                  isClearable
+                />
+                <small className="text-muted">
+                  Persona encargada de dar seguimiento y subir el informe final
+                </small>
+              </div>
+            </div>
+
+            {/* ==========================================
+                SECCIÓN 7: PERIODO Y FECHAS
+            ========================================== */}
+            <div className="card mb-4">
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">📅 Periodo y Fechas</h6>
               </div>
               <div className="card-body">
                 <div className="row">
-                  <div className="col-md-4 mb-3">
+                  <div className="col-md-3 mb-3">
                     <label className="form-label fw-bold">Periodo</label>
                     <input
                       type="text"
@@ -789,37 +1039,48 @@ export default function MovilidadForm({
                     />
                   </div>
 
-                  <div className="col-md-4 mb-3">
+                  <div className="col-md-3 mb-3">
                     <label className="form-label fw-bold">Fecha de Inicio *</label>
                     <input
                       type="date"
                       className="form-control"
-                      value={fechaInicio}
-                      onChange={(e) => setFechaInicio(e.target.value)}
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
                       required
                     />
                   </div>
 
-                  <div className="col-md-4 mb-3">
+                  <div className="col-md-3 mb-3">
                     <label className="form-label fw-bold">Fecha de Término *</label>
                     <input
                       type="date"
                       className="form-control"
-                      value={fechaTermino}
-                      onChange={(e) => setFechaTermino(e.target.value)}
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
                       required
                     />
+                  </div>
+
+                  <div className="col-md-3 mb-3">
+                    <label className="form-label fw-bold">Duración</label>
+                    <div className="form-control bg-light">
+                      {durationMonths > 0 ? (
+                        <span>⏱️ {durationMonths} {durationMonths === 1 ? 'mes' : 'meses'}</span>
+                      ) : (
+                        <span className="text-muted">--</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* ==========================================
-                SECCIÓN 7: DATOS ADMINISTRATIVOS
+                SECCIÓN 8: DATOS ADMINISTRATIVOS
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">📋 Datos Administrativos</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">📋 Datos Administrativos</h6>
               </div>
               <div className="card-body">
                 <div className="row">
@@ -828,8 +1089,8 @@ export default function MovilidadForm({
                     <input
                       type="text"
                       className="form-control"
-                      value={expedienteMesaPartes}
-                      onChange={(e) => setExpedienteMesaPartes(e.target.value)}
+                      value={numExpediente}
+                      onChange={(e) => setNumExpediente(e.target.value)}
                       placeholder="N° de expediente"
                     />
                   </div>
@@ -850,8 +1111,8 @@ export default function MovilidadForm({
                     <input
                       type="text"
                       className="form-control"
-                      value={especialidad}
-                      onChange={(e) => setEspecialidad(e.target.value)}
+                      value={especialidadTexto}
+                      onChange={(e) => setEspecialidadTexto(e.target.value)}
                       placeholder="Especialidad o área"
                     />
                   </div>
@@ -860,12 +1121,12 @@ export default function MovilidadForm({
             </div>
 
             {/* ==========================================
-                SECCIÓN 8: SOLO SALIENTES
+                SECCIÓN 9: SOLO SALIENTES
             ========================================== */}
             {direccion === "saliente" && (
               <div className="card mb-4 border-warning">
-                <div className="card-header bg-warning bg-opacity-25">
-                  <h5 className="mb-0">📤 Datos Adicionales (Solo Salientes)</h5>
+                <div className="card-header bg-warning bg-opacity-25 py-2">
+                  <h6 className="mb-0">📤 Datos Adicionales (Solo Salientes)</h6>
                 </div>
                 <div className="card-body">
                   <div className="row">
@@ -885,11 +1146,11 @@ export default function MovilidadForm({
                       <select
                         className="form-select"
                         value={modalidad}
-                        onChange={(e) => setModalidad(e.target.value as "presencial" | "virtual")}
+                        onChange={(e) => setModalidad(e.target.value as "Presencial" | "Virtual" | "")}
                       >
                         <option value="">Seleccione...</option>
-                        <option value="presencial">Presencial</option>
-                        <option value="virtual">Virtual</option>
+                        <option value="Presencial">Presencial</option>
+                        <option value="Virtual">Virtual</option>
                       </select>
                     </div>
                   </div>
@@ -907,7 +1168,7 @@ export default function MovilidadForm({
                     </div>
 
                     <div className="col-md-6 mb-3">
-                      <label className="form-label fw-bold">Apoyo Económico (Resolución Decanal)</label>
+                      <label className="form-label fw-bold">Apoyo Económico con Resolución Decanal</label>
                       <textarea
                         className="form-control"
                         rows={2}
@@ -922,18 +1183,18 @@ export default function MovilidadForm({
             )}
 
             {/* ==========================================
-                SECCIÓN 9: NOTAS
+                SECCIÓN 10: NOTAS
             ========================================== */}
             <div className="card mb-4">
-              <div className="card-header bg-light">
-                <h5 className="mb-0">📝 Notas Adicionales</h5>
+              <div className="card-header bg-light py-2">
+                <h6 className="mb-0">📝 Notas Adicionales</h6>
               </div>
               <div className="card-body">
                 <textarea
                   className="form-control"
                   rows={3}
-                  value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
                   placeholder="Observaciones, comentarios adicionales..."
                 />
               </div>
@@ -942,22 +1203,24 @@ export default function MovilidadForm({
             {/* ==========================================
                 BOTONES
             ========================================== */}
-            <div className="d-flex justify-content-end gap-2">
+            <div className="d-flex justify-content-between">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-outline-secondary"
                 onClick={onCancel}
                 disabled={loading}
               >
-                Cancelar
+                ← Cancelar
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-lg"
                 disabled={loading}
                 style={{
                   background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
                   border: "none",
+                  color: "white",
+                  minWidth: "200px"
                 }}
               >
                 {loading ? (
@@ -966,9 +1229,9 @@ export default function MovilidadForm({
                     Guardando...
                   </>
                 ) : existingMovilidad ? (
-                  "Actualizar Movilidad"
+                  "✓ Actualizar Movilidad"
                 ) : (
-                  "Registrar Movilidad"
+                  "✓ Registrar Movilidad"
                 )}
               </button>
             </div>
