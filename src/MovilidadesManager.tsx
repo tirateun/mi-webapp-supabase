@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import MovilidadForm from "./MovilidadForm";
+import MovilidadCumplimiento from "./Movilidadcumplimiento";
 
 interface Movilidad {
   id: string;
@@ -12,8 +13,6 @@ interface Movilidad {
   codigo_matricula?: string;
   codigo_docente?: string;
   nombre_completo: string;
-  agreement_id?: string;
-  institucion_id?: string;
   pais_origen?: string;
   institucion_origen?: string;
   pais_destino?: string;
@@ -37,17 +36,14 @@ interface Movilidad {
   modalidad?: string;
   status: string;
   notes?: string;
-  // Campos de cumplimiento
   informe_texto?: string;
   informe_pdf_url?: string;
   informe_fecha?: string;
   informe_enviado?: boolean;
   informe_uploaded_by?: string;
-  created_at: string;
   responsible_id: string;
-  // Relaciones
+  created_at: string;
   agreement?: { id: string; name: string };
-  institucion?: { id: string; nombre: string };
   responsible?: { id: string; full_name: string; email: string };
 }
 
@@ -64,19 +60,23 @@ const formatDateLocal = (dateString: string | null | undefined): string => {
 };
 
 export default function MovilidadesManager() {
+  // ==========================================
+  // ESTADOS
+  // ==========================================
   const [movilidades, setMovilidades] = useState<Movilidad[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingMovilidad, setEditingMovilidad] = useState<any>(null);
   const [viewingMovilidad, setViewingMovilidad] = useState<Movilidad | null>(null);
-  const [cumplimientoMovilidad, setCumplimientoMovilidad] = useState<Movilidad | null>(null);
+  
+  // Para página de cumplimiento (se abre como página separada)
+  const [cumplimientoId, setCumplimientoId] = useState<string | null>(null);
 
   // Filtros
   const [filterCategoria, setFilterCategoria] = useState<string>("all");
   const [filterTipoPrograma, setFilterTipoPrograma] = useState<string>("all");
   const [filterDireccion, setFilterDireccion] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterPais, setFilterPais] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
   const [searchText, setSearchText] = useState<string>("");
 
@@ -84,15 +84,10 @@ export default function MovilidadesManager() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>("");
 
-  // Catálogos para filtros
-  const [paisesUnicos, setPaisesUnicos] = useState<string[]>([]);
-
-  // Modal de cumplimiento
-  const [informeTexto, setInformeTexto] = useState("");
-  const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [enviandoInforme, setEnviandoInforme] = useState(false);
-
+  // ==========================================
+  // EFECTOS
+  // ==========================================
+  
   useEffect(() => {
     fetchCurrentUser();
   }, []);
@@ -101,7 +96,11 @@ export default function MovilidadesManager() {
     if (currentUser) {
       fetchMovilidades();
     }
-  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterPais, filterYear]);
+  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterYear]);
+
+  // ==========================================
+  // FUNCIONES DE CARGA
+  // ==========================================
 
   async function fetchCurrentUser() {
     try {
@@ -130,20 +129,19 @@ export default function MovilidadesManager() {
         .select(`
           *,
           agreement:agreements(id, name),
-          institucion:instituciones(id, nombre),
           responsible:profiles!responsible_id(id, full_name, email)
         `)
         .order("created_at", { ascending: false });
 
       // Aplicar filtros
       if (filterCategoria !== "all") {
-        query = query.or(`categoria.eq.${filterCategoria},categoria.eq.${filterCategoria === 'estudiante' ? 'Estudiantil' : 'Docente'}`);
+        query = query.or(`categoria.ilike.%${filterCategoria}%`);
       }
       if (filterTipoPrograma !== "all") {
-        query = query.or(`tipo_programa.eq.${filterTipoPrograma},tipo_programa.eq.${filterTipoPrograma === 'intercambio' ? 'Programa de Intercambio' : 'Programa Libre'}`);
+        query = query.or(`tipo_programa.ilike.%${filterTipoPrograma}%`);
       }
       if (filterDireccion !== "all") {
-        query = query.or(`direccion.eq.${filterDireccion},direccion.eq.${filterDireccion.charAt(0).toUpperCase() + filterDireccion.slice(1)}`);
+        query = query.ilike("direccion", `%${filterDireccion}%`);
       }
       if (filterStatus !== "all") {
         query = query.eq("status", filterStatus);
@@ -160,15 +158,6 @@ export default function MovilidadesManager() {
 
       let resultado = data || [];
 
-      // Filtro de país
-      if (filterPais !== "all") {
-        resultado = resultado.filter((m: any) => 
-          m.pais_origen === filterPais || 
-          m.pais_destino === filterPais || 
-          m.destination_country === filterPais
-        );
-      }
-
       // Filtro de búsqueda por texto
       if (searchText.trim()) {
         const search = searchText.toLowerCase();
@@ -184,15 +173,6 @@ export default function MovilidadesManager() {
       }
 
       setMovilidades(resultado);
-
-      // Extraer países únicos
-      const paises = new Set<string>();
-      resultado.forEach((m: any) => {
-        if (m.pais_origen) paises.add(m.pais_origen);
-        if (m.pais_destino) paises.add(m.pais_destino);
-        if (m.destination_country && m.destination_country !== 'N/A') paises.add(m.destination_country);
-      });
-      setPaisesUnicos([...paises].sort());
 
     } catch (err) {
       console.error("Error fetching movilidades:", err);
@@ -225,21 +205,27 @@ export default function MovilidadesManager() {
   };
 
   const handleCumplimiento = (movilidad: Movilidad) => {
-    setCumplimientoMovilidad(movilidad);
-    setInformeTexto(movilidad.informe_texto || "");
-    setPdfUrl(movilidad.informe_pdf_url || null);
+    setCumplimientoId(movilidad.id);
   };
 
-  const handleDeleteMovilidad = async (id: string, informe_enviado?: boolean) => {
-    if (informe_enviado) {
+  const handleDeleteMovilidad = async (movilidad: Movilidad) => {
+    if (movilidad.informe_enviado) {
       alert("⚠️ No se puede eliminar una movilidad con informe enviado.");
       return;
     }
-    if (!confirm("¿Seguro que deseas eliminar esta movilidad? Esta acción no se puede deshacer.")) return;
+    
+    if (!confirm("¿Seguro que deseas eliminar esta movilidad? Esta acción no se puede deshacer.")) {
+      return;
+    }
 
     try {
-      const { error } = await supabase.from("movilidades").delete().eq("id", id);
+      const { error } = await supabase
+        .from("movilidades")
+        .delete()
+        .eq("id", movilidad.id);
+        
       if (error) throw error;
+      
       alert("✅ Movilidad eliminada correctamente");
       fetchMovilidades();
     } catch (err: any) {
@@ -253,170 +239,44 @@ export default function MovilidadesManager() {
     setFilterTipoPrograma("all");
     setFilterDireccion("all");
     setFilterStatus("all");
-    setFilterPais("all");
     setFilterYear("all");
     setSearchText("");
   };
 
   // ==========================================
-  // CUMPLIMIENTO - Subir PDF
-  // ==========================================
-
-  const handleUploadPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type !== "application/pdf") {
-      alert("⚠️ Solo se permiten archivos PDF");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) { // 10MB
-      alert("⚠️ El archivo no debe superar los 10MB");
-      return;
-    }
-
-    setUploadingPdf(true);
-    try {
-      const fileName = `movilidad_${cumplimientoMovilidad?.id}_${Date.now()}.pdf`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("movilidades-informes")
-        .upload(fileName, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("movilidades-informes")
-        .getPublicUrl(fileName);
-
-      setPdfUrl(urlData.publicUrl);
-
-      // Guardar URL en la movilidad
-      await supabase
-        .from("movilidades")
-        .update({ informe_pdf_url: urlData.publicUrl })
-        .eq("id", cumplimientoMovilidad?.id);
-
-      alert("✅ PDF subido correctamente");
-    } catch (err: any) {
-      console.error("Error uploading PDF:", err);
-      alert("❌ Error al subir PDF: " + err.message);
-    } finally {
-      setUploadingPdf(false);
-    }
-  };
-
-  // ==========================================
-  // CUMPLIMIENTO - Guardar Informe (sin enviar)
-  // ==========================================
-
-  const handleGuardarInforme = async () => {
-    if (!cumplimientoMovilidad) return;
-
-    try {
-      const { error } = await supabase
-        .from("movilidades")
-        .update({
-          informe_texto: informeTexto,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", cumplimientoMovilidad.id);
-
-      if (error) throw error;
-      alert("✅ Informe guardado (aún no enviado)");
-      fetchMovilidades();
-    } catch (err: any) {
-      console.error("Error saving informe:", err);
-      alert("❌ Error al guardar: " + err.message);
-    }
-  };
-
-  // ==========================================
-  // CUMPLIMIENTO - Enviar Informe (bloquea edición)
-  // ==========================================
-
-  const handleEnviarInforme = async () => {
-    if (!cumplimientoMovilidad) return;
-
-    if (!informeTexto.trim()) {
-      alert("⚠️ Debe escribir el informe del viaje");
-      return;
-    }
-
-    if (!pdfUrl) {
-      alert("⚠️ Debe subir el PDF con los medios verificables");
-      return;
-    }
-
-    if (!confirm("¿Está seguro de enviar el informe? Una vez enviado NO podrá modificarse.")) {
-      return;
-    }
-
-    setEnviandoInforme(true);
-    try {
-      const { error } = await supabase
-        .from("movilidades")
-        .update({
-          informe_texto: informeTexto,
-          informe_enviado: true,
-          informe_fecha: new Date().toISOString().split("T")[0],
-          informe_uploaded_by: currentUser?.id,
-          status: "Completada",
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", cumplimientoMovilidad.id);
-
-      if (error) throw error;
-
-      alert("✅ Informe enviado correctamente. La movilidad ha sido marcada como Completada.");
-      setCumplimientoMovilidad(null);
-      fetchMovilidades();
-    } catch (err: any) {
-      console.error("Error sending informe:", err);
-      alert("❌ Error al enviar: " + err.message);
-    } finally {
-      setEnviandoInforme(false);
-    }
-  };
-
-  // ==========================================
-  // BADGES Y HELPERS
+  // HELPERS Y BADGES
   // ==========================================
 
   const getStatusBadge = (status: string) => {
-    const config: any = {
-      "Pendiente": { bg: "bg-warning text-dark", icon: "⏳" },
-      "pendiente": { bg: "bg-warning text-dark", icon: "⏳" },
-      "En curso": { bg: "bg-info", icon: "🔄" },
-      "en_curso": { bg: "bg-info", icon: "🔄" },
-      "Completada": { bg: "bg-success", icon: "✅" },
-      "completada": { bg: "bg-success", icon: "✅" },
-      "Cancelada": { bg: "bg-danger", icon: "❌" },
-      "cancelada": { bg: "bg-danger", icon: "❌" },
-    };
-    return config[status] || { bg: "bg-secondary", icon: "📋" };
+    const s = status?.toLowerCase() || "";
+    if (s.includes("complet")) return { bg: "bg-success", icon: "✅", label: "Completada" };
+    if (s.includes("curso")) return { bg: "bg-info", icon: "🔄", label: "En Curso" };
+    if (s.includes("cancel")) return { bg: "bg-danger", icon: "❌", label: "Cancelada" };
+    return { bg: "bg-warning text-dark", icon: "⏳", label: "Pendiente" };
   };
 
-  const getCategoriaBadge = (cat: string) => {
-    const isEstudiante = cat?.toLowerCase().includes("estudi");
-    return isEstudiante 
-      ? { bg: "bg-primary", icon: "🎓", label: "Estudiante" }
-      : { bg: "bg-info", icon: "👨‍🏫", label: "Docente" };
+  const getCategoriaBadge = (categoria: string) => {
+    const c = categoria?.toLowerCase() || "";
+    if (c.includes("estudi")) {
+      return { bg: "bg-primary", icon: "🎓", label: "estudiante" };
+    }
+    return { bg: "bg-info", icon: "👨‍🏫", label: "docente" };
   };
 
-  const getDireccionBadge = (dir: string) => {
-    const isEntrante = dir?.toLowerCase() === "entrante";
-    return isEntrante
-      ? { bg: "bg-success-subtle text-success", icon: "📥", label: "Entrante" }
-      : { bg: "bg-warning-subtle text-warning", icon: "📤", label: "Saliente" };
+  const getDireccionBadge = (direccion: string) => {
+    const d = direccion?.toLowerCase() || "";
+    if (d === "entrante") {
+      return { bg: "bg-success-subtle text-success", icon: "📥", label: "Entrante" };
+    }
+    return { bg: "bg-warning-subtle text-warning", icon: "📤", label: "Saliente" };
   };
 
   const getTipoProgramaBadge = (tipo: string) => {
-    const isIntercambio = tipo?.toLowerCase().includes("intercambio");
-    return isIntercambio
-      ? { bg: "bg-info-subtle text-info", label: "Intercambio" }
-      : { bg: "bg-secondary-subtle text-secondary", label: "Libre" };
+    const t = tipo?.toLowerCase() || "";
+    if (t.includes("intercambio")) {
+      return { bg: "bg-info-subtle text-info", label: "Intercambio" };
+    }
+    return { bg: "bg-secondary-subtle text-secondary", label: "Libre" };
   };
 
   const getPais = (m: Movilidad) => {
@@ -428,7 +288,7 @@ export default function MovilidadesManager() {
 
   const getInstitucion = (m: Movilidad) => {
     if (m.tipo_programa?.toLowerCase().includes("intercambio")) {
-      return m.agreement?.name || m.institucion?.nombre || "-";
+      return m.agreement?.name || "-";
     }
     if (m.direccion?.toLowerCase() === "entrante") {
       return m.institucion_origen || "-";
@@ -446,14 +306,30 @@ export default function MovilidadesManager() {
     docentes: movilidades.filter(m => m.categoria?.toLowerCase() === "docente").length,
     entrantes: movilidades.filter(m => m.direccion?.toLowerCase() === "entrante").length,
     salientes: movilidades.filter(m => m.direccion?.toLowerCase() === "saliente").length,
-    completadas: movilidades.filter(m => m.status?.toLowerCase() === "completada").length,
-    pendientes: movilidades.filter(m => m.status?.toLowerCase() === "pendiente").length,
+    completadas: movilidades.filter(m => m.status?.toLowerCase().includes("complet")).length,
+    pendientes: movilidades.filter(m => m.status?.toLowerCase().includes("pendiente")).length,
   };
 
   // ==========================================
-  // RENDER: FORMULARIO
+  // RENDER: Página de Cumplimiento
   // ==========================================
+  
+  if (cumplimientoId) {
+    return (
+      <MovilidadCumplimiento
+        movilidadId={cumplimientoId}
+        onBack={() => {
+          setCumplimientoId(null);
+          fetchMovilidades();
+        }}
+      />
+    );
+  }
 
+  // ==========================================
+  // RENDER: Formulario
+  // ==========================================
+  
   if (showForm) {
     return (
       <MovilidadForm
@@ -468,7 +344,7 @@ export default function MovilidadesManager() {
   }
 
   // ==========================================
-  // RENDER: MODAL DE DETALLE (VER)
+  // RENDER: Modal de Detalle
   // ==========================================
 
   const renderModalDetalle = () => {
@@ -514,9 +390,7 @@ export default function MovilidadesManager() {
                   {getStatusBadge(m.status).icon} {m.status}
                 </span>
                 {m.informe_enviado && (
-                  <span className="badge bg-success">
-                    ✅ Informe Enviado
-                  </span>
+                  <span className="badge bg-success">📄 Informe Enviado</span>
                 )}
               </div>
 
@@ -609,12 +483,15 @@ export default function MovilidadesManager() {
                     <strong>📄 Informe de Viaje</strong>
                   </div>
                   <div className="card-body">
-                    <p className="mb-2"><strong>Fecha de envío:</strong> {formatDateLocal(m.informe_fecha)}</p>
+                    <p className="mb-2">
+                      <strong>Fecha de envío:</strong> {formatDateLocal(m.informe_fecha)}
+                    </p>
                     {m.informe_texto && (
                       <>
                         <p className="mb-1"><strong>Informe:</strong></p>
                         <p className="mb-2 p-2 bg-light rounded" style={{ whiteSpace: "pre-wrap" }}>
-                          {m.informe_texto}
+                          {m.informe_texto.substring(0, 500)}
+                          {m.informe_texto.length > 500 && "..."}
                         </p>
                       </>
                     )}
@@ -631,227 +508,27 @@ export default function MovilidadesManager() {
                   </div>
                 </div>
               )}
-            </div>
 
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setViewingMovilidad(null)}>
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ==========================================
-  // RENDER: MODAL DE CUMPLIMIENTO
-  // ==========================================
-
-  const renderModalCumplimiento = () => {
-    if (!cumplimientoMovilidad) return null;
-    const m = cumplimientoMovilidad;
-    const puedeEnviar = informeTexto.trim() && pdfUrl;
-    const yaEnviado = m.informe_enviado;
-
-    return (
-      <div
-        className="modal fade show d-block"
-        style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        onClick={() => setCumplimientoMovilidad(null)}
-      >
-        <div
-          className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="modal-content">
-            <div
-              className="modal-header text-white"
-              style={{ background: yaEnviado ? "#28a745" : "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)" }}
-            >
-              <h5 className="modal-title">
-                {yaEnviado ? "✅ Informe Enviado" : "📝 Cumplimiento de Movilidad"}
-              </h5>
-              <button
-                type="button"
-                className="btn-close btn-close-white"
-                onClick={() => setCumplimientoMovilidad(null)}
-              />
-            </div>
-
-            <div className="modal-body">
-              {/* Info del participante */}
-              <div className="alert alert-info">
-                <strong>{m.nombre_completo}</strong>
-                <br />
-                <small>
-                  {getCategoriaBadge(m.categoria).label} | {getDireccionBadge(m.direccion).label} | {getTipoProgramaBadge(m.tipo_programa).label}
-                </small>
-                <br />
-                <small>
-                  {formatDateLocal(m.start_date)} - {formatDateLocal(m.end_date)}
-                </small>
-              </div>
-
-              {yaEnviado ? (
-                <>
-                  {/* Vista de informe enviado (solo lectura) */}
-                  <div className="alert alert-success">
-                    <strong>✅ Este informe fue enviado el {formatDateLocal(m.informe_fecha)}</strong>
-                    <br />
-                    <small>No se pueden realizar modificaciones.</small>
+              {/* Notas */}
+              {m.notes && (
+                <div className="card">
+                  <div className="card-header bg-light py-2">
+                    <strong>📝 Notas</strong>
                   </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">Informe del Viaje</label>
-                    <div className="form-control bg-light" style={{ minHeight: "150px", whiteSpace: "pre-wrap" }}>
-                      {m.informe_texto || "-"}
-                    </div>
+                  <div className="card-body">
+                    <p className="mb-0" style={{ whiteSpace: "pre-wrap" }}>{m.notes}</p>
                   </div>
-
-                  {m.informe_pdf_url && (
-                    <div className="mb-3">
-                      <label className="form-label fw-bold">Medios Verificables</label>
-                      <br />
-                      <a
-                        href={m.informe_pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-outline-success"
-                      >
-                        📎 Ver PDF de Medios Verificables
-                      </a>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Formulario de cumplimiento */}
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      📝 Informe del Viaje *
-                    </label>
-                    <textarea
-                      className="form-control"
-                      rows={6}
-                      value={informeTexto}
-                      onChange={(e) => setInformeTexto(e.target.value)}
-                      placeholder="Describa las actividades realizadas durante la movilidad, logros, observaciones, etc."
-                    />
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="form-label fw-bold">
-                      📎 Medios Verificables (PDF) *
-                    </label>
-                    <p className="text-muted small mb-2">
-                      Suba un PDF con fotos, copias de tickets, constancia de rotación, certificados, etc.
-                    </p>
-                    
-                    {pdfUrl ? (
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="badge bg-success">✅ PDF cargado</span>
-                        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                          Ver PDF
-                        </a>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => setPdfUrl(null)}
-                        >
-                          Cambiar
-                        </button>
-                      </div>
-                    ) : (
-                      <input
-                        type="file"
-                        className="form-control"
-                        accept=".pdf"
-                        onChange={handleUploadPdf}
-                        disabled={uploadingPdf}
-                      />
-                    )}
-                    {uploadingPdf && (
-                      <div className="mt-2">
-                        <span className="spinner-border spinner-border-sm me-2" />
-                        Subiendo PDF...
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Checklist de cumplimiento */}
-                  <div className="card bg-light mb-3">
-                    <div className="card-body">
-                      <h6 className="mb-3">✓ Checklist de Cumplimiento</h6>
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={!!informeTexto.trim()}
-                          readOnly
-                        />
-                        <label className="form-check-label">
-                          Informe del viaje redactado
-                        </label>
-                      </div>
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={!!pdfUrl}
-                          readOnly
-                        />
-                        <label className="form-check-label">
-                          PDF de medios verificables cargado
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {puedeEnviar && (
-                    <div className="alert alert-warning">
-                      <strong>⚠️ Importante:</strong> Al enviar el informe, la movilidad quedará marcada como 
-                      "Completada" y <strong>no podrá modificarse</strong>.
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </div>
 
             <div className="modal-footer">
               <button 
                 className="btn btn-secondary" 
-                onClick={() => setCumplimientoMovilidad(null)}
+                onClick={() => setViewingMovilidad(null)}
               >
                 Cerrar
               </button>
-              
-              {!yaEnviado && (
-                <>
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={handleGuardarInforme}
-                    disabled={!informeTexto.trim()}
-                  >
-                    💾 Guardar Borrador
-                  </button>
-                  
-                  <button
-                    className="btn btn-success"
-                    onClick={handleEnviarInforme}
-                    disabled={!puedeEnviar || enviandoInforme}
-                  >
-                    {enviandoInforme ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" />
-                        Enviando...
-                      </>
-                    ) : (
-                      "📤 Enviar Informe"
-                    )}
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </div>
@@ -860,14 +537,13 @@ export default function MovilidadesManager() {
   };
 
   // ==========================================
-  // RENDER: PRINCIPAL
+  // RENDER: Principal
   // ==========================================
 
   return (
     <div style={{ padding: "2rem" }}>
-      {/* Modales */}
+      {/* Modal de detalle */}
       {renderModalDetalle()}
-      {renderModalCumplimiento()}
 
       {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -904,7 +580,7 @@ export default function MovilidadesManager() {
           </div>
         </div>
         <div className="col-6 col-md-2">
-          <div className="card text-center h-100 border-0 shadow-sm" style={{ borderLeft: "4px solid #0d6efd !important" }}>
+          <div className="card text-center h-100 border-0 shadow-sm">
             <div className="card-body py-3">
               <h3 className="mb-0 text-primary">{stats.estudiantes}</h3>
               <small className="text-muted">🎓 Estudiantes</small>
@@ -936,7 +612,7 @@ export default function MovilidadesManager() {
           </div>
         </div>
         <div className="col-6 col-md-2">
-          <div className="card text-center h-100 border-0 shadow-sm" style={{ borderLeft: "4px solid #198754 !important" }}>
+          <div className="card text-center h-100 border-0 shadow-sm">
             <div className="card-body py-3">
               <h3 className="mb-0 text-success">{stats.completadas}</h3>
               <small className="text-muted">✅ Completadas</small>
@@ -950,7 +626,10 @@ export default function MovilidadesManager() {
         <div className="card-header bg-white border-0">
           <div className="d-flex justify-content-between align-items-center">
             <h6 className="mb-0">🔍 Filtros</h6>
-            <button className="btn btn-sm btn-outline-secondary" onClick={limpiarFiltros}>
+            <button 
+              className="btn btn-sm btn-outline-secondary" 
+              onClick={limpiarFiltros}
+            >
               Limpiar
             </button>
           </div>
@@ -963,8 +642,8 @@ export default function MovilidadesManager() {
                 value={filterCategoria}
                 onChange={(e) => setFilterCategoria(e.target.value)}
               >
-                <option value="all">Todos</option>
-                <option value="estudiante">🎓 Estudiante</option>
+                <option value="all">Categoría</option>
+                <option value="estudi">🎓 Estudiante</option>
                 <option value="docente">👨‍🏫 Docente</option>
               </select>
             </div>
@@ -975,7 +654,7 @@ export default function MovilidadesManager() {
                 value={filterTipoPrograma}
                 onChange={(e) => setFilterTipoPrograma(e.target.value)}
               >
-                <option value="all">Todos</option>
+                <option value="all">Programa</option>
                 <option value="intercambio">Intercambio</option>
                 <option value="libre">Libre</option>
               </select>
@@ -987,7 +666,7 @@ export default function MovilidadesManager() {
                 value={filterDireccion}
                 onChange={(e) => setFilterDireccion(e.target.value)}
               >
-                <option value="all">Todos</option>
+                <option value="all">Dirección</option>
                 <option value="entrante">📥 Entrante</option>
                 <option value="saliente">📤 Saliente</option>
               </select>
@@ -999,7 +678,7 @@ export default function MovilidadesManager() {
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
-                <option value="all">Todos</option>
+                <option value="all">Estado</option>
                 <option value="Pendiente">⏳ Pendiente</option>
                 <option value="En curso">🔄 En Curso</option>
                 <option value="Completada">✅ Completada</option>
@@ -1062,8 +741,8 @@ export default function MovilidadesManager() {
                 {movilidades.map((m) => (
                   <tr key={m.id}>
                     <td className="px-3">
-                      <span className={`badge ${getCategoriaBadge(m.categoria).bg} me-1`}>
-                        {getCategoriaBadge(m.categoria).icon} {getCategoriaBadge(m.categoria).label.toLowerCase()}
+                      <span className={`badge ${getCategoriaBadge(m.categoria).bg}`}>
+                        {getCategoriaBadge(m.categoria).icon} {getCategoriaBadge(m.categoria).label}
                       </span>
                       <br />
                       <small className={`badge ${getDireccionBadge(m.direccion).bg}`}>
@@ -1074,7 +753,8 @@ export default function MovilidadesManager() {
                       <strong>{m.nombre_completo}</strong>
                       <br />
                       <small className="text-muted">
-                        {getInstitucion(m)?.substring(0, 35)}...
+                        {getInstitucion(m)?.substring(0, 35)}
+                        {(getInstitucion(m)?.length || 0) > 35 ? "..." : ""}
                       </small>
                     </td>
                     <td>
@@ -1132,7 +812,7 @@ export default function MovilidadesManager() {
                           <button
                             className={`btn ${m.informe_enviado ? 'btn-success' : 'btn-outline-success'}`}
                             onClick={() => handleCumplimiento(m)}
-                            title={m.informe_enviado ? "Ver informe" : "Registrar cumplimiento"}
+                            title={m.informe_enviado ? "Ver Informe" : "Registrar Cumplimiento"}
                           >
                             {m.informe_enviado ? "✅" : "📝"}
                           </button>
@@ -1142,7 +822,7 @@ export default function MovilidadesManager() {
                         {userRole === "admin" && !m.informe_enviado && (
                           <button
                             className="btn btn-outline-danger"
-                            onClick={() => handleDeleteMovilidad(m.id, m.informe_enviado)}
+                            onClick={() => handleDeleteMovilidad(m)}
                             title="Eliminar"
                           >
                             🗑️
