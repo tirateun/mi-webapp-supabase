@@ -175,21 +175,42 @@ export default function Reportes() {
         .slice(0, 10);
       setConveniosPorPais(paisesProcesados);
 
-      // Contraprestaciones
-      const { data: allYearsData } = await supabase.from("agreement_years").select("id, year_start, year_end");
+      // Contraprestaciones - SOLO convenios con contraprestaciones programadas
+      const { data: allYearsData } = await supabase.from("agreement_years").select("id, agreement_id, year_start, year_end");
       const hoy = new Date();
       const yearIdsValidos = (allYearsData || []).filter(year => new Date(year.year_start) <= hoy).map(year => year.id);
 
       if (yearIdsValidos.length > 0) {
-        const { data: contraprestacionesProgramadas } = await supabase.from("contraprestaciones").select("id, unidades_comprometidas").in("agreement_year_id", yearIdsValidos);
-        let totalProgramadas = 0;
-        (contraprestacionesProgramadas || []).forEach((c: any) => { totalProgramadas += c.unidades_comprometidas || 1; });
+        // Obtener contraprestaciones programadas (solo las que existen)
+        const { data: contraprestacionesProgramadas } = await supabase
+          .from("contraprestaciones")
+          .select("id, agreement_year_id, unidades_comprometidas")
+          .in("agreement_year_id", yearIdsValidos);
         
-        const contrapIds = (contraprestacionesProgramadas || []).map(c => c.id);
+        const contraprestaciones = contraprestacionesProgramadas || [];
+        
+        // Total de contraprestaciones programadas (cada registro cuenta como 1)
+        const totalProgramadas = contraprestaciones.length;
+        
+        // Contar convenios únicos que tienen contraprestaciones
+        const agreementYearIds = contraprestaciones.map(c => c.agreement_year_id);
+        const yearsConContrap = (allYearsData || []).filter(y => agreementYearIds.includes(y.id));
+        const conveniosConContrap = new Set(yearsConContrap.map(y => y.agreement_id)).size;
+        
+        // Obtener cumplidas (contraprestaciones con al menos un seguimiento "Cumplido")
+        const contrapIds = contraprestaciones.map(c => c.id);
         let cumplidas = 0;
+        
         if (contrapIds.length > 0) {
-          const { data: seguimientos } = await supabase.from("contraprestaciones_seguimiento").select("estado").in("contraprestacion_id", contrapIds).eq("estado", "Cumplido");
-          cumplidas = seguimientos?.length || 0;
+          const { data: seguimientos } = await supabase
+            .from("contraprestaciones_seguimiento")
+            .select("contraprestacion_id, estado")
+            .in("contraprestacion_id", contrapIds)
+            .eq("estado", "Cumplido");
+          
+          // Contar contraprestaciones únicas que tienen al menos un cumplido
+          const contrapCumplidas = new Set((seguimientos || []).map(s => s.contraprestacion_id));
+          cumplidas = contrapCumplidas.size;
         }
         
         setTotalContraprestaciones(totalProgramadas);
@@ -199,6 +220,20 @@ export default function Reportes() {
           { estado: "Cumplido", cantidad: cumplidas },
           { estado: "Pendiente", cantidad: totalProgramadas - cumplidas }
         ]);
+        
+        // Log para verificar
+        console.log("📊 Reporte Contraprestaciones:", {
+          conveniosTotales: conveniosData?.length,
+          conveniosConContraprestaciones: conveniosConContrap,
+          contraprestacionesProgramadas: totalProgramadas,
+          contraprestacionesCumplidas: cumplidas,
+          porcentaje: totalProgramadas > 0 ? Math.round((cumplidas / totalProgramadas) * 100) : 0
+        });
+      } else {
+        setTotalContraprestaciones(0);
+        setContraprestacionesCumplidas(0);
+        setPorcentajeCumplimiento(0);
+        setEjecucionContraprestaciones([]);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -515,7 +550,9 @@ export default function Reportes() {
                   </span>
                 )}
               </div>
-              <p className="mb-0 mt-2 text-muted small">Total: {contraprestacionesCumplidas}/{totalContraprestaciones} cumplidas</p>
+              <p className="mb-0 mt-2 text-muted small">
+                📊 Solo convenios con contraprestaciones programadas • {contraprestacionesCumplidas} cumplidas de {totalContraprestaciones} programadas
+              </p>
             </div>
             <div className="card-body p-4">
               {ejecucionContraprestaciones.length > 0 ? (
@@ -532,7 +569,7 @@ export default function Reportes() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <div className="text-center text-muted py-5">No hay datos</div>}
+              ) : <div className="text-center text-muted py-5">No hay convenios con contraprestaciones programadas</div>}
             </div>
           </div>
         </>
