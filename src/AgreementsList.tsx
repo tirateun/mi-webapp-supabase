@@ -638,6 +638,7 @@ export default function AgreementsList({
               <tr>
                 <th style={{ minWidth: 260, textAlign: "left" }}>Nombre</th>
                 <th>Tipo</th>
+                <th>Sub Tipo Docente</th>
                 <th>País</th>
                 <th>Duración</th>
                 <th>Fecha Firma</th>
@@ -665,6 +666,16 @@ export default function AgreementsList({
                     ) : a.convenio ? (
                       <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>
                         {a.convenio}
+                      </span>
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
+                  </td>
+
+                  <td style={{ verticalAlign: "middle" }}>
+                    {a.sub_tipo_docente ? (
+                      <span className="badge bg-warning text-dark" style={{ fontSize: "0.75rem" }}>
+                        {a.sub_tipo_docente}
                       </span>
                     ) : (
                       <span className="text-muted">-</span>

@@ -34,7 +34,6 @@ interface Convenio {
   estado: string;
   institucion_nombre?: string;
   areas_vinculadas?: string[];
-  subtipos_docente?: string[]; // 🆕 Array de subtipos
   // 🆕 Nuevos campos:
   objetivos?: string;
   convenio?: string; // marco o específico
@@ -73,7 +72,6 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [filtroArea, setFiltroArea] = useState<string>("");
   const [filtroTipo, setFiltroTipo] = useState<string>("");
-  const [filtroSubtipo, setFiltroSubtipo] = useState<string>("");
   const [filtroPais, setFiltroPais] = useState<string>("");
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
   const [busquedaTexto, setBusquedaTexto] = useState<string>("");
@@ -81,7 +79,6 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Catálogos para dropdowns
   const [areas, setAreas] = useState<any[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
-  const [subtiposDocente, setSubtiposDocente] = useState<string[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
 
@@ -102,7 +99,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Aplicar filtros cuando cambian
   useEffect(() => {
     aplicarFiltros();
-  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroSubtipo, filtroPais, filtroInstitucion, busquedaTexto]);
+  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, busquedaTexto]);
 
   const cargarCatalogos = async () => {
     // Cargar áreas vinculadas
@@ -198,16 +195,6 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             .map((a: any) => a.areas_vinculadas?.nombre)
             .filter(Boolean);
 
-          // 🆕 Obtener subtipos docente
-          const { data: subtipesData } = await supabase
-            .from("agreement_subtypes")
-            .select("subtipo_nombre")
-            .eq("agreement_id", conv.id);
-          
-          const subtiposNombres = (subtipesData || [])
-            .map((s: any) => s.subtipo_nombre)
-            .filter(Boolean);
-
             const { data: historial } = await supabase
             .from("agreements_history")
             .select("action, changed_at")
@@ -252,7 +239,6 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             duration_years: conv.duration_years,
             estado,
             areas_vinculadas: areasNombres,
-            subtipos_docente: subtiposNombres, // 🆕
             // Datos de institución:
             institucion_nombre: institucionData?.nombre || "Sin institución",
             institucion_email: institucionData?.email,
@@ -283,46 +269,9 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   
       setConvenios(conveniosConDatos);
   
-      // Extraer tipos únicos (separando los que vienen en array)
-      const todosLosTipos: string[] = [];
-      (data || []).forEach((conv: any) => {
-        let tipos: string[] = [];
-        
-        // Manejar diferentes formatos de tipo_convenio
-        if (Array.isArray(conv.tipo_convenio)) {
-          tipos = conv.tipo_convenio;
-        } else if (typeof conv.tipo_convenio === 'string') {
-          // Si viene como string JSON, parsearlo
-          try {
-            const parsed = JSON.parse(conv.tipo_convenio);
-            tipos = Array.isArray(parsed) ? parsed : [conv.tipo_convenio];
-          } catch {
-            // Si no es JSON, puede ser un valor simple o separado por comas
-            tipos = conv.tipo_convenio.split(',').map((t: string) => t.trim());
-          }
-        }
-        
-        tipos.forEach((t: string) => {
-          const tipoLimpio = t.trim();
-          if (tipoLimpio && !todosLosTipos.includes(tipoLimpio)) {
-            todosLosTipos.push(tipoLimpio);
-          }
-        });
-      });
-      setTipos(todosLosTipos.sort());
-
-      // 🆕 Extraer subtipos docente únicos
-      const todosLosSubtipos: string[] = [];
-      conveniosConDatos.forEach((conv: any) => {
-        if (conv.subtipos_docente && Array.isArray(conv.subtipos_docente)) {
-          conv.subtipos_docente.forEach((s: string) => {
-            if (s && !todosLosSubtipos.includes(s)) {
-              todosLosSubtipos.push(s);
-            }
-          });
-        }
-      });
-      setSubtiposDocente(todosLosSubtipos.sort());
+      // Extraer tipos únicos
+      const tiposUnicos = [...new Set(conveniosConDatos.map(c => c.agreement_type))].filter(Boolean);
+      setTipos(tiposUnicos);
   
       // Extraer países únicos
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
@@ -357,18 +306,9 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       );
     }
 
-    // Filtro por tipo (busca si el tipo está incluido en agreement_type)
+    // Filtro por tipo
     if (filtroTipo) {
-      resultado = resultado.filter(c => 
-        c.agreement_type.includes(filtroTipo)
-      );
-    }
-
-    // 🆕 Filtro por subtipo docente
-    if (filtroSubtipo) {
-      resultado = resultado.filter(c => 
-        c.subtipos_docente?.includes(filtroSubtipo)
-      );
+      resultado = resultado.filter(c => c.agreement_type === filtroTipo);
     }
 
     // Filtro por país
@@ -394,7 +334,6 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroEstado("todos");
     setFiltroArea("");
     setFiltroTipo("");
-    setFiltroSubtipo("");
     setFiltroPais("");
     setFiltroInstitucion("");
     setBusquedaTexto("");
@@ -626,13 +565,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
               </label>
               <select
                 value={filtroTipo}
-                onChange={(e) => {
-                  setFiltroTipo(e.target.value);
-                  // Limpiar subtipo si no es Docente Asistencial
-                  if (e.target.value !== "Docente Asistencial") {
-                    setFiltroSubtipo("");
-                  }
-                }}
+                onChange={(e) => setFiltroTipo(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "0.75rem",
@@ -650,47 +583,6 @@ const verDetalleConvenio = (convenio: Convenio) => {
                 ))}
               </select>
             </div>
-
-            {/* 🆕 Filtro por Subtipo Docente - Solo visible cuando tipo es Docente Asistencial */}
-            {(filtroTipo === "Docente Asistencial" || subtiposDocente.length > 0) && (
-              <div>
-                <label style={{ 
-                  display: "block", 
-                  marginBottom: "0.5rem", 
-                  color: "#3D1A4F", 
-                  fontWeight: 600, 
-                  fontSize: "0.9rem" 
-                }}>
-                  <i className="bi bi-mortarboard"></i> Subtipo Docente
-                </label>
-                <select
-                  value={filtroSubtipo}
-                  onChange={(e) => setFiltroSubtipo(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.75rem",
-                    border: "2px solid #E9ECEF",
-                    borderRadius: "8px",
-                    fontSize: "0.95rem",
-                    cursor: "pointer",
-                    backgroundColor: filtroTipo !== "Docente Asistencial" ? "#f8f9fa" : "white"
-                  }}
-                  disabled={filtroTipo !== "" && filtroTipo !== "Docente Asistencial"}
-                >
-                  <option value="">Todos los subtipos</option>
-                  {subtiposDocente.map((subtipo) => (
-                    <option key={subtipo} value={subtipo}>
-                      {subtipo}
-                    </option>
-                  ))}
-                </select>
-                {filtroTipo !== "" && filtroTipo !== "Docente Asistencial" && (
-                  <small style={{ color: "#6c757d", fontSize: "0.75rem" }}>
-                    Solo disponible para Docente Asistencial
-                  </small>
-                )}
-              </div>
-            )}
 
             {/* Filtro por País */}
             <div>
@@ -836,6 +728,9 @@ const verDetalleConvenio = (convenio: Convenio) => {
                     Tipo
                   </th>
                   <th style={{ padding: "1rem", textAlign: "left", fontWeight: 600, color: "#3D1A4F", borderBottom: "2px solid #E9ECEF" }}>
+                    Sub Tipo Docente
+                  </th>
+                  <th style={{ padding: "1rem", textAlign: "left", fontWeight: 600, color: "#3D1A4F", borderBottom: "2px solid #E9ECEF" }}>
                     País
                   </th>
                   <th style={{ padding: "1rem", textAlign: "left", fontWeight: 600, color: "#3D1A4F", borderBottom: "2px solid #E9ECEF" }}>
@@ -886,6 +781,22 @@ const verDetalleConvenio = (convenio: Convenio) => {
           }}>
             {conv.agreement_type}
           </span>
+        </td>
+        <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
+          {conv.sub_tipo_docente ? (
+            <span style={{
+              background: "#FFF3E0",
+              color: "#E65100",
+              padding: "0.25rem 0.75rem",
+              borderRadius: "12px",
+              fontSize: "0.85rem",
+              fontWeight: 500
+            }}>
+              {conv.sub_tipo_docente}
+            </span>
+          ) : (
+            <span style={{ color: "#ADB5BD", fontSize: "0.85rem" }}>-</span>
+          )}
         </td>
         <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
           {conv.pais}
