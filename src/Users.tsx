@@ -147,6 +147,49 @@ export default function Users() {
     }
   };
 
+  // 🔑 Resetear contraseña a valor por defecto
+  const handleResetPassword = async (userId: string, userEmail: string) => {
+    if (!confirm(`¿Resetear contraseña de ${userEmail} a 'Temporal123!'?`)) return;
+
+    try {
+      // Obtener el user_id de auth.users desde profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("id", userId)
+        .single();
+
+      if (!profile?.user_id) {
+        alert("❌ No se encontró el usuario");
+        return;
+      }
+
+      // Llamar a la función SQL para resetear contraseña
+      const { error: resetError } = await supabase.rpc('reset_user_password', {
+        user_id: profile.user_id,
+        new_password: 'Temporal123!'
+      });
+
+      if (resetError) throw resetError;
+
+      // Actualizar flag must_change_password a true
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", userId);
+
+      if (updateError) {
+        console.warn("No se pudo actualizar must_change_password:", updateError);
+      }
+
+      alert("✅ Contraseña reseteada a: Temporal123!\n\nEl usuario deberá cambiarla al ingresar.");
+      fetchUsers();
+    } catch (err: any) {
+      console.error("Error al resetear contraseña:", err);
+      alert("❌ Error: " + err.message);
+    }
+  };
+
   return (
     <div id="usuarios">
       <h2>👤 Lista de Usuarios</h2>
@@ -275,19 +318,38 @@ export default function Users() {
                     : "-"}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  <button
-                    onClick={() => handleDeleteUser(u.id)}
-                    style={{
-                      background: "#ef4444",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    🗑️ Eliminar
-                  </button>
+                  <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => handleResetPassword(u.id, u.email)}
+                      style={{
+                        background: "#f59e0b",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                      }}
+                      title="Resetear contraseña a Temporal123!"
+                    >
+                      🔑 Resetear
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(u.id)}
+                      style={{
+                        background: "#ef4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                      }}
+                      title="Eliminar usuario"
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))
@@ -297,7 +359,6 @@ export default function Users() {
     </div>
   );
 }
-
 
 
 
