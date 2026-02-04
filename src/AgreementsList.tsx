@@ -73,6 +73,20 @@ function formatDiffString({ years, months, days }: { years: number; months: numb
   return parts.length > 0 ? parts.join(" ") : "0 días";
 }
 
+/* ------------------ Helper para formatear subtipos docentes ------------------ */
+function getSubtiposDocentes(agreement: any): string {
+  if (agreement.agreement_subtypes && Array.isArray(agreement.agreement_subtypes) && agreement.agreement_subtypes.length > 0) {
+    return agreement.agreement_subtypes
+      .map((st: any) => st.subtipo_nombre)
+      .join(", ");
+  }
+  // Fallback al campo legacy si existe
+  if (agreement.sub_tipo_docente) {
+    return agreement.sub_tipo_docente;
+  }
+  return "-";
+}
+
 /* ------------------ Componente ------------------ */
 export default function AgreementsList({
   user,
@@ -140,7 +154,16 @@ export default function AgreementsList({
       // 1) traer convenios según rol
       let visible: any[] = [];
       if (["admin", "Admin", "Administrador"].includes(role)) {
-        const { data, error } = await supabase.from("agreements").select("*").order("created_at", { ascending: false });
+        const { data, error } = await supabase
+          .from("agreements")
+          .select(`
+            *,
+            agreement_subtypes (
+              id,
+              subtipo_nombre
+            )
+          `)
+          .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
       } else if (["internal", "interno"].includes(role)) {
@@ -184,7 +207,13 @@ export default function AgreementsList({
         if (allIds.length > 0) {
           const { data, error } = await supabase
             .from("agreements")
-            .select("*")
+            .select(`
+              *,
+              agreement_subtypes (
+                id,
+                subtipo_nombre
+              )
+            `)
             .in("id", allIds)
             .order("created_at", { ascending: false });
           if (error) throw error;
@@ -195,7 +224,13 @@ export default function AgreementsList({
       } else {
         const { data, error } = await supabase
           .from("agreements")
-          .select("*")
+          .select(`
+            *,
+            agreement_subtypes (
+              id,
+              subtipo_nombre
+            )
+          `)
           .eq("external_responsible", user.id)
           .order("created_at", { ascending: false });
         if (error) throw error;
@@ -673,13 +708,18 @@ export default function AgreementsList({
                   </td>
 
                   <td style={{ verticalAlign: "middle" }}>
-                    {a.sub_tipo_docente ? (
-                      <span className="badge bg-warning text-dark" style={{ fontSize: "0.75rem" }}>
-                        {a.sub_tipo_docente}
-                      </span>
-                    ) : (
-                      <span className="text-muted">-</span>
-                    )}
+                    {(() => {
+                      const subtypes = getSubtiposDocentes(a);
+                      return subtypes !== "-" ? (
+                        subtypes.split(", ").map((subtipo: string, idx: number) => (
+                          <span key={idx} className="badge bg-warning text-dark me-1 mb-1" style={{ fontSize: "0.75rem" }}>
+                            {subtipo}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted">-</span>
+                      );
+                    })()}
                   </td>
 
                   <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>

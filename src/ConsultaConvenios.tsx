@@ -23,6 +23,20 @@ const formatDateLocal = (dateString: string | null | undefined, formato: "corto"
   return `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}`;
 };
 
+// ✅ Función helper para formatear subtipos docentes
+const getSubtiposDocentes = (agreement: any): string => {
+  if (agreement.agreement_subtypes && Array.isArray(agreement.agreement_subtypes) && agreement.agreement_subtypes.length > 0) {
+    return agreement.agreement_subtypes
+      .map((st: any) => st.subtipo_nombre)
+      .join(", ");
+  }
+  // Fallback al campo legacy si existe
+  if (agreement.sub_tipo_docente) {
+    return agreement.sub_tipo_docente;
+  }
+  return "-";
+};
+
 interface Convenio {
   id: string;
   name: string;
@@ -55,6 +69,11 @@ interface Convenio {
   internal_responsible_cargo?: string;
   renovaciones_count?: number;
   ultimo_cambio?: string;
+  // 🆕 SUBTIPOS desde tabla relacionada:
+  agreement_subtypes?: Array<{
+    id: string;
+    subtipo_nombre: string;
+  }>;
 }
 
 interface ConsultaConveniosProps {
@@ -143,7 +162,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           internal_responsible,
           convenio_maestro_id,
           created_at,
-          updated_at
+          updated_at,
+          agreement_subtypes (
+            id,
+            subtipo_nombre
+          )
         `)
         .order("name");
   
@@ -249,6 +272,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             convenio: conv.convenio,
             resolucion_rectoral: conv["Resolución Rectoral"],
             sub_tipo_docente: conv.sub_tipo_docente,
+            agreement_subtypes: conv.agreement_subtypes, // 🆕 Subtipos desde tabla relacionada
             version: conv.version,
             estado_db: conv.estado,
             document_url: conv.document_url,
@@ -783,20 +807,27 @@ const verDetalleConvenio = (convenio: Convenio) => {
           </span>
         </td>
         <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF" }}>
-          {conv.sub_tipo_docente ? (
-            <span style={{
-              background: "#FFF3E0",
-              color: "#E65100",
-              padding: "0.25rem 0.75rem",
-              borderRadius: "12px",
-              fontSize: "0.85rem",
-              fontWeight: 500
-            }}>
-              {conv.sub_tipo_docente}
-            </span>
-          ) : (
-            <span style={{ color: "#ADB5BD", fontSize: "0.85rem" }}>-</span>
-          )}
+          {(() => {
+            const subtypes = getSubtiposDocentes(conv);
+            return subtypes !== "-" ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                {subtypes.split(", ").map((subtipo: string, idx: number) => (
+                  <span key={idx} style={{
+                    background: "#FFF3E0",
+                    color: "#E65100",
+                    padding: "0.25rem 0.75rem",
+                    borderRadius: "12px",
+                    fontSize: "0.85rem",
+                    fontWeight: 500
+                  }}>
+                    {subtipo}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: "#ADB5BD", fontSize: "0.85rem" }}>-</span>
+            );
+          })()}
         </td>
         <td style={{ padding: "1rem", borderBottom: "1px solid #E9ECEF", color: "#6C757D" }}>
           {conv.pais}
@@ -1375,25 +1406,39 @@ const verDetalleConvenio = (convenio: Convenio) => {
         )}
 
         {/* Sub Tipo Docente */}
-        {convenioSeleccionado.sub_tipo_docente && (
-          <div
-            style={{
-              background: "#F8F9FA",
-              padding: "1.5rem",
-              borderRadius: "12px",
-              border: "1px solid #E9ECEF",
-              marginBottom: "2rem"
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-              <i className="bi bi-tags" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
-              <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Sub Tipo</strong>
+        {(() => {
+          const subtypes = getSubtiposDocentes(convenioSeleccionado);
+          return subtypes !== "-" ? (
+            <div
+              style={{
+                background: "#F8F9FA",
+                padding: "1.5rem",
+                borderRadius: "12px",
+                border: "1px solid #E9ECEF",
+                marginBottom: "2rem"
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+                <i className="bi bi-tags" style={{ color: "#5B2C6F", fontSize: "1.25rem" }}></i>
+                <strong style={{ color: "#3D1A4F", fontSize: "1rem" }}>Sub Tipo Docente</strong>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                {subtypes.split(", ").map((subtipo: string, idx: number) => (
+                  <span key={idx} style={{
+                    background: "#FFF3E0",
+                    color: "#E65100",
+                    padding: "0.4rem 0.9rem",
+                    borderRadius: "12px",
+                    fontSize: "0.9rem",
+                    fontWeight: 500
+                  }}>
+                    {subtipo}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p style={{ margin: 0, color: "#495057", fontSize: "0.95rem" }}>
-              {convenioSeleccionado.sub_tipo_docente}
-            </p>
-          </div>
-        )}
+          ) : null;
+        })()}
 
         {/* Áreas Vinculadas */}
         <div
