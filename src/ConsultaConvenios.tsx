@@ -295,9 +295,20 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   
       setConvenios(conveniosConDatos);
   
-      // Extraer tipos únicos
-      const tiposUnicos = [...new Set(conveniosConDatos.map(c => c.agreement_type))].filter(Boolean);
-      setTipos(tiposUnicos);
+      // ✅ Extraer tipos únicos individuales (descomponer combinaciones)
+      const tiposUnicos: string[] = [];
+      conveniosConDatos.forEach(conv => {
+        if (conv.agreement_type) {
+          // Separar por comas y limpiar espacios
+          const tipos = conv.agreement_type.split(',').map((t: string) => t.trim());
+          tipos.forEach((tipo: string) => {
+            if (tipo && !tiposUnicos.includes(tipo)) {
+              tiposUnicos.push(tipo);
+            }
+          });
+        }
+      });
+      setTipos(tiposUnicos.sort());
   
       // Extraer países únicos
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
@@ -347,7 +358,12 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
 
     // Filtro por tipo
     if (filtroTipo) {
-      resultado = resultado.filter(c => c.agreement_type === filtroTipo);
+      resultado = resultado.filter(c => {
+        if (!c.agreement_type) return false;
+        // Dividir los tipos por coma y verificar si alguno coincide
+        const tipos = c.agreement_type.split(',').map((t: string) => t.trim());
+        return tipos.includes(filtroTipo);
+      });
     }
 
     // Filtro por país
