@@ -27,7 +27,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("must_change_password")
-        .eq("id", data.user.id)
+        .eq("user_id", data.user.id)  // ✅ Buscar por user_id (columna que apunta a auth.users)
         .single();
 
       setLoading(false);

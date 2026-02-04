@@ -281,7 +281,7 @@ export default function App() {
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
-          .eq("id", currentSession.user.id)
+          .eq("user_id", currentSession.user.id)  // ✅ Buscar por user_id
           .single();
 
         if (error) {
@@ -312,7 +312,7 @@ export default function App() {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role, must_change_password, full_name")
-      .eq("id", user.id)
+      .eq("user_id", user.id)  // ✅ Buscar por user_id
       .single();
 
     if (error) {

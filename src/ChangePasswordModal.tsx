@@ -52,7 +52,7 @@ export default function ChangePasswordModal({ user, onPasswordChanged }: ChangeP
           must_change_password: false,
           updated_at: new Date().toISOString() 
         })
-        .eq('id', user.id);
+        .eq('user_id', user.id);  // ✅ Buscar por user_id (columna que apunta a auth.users)
 
       if (updateProfileError) {
         console.error('Error al actualizar perfil:', updateProfileError);
