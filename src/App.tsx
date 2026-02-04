@@ -6,7 +6,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Login from "./Login";
-import ChangePassword from "./ChangePassword";
+import ChangePasswordModal from "./ChangePasswordModal";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import InstitucionesList from "./InstitucionesList";
@@ -281,7 +281,7 @@ export default function App() {
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
-          .eq("user_id", currentSession.user.id)
+          .eq("id", currentSession.user.id)
           .single();
 
         if (error) {
@@ -312,7 +312,7 @@ export default function App() {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role, must_change_password, full_name")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     if (error) {
@@ -368,9 +368,13 @@ export default function App() {
 
   if (mustChangePassword && session?.user) {
     return (
-      <ChangePassword
+      <ChangePasswordModal
         user={session.user}
-        onPasswordChanged={() => setMustChangePassword(false)}
+        onPasswordChanged={() => {
+          setMustChangePassword(false);
+          // Recargar el perfil para asegurar que el flag está limpio
+          handleLogin(session.user);
+        }}
       />
     );
   }
