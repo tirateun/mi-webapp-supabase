@@ -166,13 +166,14 @@ export default function Users() {
 
       // Llamar a la función SQL para resetear contraseña
       const { error: resetError } = await supabase.rpc('reset_user_password', {
-        user_id: profile.user_id,
+        p_user_id: profile.user_id,  // ✅ Cambiado a p_user_id
         new_password: 'Temporal123!'
       });
 
       if (resetError) throw resetError;
 
-      // Actualizar flag must_change_password a true
+      // ✅ La función SQL ya marca must_change_password = TRUE
+      // Este update es redundante pero sirve como backup por si la función falla
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ must_change_password: true })
@@ -359,6 +360,5 @@ export default function Users() {
     </div>
   );
 }
-
 
 

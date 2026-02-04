@@ -59,7 +59,7 @@ export default function ChangePasswordModal({ user, onPasswordChanged }: ChangeP
         // Intentar con RPC como fallback
         try {
           await supabase.rpc('clear_must_change_password', {
-            user_id: user.id
+            p_user_id: user.id  // ✅ Cambiado a p_user_id
           });
         } catch (rpcError) {
           console.error('Error en RPC:', rpcError);
