@@ -93,6 +93,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [filtroTipo, setFiltroTipo] = useState<string>("");
   const [filtroPais, setFiltroPais] = useState<string>("");
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
+  const [filtroSubTipo, setFiltroSubTipo] = useState<string>("");  // 🆕 Filtro Sub Tipo Docente
   const [busquedaTexto, setBusquedaTexto] = useState<string>("");
 
   // Catálogos para dropdowns
@@ -100,6 +101,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [tipos, setTipos] = useState<string[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
+  const [subtipos, setSubtipos] = useState<string[]>([]);  // 🆕 Catálogo de subtipos
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [convenioSeleccionado, setConvenioSeleccionado] = useState<Convenio | null>(null);
@@ -118,7 +120,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Aplicar filtros cuando cambian
   useEffect(() => {
     aplicarFiltros();
-  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, busquedaTexto]);
+  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, filtroSubTipo, busquedaTexto]);
 
   const cargarCatalogos = async () => {
     // Cargar áreas vinculadas
@@ -300,6 +302,19 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       // Extraer países únicos
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
       setPaises(paisesUnicos);
+
+      // 🆕 Extraer subtipos únicos
+      const subtiposUnicos: string[] = [];
+      conveniosConDatos.forEach(conv => {
+        if (conv.agreement_subtypes && Array.isArray(conv.agreement_subtypes)) {
+          conv.agreement_subtypes.forEach((st: any) => {
+            if (st.subtipo_nombre && !subtiposUnicos.includes(st.subtipo_nombre)) {
+              subtiposUnicos.push(st.subtipo_nombre);
+            }
+          });
+        }
+      });
+      setSubtipos(subtiposUnicos.sort());
   
     } catch (error) {
       console.error("Error cargando convenios:", error);
@@ -345,6 +360,16 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
         resultado = resultado.filter(c => (c.institucion_nombre || "").toLowerCase().includes(filtroInstitucion.toLowerCase()));
     }
 
+    // 🆕 Filtro por Sub Tipo Docente
+    if (filtroSubTipo) {
+      resultado = resultado.filter(c => {
+        if (c.agreement_subtypes && Array.isArray(c.agreement_subtypes)) {
+          return c.agreement_subtypes.some((st: any) => st.subtipo_nombre === filtroSubTipo);
+        }
+        return false;
+      });
+    }
+
     // Búsqueda por texto (nombre del convenio)
     if (busquedaTexto) {
       resultado = resultado.filter(c => 
@@ -360,6 +385,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroTipo("");
     setFiltroPais("");
     setFiltroInstitucion("");
+    setFiltroSubTipo("");  // 🆕 Limpiar filtro de subtipo
     setBusquedaTexto("");
   };
 // 🆕 AGREGAR AQUÍ:
@@ -664,6 +690,38 @@ const verDetalleConvenio = (convenio: Convenio) => {
                   fontSize: "0.95rem"
                 }}
               />
+            </div>
+
+            {/* 🆕 Filtro por Sub Tipo Docente */}
+            <div>
+              <label style={{ 
+                display: "block", 
+                marginBottom: "0.5rem", 
+                color: "#3D1A4F", 
+                fontWeight: 600, 
+                fontSize: "0.9rem" 
+              }}>
+                <i className="bi bi-mortarboard"></i> Sub Tipo Docente
+              </label>
+              <select
+                value={filtroSubTipo}
+                onChange={(e) => setFiltroSubTipo(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "2px solid #E9ECEF",
+                  borderRadius: "8px",
+                  fontSize: "0.95rem",
+                  cursor: "pointer"
+                }}
+              >
+                <option value="">Todos los subtipos</option>
+                {subtipos.map((subtipo) => (
+                  <option key={subtipo} value={subtipo}>
+                    {subtipo}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
