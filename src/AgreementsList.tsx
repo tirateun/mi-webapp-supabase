@@ -14,7 +14,6 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
-  onOpenInforme: (agreementId: string) => void;
 }
 
 /* ------------------ Utilidades de fecha (maneja YYYY-MM-DD) ------------------ */
@@ -94,8 +93,7 @@ export default function AgreementsList({
   onEdit,
   onCreate,
   onOpenContraprestaciones,
-  onOpenEvidencias,
-  onOpenInforme,
+  onOpenEvidencias
 }: AgreementsListProps) {
   const navigate = useNavigate();
 
@@ -793,15 +791,6 @@ export default function AgreementsList({
                         style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📂 Cumplimiento
-                      </button>
-
-                      <button 
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => onOpenInforme(a.id)}
-                        title="Informe semestral"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📝 Informe
                       </button>
 
                       <button 
