@@ -270,7 +270,15 @@ export default function AgreementDetailsModal({
           </div>
 
           {/* BODY */}
-          <div className="modal-body p-4" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          <div className="modal-body p-4" style={{ 
+            maxHeight: "70vh", 
+            overflowY: "auto",
+            background: "white",
+            minHeight: "300px",
+            display: "block",
+            opacity: 1,
+            visibility: "visible"
+          }}>
             {(() => {
               console.log("📊 Renderizando BODY - activeTab:", activeTab, "agreement:", !!agreement);
               return null;
