@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import InformesAnualesPage from "./InformesAnualesPage";
 import InformesSemestralesList from "./InformesSemestralesList";
-import InformeSemestralForm from "./InformeSemestralForm";
 
 interface Props {
   convenioId: string;
@@ -14,8 +13,6 @@ interface Props {
 export default function InformesRouter({ convenioId, convenioNombre, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [esDocenteAsistencial, setEsDocenteAsistencial] = useState(false);
-  const [vista, setVista] = useState<"lista" | "form">("lista");
-  const [informeEditar, setInformeEditar] = useState<any>(null);
 
   useEffect(() => {
     verificarTipo();
@@ -67,36 +64,12 @@ export default function InformesRouter({ convenioId, convenioNombre, onClose }: 
   // Sistema NUEVO: Informes Semestrales Cuantitativos
   // ============================================
   if (esDocenteAsistencial) {
-    if (vista === "lista") {
-      return (
-        <InformesSemestralesList
-          convenioId={convenioId}
-          convenioNombre={convenioNombre}
-          onNuevoInforme={() => {
-            setInformeEditar(null);
-            setVista("form");
-          }}
-          onEditarInforme={(informe: any) => {
-            setInformeEditar(informe);
-            setVista("form");
-          }}
-          onVerDetalle={(informe: any) => {
-            // Opcional: Implementar vista de detalle
-            console.log("Ver detalle:", informe);
-          }}
-        />
-      );
-    } else {
-      return (
-        <InformeSemestralForm
-          convenioId={convenioId}
-          convenioNombre={convenioNombre}
-          informeId={informeEditar?.id}
-          onGuardado={() => setVista("lista")}
-          onCancelar={() => setVista("lista")}
-        />
-      );
-    }
+    return (
+      <InformesSemestralesList
+        convenioId={convenioId}
+        convenioNombre={convenioNombre}
+      />
+    );
   }
 
   // ============================================
