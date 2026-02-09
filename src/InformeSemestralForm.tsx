@@ -82,6 +82,9 @@ export default function InformeSemestralForm({
   // Detalles por área
   const [detalles, setDetalles] = useState<AreaDetalle[]>([]);
   
+  // 🆕 Agregar este estado
+  const [areaSeleccionada, setAreaSeleccionada] = useState<string>("");
+
   // Cargar áreas vinculadas y datos existentes
   useEffect(() => {
     cargarAreasVinculadas();
@@ -126,25 +129,39 @@ export default function InformeSemestralForm({
   };
   
   const agregarArea = () => {
-    const areaNoAgregada = areasDisponibles.find(
-      a => !detalles.some(d => d.area_vinculada_id === a.id)
-    );
-    
-    if (!areaNoAgregada) {
-      alert("Ya has agregado todas las áreas vinculadas disponibles");
+    if (!areaSeleccionada) {
+      alert("Por favor selecciona un área primero");
       return;
     }
     
+    // Verificar si ya fue agregada
+    if (detalles.some(d => d.area_vinculada_id === areaSeleccionada)) {
+      alert("Esta área ya fue agregada");
+      return;
+    }
+    
+    // Buscar el área seleccionada
+    const area = areasDisponibles.find(a => a.id === areaSeleccionada);
+    
+    if (!area) {
+      alert("Área no encontrada");
+      return;
+    }
+    
+    // Agregar el área
     setDetalles([
       ...detalles,
       {
-        area_vinculada_id: areaNoAgregada.id,
-        area_nombre: areaNoAgregada.nombre,
+        area_vinculada_id: area.id,
+        area_nombre: area.nombre,
         alumnos_internos: 0,
         alumnos_cursos: 0,
         observaciones: ""
       }
     ]);
+    
+    // Limpiar selección
+    setAreaSeleccionada("");
   };
   
   const eliminarArea = (index: number) => {
@@ -417,32 +434,55 @@ export default function InformeSemestralForm({
           </div>
           
           <div style={{ marginBottom: "1.5rem" }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem"
-            }}>
-              <h3 style={{ margin: 0, color: "#3D1A4F", fontSize: "1.1rem" }}>
-                📚 Detalle por Área Vinculada
-              </h3>
+          <div>
+            <h3 style={{ margin: "0 0 1rem 0", color: "#3D1A4F", fontSize: "1.1rem" }}>
+              📚 Detalle por Área Vinculada
+            </h3>
+            
+            <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
+              <div style={{ flex: 1 }}>
+                <select
+                  value={areaSeleccionada}
+                  onChange={(e) => setAreaSeleccionada(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    borderRadius: "8px",
+                    border: "2px solid #DEE2E6",
+                    fontSize: "1rem"
+                  }}
+                >
+                  <option value="">Selecciona un área...</option>
+                  {areasDisponibles
+                    .filter(area => !detalles.some(d => d.area_vinculada_id === area.id))
+                    .map(area => (
+                      <option key={area.id} value={area.id}>
+                        {area.nombre}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={agregarArea}
+                disabled={!areaSeleccionada}
                 style={{
-                  background: "#FDB913",
+                  background: areaSeleccionada ? "#FDB913" : "#CCC",
                   color: "#3D1A4F",
                   border: "none",
-                  padding: "0.5rem 1rem",
+                  padding: "0.75rem 1.5rem",
                   borderRadius: "8px",
-                  cursor: "pointer",
+                  cursor: areaSeleccionada ? "pointer" : "not-allowed",
                   fontWeight: 600,
-                  fontSize: "0.9rem"
+                  fontSize: "0.9rem",
+                  whiteSpace: "nowrap"
                 }}
               >
-                ➕ Agregar Área
+                ➕ Agregar
               </button>
             </div>
+          </div>
             
             {detalles.length === 0 ? (
               <div style={{
