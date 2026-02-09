@@ -251,7 +251,11 @@ export default function AgreementDetailsModal({
               <button
                 type="button"
                 className={`btn ${activeTab === "informes" ? "btn-primary" : "btn-outline-primary"}`}
-                onClick={() => setActiveTab("informes")}
+                onClick={() => {
+                  console.log("🔘 CLIC en Informes - activeTab antes:", activeTab);
+                  setActiveTab("informes");
+                  console.log("✅ Cambiado a informes");
+                }}
               >
                 <i className="bi bi-file-text me-2"></i>
                 Informes
