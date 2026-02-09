@@ -571,14 +571,21 @@ export default function AgreementDetailsModal({
 
                 {/* TAB 2: INFORMES - SISTEMA HÍBRIDO 🆕 */}
                 {activeTab === "informes" && agreement && (
-                  <InformesRouter
-                    convenioId={agreementId}
-                    convenioNombre={agreement.name}
-                  />
+                  <div style={{
+                    background: "#FFFFFF",
+                    color: "#212529",
+                    minHeight: "400px",
+                    padding: "0"
+                  }}>
+                    <InformesRouter
+                      convenioId={agreementId}
+                      convenioNombre={agreement.name}
+                    />
+                  </div>
                 )}
-              </>
-            )}
-          </div>
+                              </>
+                            )}
+                          </div>
 
           {/* FOOTER */}
           <div className="modal-footer bg-light border-0">
