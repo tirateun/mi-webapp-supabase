@@ -273,7 +273,8 @@ export default function AgreementDetailsModal({
           <div className="modal-body p-4" style={{ 
             maxHeight: "70vh", 
             overflowY: "auto",
-            background: "white",
+            background: "#FFFFFF",
+            color: "#212529",  // ← AGREGAR ESTA LÍNEA
             minHeight: "300px",
             display: "block",
             opacity: 1,

@@ -196,11 +196,7 @@ function MainLayout({
               setSelectedAgreementId(id);
               setActivePage("contraprestacionesEvidencias");
             }}
-            onOpenInforme={(id: string) => {
-              setSelectedAgreementId(id);
-              navigate(`/informe/${id}`);
-            }}
-          />
+            />
         )}
 
         {/* Formulario de convenios */}
