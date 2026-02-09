@@ -13,7 +13,6 @@ import InstitucionesList from "./InstitucionesList";
 import Contraprestaciones from "./Contraprestaciones";
 import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
-import InformeSemestralPage from "./InformeSemestralPage";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
 import MovilidadesManager from "./MovilidadesManager"; // 🆕 AGREGAR ESTA LÍNEA
@@ -382,7 +381,6 @@ export default function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/informe/:convenioId" element={<InformeSemestralPage />} />
         <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
         <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
         <Route

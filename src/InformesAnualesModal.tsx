@@ -1,90 +1,82 @@
-// src/InformeSemestralModal.tsx - VERSIÓN MEJORADA
-import React, { useEffect, useState } from "react";
+// src/InformesAnualesModal.tsx
+import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+
+interface AgreementYear {
+  id: string;
+  agreement_id: string;
+  year_number: number;
+  year_start: string;
+  year_end: string;
+}
+
+interface InformeAnual {
+  id: string;
+  convenio_id: string;
+  year_id: string;
+  contenido: string;
+  dificultades: string;
+}
 
 interface Props {
   show: boolean;
   onClose: () => void;
   convenioId: string;
-  selectedYearId: string | null;
+  year: AgreementYear;
   onSaved: () => void;
-  editing?: {
-    id: string;
-    periodo?: string | null;
-    descripcion?: string | null;
-    actividades?: string | null;
-    logros?: string | null;
-    dificultades?: string | null;
-    resumen?: string | null;
-    user_id?: string | null;
-    internal_responsible_id?: string | null;
-    year_id?: string | null;
-    contenido?: string | null;
-  } | null;
+  editing?: InformeAnual | null;
 }
 
-export default function InformeSemestralModal({
+export default function InformesAnualesModal({
   show,
   onClose,
   convenioId,
-  selectedYearId,
+  year,
   onSaved,
-  editing = null,
+  editing = null
 }: Props) {
-  const [contenido, setContenido] = useState(editing?.contenido ?? "");
-  const [dificultades, setDificultades] = useState(editing?.dificultades ?? "");
+  const [contenido, setContenido] = useState("");
+  const [dificultades, setDificultades] = useState("");
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!show) return;
+    
     fetchProfile();
-    setContenido(editing?.contenido ?? "");
-    setDificultades(editing?.dificultades ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    if (editing) {
+      setContenido(editing.contenido || "");
+      setDificultades(editing.dificultades || "");
+    } else {
+      setContenido("");
+      setDificultades("");
+    }
   }, [show, editing]);
 
   const fetchProfile = async () => {
     try {
       const { data: userResp } = await supabase.auth.getUser();
-      const user = userResp?.user ?? null;
-      if (!user) {
-        setError("No se encontró sesión. Inicia sesión.");
-        return;
-      }
+      const user = userResp?.user;
+      
+      if (!user) return;
 
-      const { data: profileData, error: profErr } = await supabase
+      const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, full_name, email, role, user_id")
+        .select("id, full_name, email")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (profErr) {
-        console.error("Error cargando profile:", profErr);
-        setError("Error cargando datos de perfil.");
-        return;
-      }
-      setProfile(profileData || null);
-    } catch (err) {
-      console.error("fetchProfile error:", err);
-      setError("Error cargando perfil.");
+      setProfile(profileData);
+    } catch (error) {
+      console.error("Error cargando perfil:", error);
     }
-  };
-
-  const clearForm = () => {
-    setContenido("");
-    setDificultades("");
   };
 
   const handleSave = async () => {
-    if (!profile) {
-      alert("No se pudo identificar al usuario. Refresca sesión.");
-      return;
-    }
-
     if (!contenido || contenido.trim() === "") {
-      return alert("Por favor ingresa el contenido del informe.");
+      alert("Por favor ingresa el contenido del informe");
+      return;
     }
 
     setLoading(true);
@@ -92,36 +84,38 @@ export default function InformeSemestralModal({
     try {
       const payload: any = {
         convenio_id: convenioId,
-        periodo: null,
+        year_id: year.id,
         contenido,
-        dificultades,
-        descripcion: null,
-        actividades: null,
-        logros: null,
-        resumen: null,
-        user_id: profile.id,
-        internal_responsible_id: profile.id,
+        dificultades: dificultades || null,
+        created_by: profile?.id || null
       };
 
-      if (selectedYearId) payload.year_id = selectedYearId;
-
       if (editing && editing.id) {
-        const { error: updateErr } = await supabase
-          .from("informes_semestrales")
-          .update(payload)
+        // Actualizar informe existente
+        const { error } = await supabase
+          .from("informes_anuales")
+          .update({
+            contenido,
+            dificultades: dificultades || null,
+            updated_at: new Date().toISOString()
+          })
           .eq("id", editing.id);
-        if (updateErr) throw updateErr;
+
+        if (error) throw error;
       } else {
-        const { error: insertErr } = await supabase.from("informes_semestrales").insert([payload]);
-        if (insertErr) throw insertErr;
+        // Crear nuevo informe
+        const { error } = await supabase
+          .from("informes_anuales")
+          .insert([payload]);
+
+        if (error) throw error;
       }
 
+      alert(`✅ Informe ${editing ? 'actualizado' : 'creado'} correctamente`);
       onSaved();
-      clearForm();
-      onClose();
-    } catch (err: any) {
-      console.error("Error guardar informe:", err);
-      alert("Error al guardar: " + (err?.message || String(err)));
+    } catch (error: any) {
+      console.error("Error guardando informe:", error);
+      alert("❌ Error al guardar: " + (error?.message || String(error)));
     } finally {
       setLoading(false);
     }
@@ -129,20 +123,37 @@ export default function InformeSemestralModal({
 
   if (!show) return null;
 
+  const formatFecha = (fecha: string) => {
+    return new Date(fecha).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   return (
-    <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.5)" }} tabIndex={-1}>
+    <div 
+      className="modal fade show d-block" 
+      style={{ background: "rgba(0,0,0,0.5)" }} 
+      tabIndex={-1}
+    >
       <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content shadow-lg border-0">
           {/* Header */}
           <div className="modal-header bg-primary text-white py-3">
             <div>
               <h4 className="modal-title mb-1 fw-bold">
-                {editing ? "📝 Editar Informe Anual" : "📄 Nuevo Informe Anual"}
+                {editing ? "✏️ Editar Informe Anual" : "📄 Nuevo Informe Anual"}
               </h4>
+              <small className="opacity-75">
+                Año {year.year_number} ({formatFecha(year.year_start)} - {formatFecha(year.year_end)})
+              </small>
               {profile && (
-                <small className="opacity-75">
-                  Responsable: <strong>{profile.full_name || profile.email}</strong>
-                </small>
+                <div>
+                  <small className="opacity-75">
+                    Responsable: <strong>{profile.full_name || profile.email}</strong>
+                  </small>
+                </div>
               )}
             </div>
             <button 
@@ -155,14 +166,6 @@ export default function InformeSemestralModal({
 
           {/* Body */}
           <div className="modal-body p-4" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-            {error && (
-              <div className="alert alert-danger alert-dismissible fade show" role="alert">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                {error}
-                <button type="button" className="btn-close" onClick={() => setError(null)}></button>
-              </div>
-            )}
-
             <div className="row g-4">
               {/* Contenido Principal */}
               <div className="col-12">
@@ -249,7 +252,7 @@ export default function InformeSemestralModal({
               type="button"
               className="btn btn-primary px-4 shadow-sm"
               onClick={handleSave}
-              disabled={loading}
+              disabled={loading || !contenido.trim()}
             >
               {loading ? (
                 <>
@@ -269,6 +272,3 @@ export default function InformeSemestralModal({
     </div>
   );
 }
-
-
-
