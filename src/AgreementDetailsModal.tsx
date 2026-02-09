@@ -31,6 +31,11 @@ export default function AgreementDetailsModal({
   // 🆕 Estado para tabs
   const [activeTab, setActiveTab] = useState<"detalles" | "informes">("detalles");
 
+  // 🔍 DEBUG - Log cada vez que cambia activeTab
+  useEffect(() => {
+    console.log("🔄 activeTab cambió a:", activeTab);
+  }, [activeTab]);
+
   useEffect(() => {
     if (show && agreementId) {
       loadAgreementDetails();
@@ -252,9 +257,10 @@ export default function AgreementDetailsModal({
                 type="button"
                 className={`btn ${activeTab === "informes" ? "btn-primary" : "btn-outline-primary"}`}
                 onClick={() => {
-                  console.log("🔘 CLIC en Informes - activeTab antes:", activeTab);
+                  console.log("🔘 CLIC en botón Informes");
+                  console.log("🔘 activeTab ANTES:", activeTab);
                   setActiveTab("informes");
-                  console.log("✅ Cambiado a informes");
+                  console.log("🔘 setActiveTab llamado con 'informes'");
                 }}
               >
                 <i className="bi bi-file-text me-2"></i>
@@ -265,6 +271,11 @@ export default function AgreementDetailsModal({
 
           {/* BODY */}
           <div className="modal-body p-4" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+            {(() => {
+              console.log("📊 Renderizando BODY - activeTab:", activeTab, "agreement:", !!agreement);
+              return null;
+            })()}
+            
             {loading ? (
               <div className="text-center py-5">
                 <div className="spinner-border text-primary" role="status">
