@@ -45,31 +45,32 @@ export default function InformeSemestralForm({
 
   const cargarInstitucionDelConvenio = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Obtener el convenio
+      const { data: convenio, error: errorConvenio } = await supabase
         .from("agreements")
-        .select(`
-          institucion_id,
-          instituciones (
-            nombre
-          )
-        `)
+        .select("institucion_id")
         .eq("id", convenioId)
         .single();
       
-      if (error) throw error;
+      if (errorConvenio) throw errorConvenio;
       
-      console.log("📍 Datos cargados:", data);
+      if (!convenio?.institucion_id) {
+        console.log("⚠️ Convenio sin institución asignada");
+        return;
+      }
       
-      // instituciones puede ser null, un objeto, o un array
-      if (data?.instituciones) {
-        const institucion = Array.isArray(data.instituciones) 
-          ? data.instituciones[0] 
-          : data.instituciones;
-        
-        if (institucion?.nombre) {
-          setSedeConvenio(institucion.nombre);
-          console.log("✅ Sede auto-llenada:", institucion.nombre);
-        }
+      // 2. Obtener la institución
+      const { data: institucion, error: errorInst } = await supabase
+        .from("instituciones")
+        .select("nombre")
+        .eq("id", convenio.institucion_id)
+        .single();
+      
+      if (errorInst) throw errorInst;
+      
+      if (institucion?.nombre) {
+        setSedeConvenio(institucion.nombre);
+        console.log("✅ Sede auto-llenada:", institucion.nombre);
       }
     } catch (error) {
       console.error("❌ Error cargando institución:", error);
