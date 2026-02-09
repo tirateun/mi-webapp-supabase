@@ -38,6 +38,43 @@ export default function InformeSemestralForm({
   const [sedeConvenio, setSedeConvenio] = useState("");
   const [observacionesGenerales, setObservacionesGenerales] = useState("");
   
+  // 🆕 Agregar este useEffect para cargar la institución
+  useEffect(() => {
+    cargarInstitucionDelConvenio();
+  }, [convenioId]);
+
+  const cargarInstitucionDelConvenio = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("agreements")
+        .select(`
+          institucion_id,
+          instituciones (
+            nombre
+          )
+        `)
+        .eq("id", convenioId)
+        .single();
+      
+      if (error) throw error;
+      
+      console.log("📍 Datos cargados:", data);
+      
+      // instituciones puede ser null, un objeto, o un array
+      if (data?.instituciones) {
+        const institucion = Array.isArray(data.instituciones) 
+          ? data.instituciones[0] 
+          : data.instituciones;
+        
+        if (institucion?.nombre) {
+          setSedeConvenio(institucion.nombre);
+          console.log("✅ Sede auto-llenada:", institucion.nombre);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error cargando institución:", error);
+    }
+  };
   // Áreas vinculadas disponibles
   const [areasDisponibles, setAreasDisponibles] = useState<any[]>([]);
   
