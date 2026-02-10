@@ -6,9 +6,16 @@ import InformeSemestralForm from "./InformeSemestralForm";
 interface InformesSemestralesListProps {
   convenioId: string;
   convenioNombre: string;
+  esResponsable?: boolean;
+  isAdmin?: boolean;
 }
 
-export default function InformesSemestralesList({ convenioId, convenioNombre }: InformesSemestralesListProps) {
+export default function InformesSemestralesList({ 
+  convenioId, 
+  convenioNombre,
+  esResponsable = false,
+  isAdmin = false
+}: InformesSemestralesListProps) {
   const [loading, setLoading] = useState(false);
   const [informes, setInformes] = useState<any[]>([]);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -116,31 +123,33 @@ export default function InformesSemestralesList({ convenioId, convenioNombre }: 
         </div>
       </div>
       
-      {/* Botón Nuevo */}
-      <div style={{ marginBottom: "2rem" }}>
-        <button 
-          onClick={() => { 
-            setInformeAEditar(null); 
-            setMostrarForm(true); 
-          }} 
-          style={{ 
-            background: "#FDB913", 
-            color: "#3D1A4F", 
-            border: "none", 
-            padding: "1rem 2rem", 
-            borderRadius: "8px", 
-            cursor: "pointer", 
-            fontWeight: 600, 
-            fontSize: "1.1rem",
-            boxShadow: "0 2px 8px rgba(253,185,19,0.3)",
-            transition: "transform 0.2s"
-          }}
-          onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-          onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
-        >
-          ➕ Nuevo Informe Semestral
-        </button>
-      </div>
+      {/* Botón Nuevo - Solo para usuarios NO admin */}
+      {!isAdmin && (
+        <div style={{ marginBottom: "2rem" }}>
+          <button 
+            onClick={() => { 
+              setInformeAEditar(null); 
+              setMostrarForm(true); 
+            }} 
+            style={{ 
+              background: "#FDB913", 
+              color: "#3D1A4F", 
+              border: "none", 
+              padding: "1rem 2rem", 
+              borderRadius: "8px", 
+              cursor: "pointer", 
+              fontWeight: 600, 
+              fontSize: "1.1rem",
+              boxShadow: "0 2px 8px rgba(253,185,19,0.3)",
+              transition: "transform 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
+            onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
+          >
+            ➕ Nuevo Informe Semestral
+          </button>
+        </div>
+      )}
       
       {/* Contenido */}
       {loading ? (
@@ -161,23 +170,28 @@ export default function InformesSemestralesList({ convenioId, convenioNombre }: 
           <i className="bi bi-inbox" style={{ fontSize: "3rem", color: "#ADB5BD" }}></i>
           <h3 style={{ marginTop: "1rem", color: "#3D1A4F" }}>No hay informes registrados</h3>
           <p style={{ color: "#6C757D", marginBottom: "1.5rem" }}>
-            Crea el primer informe semestral para este convenio
+            {isAdmin 
+              ? "No hay informes disponibles para visualizar" 
+              : "Crea el primer informe semestral para este convenio"
+            }
           </p>
-          <button 
-            onClick={() => setMostrarForm(true)} 
-            style={{ 
-              background: "#5B2C6F", 
-              color: "white", 
-              border: "none", 
-              padding: "0.75rem 1.5rem", 
-              borderRadius: "8px", 
-              cursor: "pointer", 
-              fontWeight: 600,
-              fontSize: "1rem"
-            }}
-          >
-            ➕ Crear Primer Informe
-          </button>
+          {!isAdmin && (
+            <button 
+              onClick={() => setMostrarForm(true)} 
+              style={{ 
+                background: "#5B2C6F", 
+                color: "white", 
+                border: "none", 
+                padding: "0.75rem 1.5rem", 
+                borderRadius: "8px", 
+                cursor: "pointer", 
+                fontWeight: 600,
+                fontSize: "1rem"
+              }}
+            >
+              ➕ Crear Primer Informe
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -309,48 +323,50 @@ export default function InformesSemestralesList({ convenioId, convenioNombre }: 
                 </div>
               )}
               
-              {/* Botones de Acción */}
-              <div style={{ 
-                display: "flex", 
-                gap: "1rem", 
-                justifyContent: "flex-end",
-                paddingTop: "1rem",
-                borderTop: "1px solid #E9ECEF"
-              }}>
-                <button 
-                  onClick={() => { 
-                    setInformeAEditar(informe); 
-                    setMostrarForm(true); 
-                  }} 
-                  style={{ 
-                    background: "#007BFF", 
-                    color: "white", 
-                    border: "none", 
-                    padding: "0.75rem 1.5rem", 
-                    borderRadius: "8px", 
-                    cursor: "pointer", 
-                    fontWeight: 600,
-                    fontSize: "0.95rem"
-                  }}
-                >
-                  ✏️ Editar
-                </button>
-                <button 
-                  onClick={() => handleEliminarInforme(informe.id)} 
-                  style={{ 
-                    background: "#DC3545", 
-                    color: "white", 
-                    border: "none", 
-                    padding: "0.75rem 1.5rem", 
-                    borderRadius: "8px", 
-                    cursor: "pointer", 
-                    fontWeight: 600,
-                    fontSize: "0.95rem"
-                  }}
-                >
-                  🗑️ Eliminar
-                </button>
-              </div>
+              {/* Botones de Acción - Solo para usuarios NO admin */}
+              {!isAdmin && (
+                <div style={{ 
+                  display: "flex", 
+                  gap: "1rem", 
+                  justifyContent: "flex-end",
+                  paddingTop: "1rem",
+                  borderTop: "1px solid #E9ECEF"
+                }}>
+                  <button 
+                    onClick={() => { 
+                      setInformeAEditar(informe); 
+                      setMostrarForm(true); 
+                    }} 
+                    style={{ 
+                      background: "#007BFF", 
+                      color: "white", 
+                      border: "none", 
+                      padding: "0.75rem 1.5rem", 
+                      borderRadius: "8px", 
+                      cursor: "pointer", 
+                      fontWeight: 600,
+                      fontSize: "0.95rem"
+                    }}
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button 
+                    onClick={() => handleEliminarInforme(informe.id)} 
+                    style={{ 
+                      background: "#DC3545", 
+                      color: "white", 
+                      border: "none", 
+                      padding: "0.75rem 1.5rem", 
+                      borderRadius: "8px", 
+                      cursor: "pointer", 
+                      fontWeight: 600,
+                      fontSize: "0.95rem"
+                    }}
+                  >
+                    🗑️ Eliminar
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

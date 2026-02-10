@@ -25,9 +25,16 @@ interface InformeAnual {
 interface Props {
   convenioId: string;
   onClose?: () => void;
+  esResponsable?: boolean;
+  isAdmin?: boolean;
 }
 
-export default function InformesAnualesPage({ convenioId, onClose }: Props) {
+export default function InformesAnualesPage({ 
+  convenioId, 
+  onClose,
+  esResponsable = false,
+  isAdmin = false
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [agreementYears, setAgreementYears] = useState<AgreementYear[]>([]);
   const [informes, setInformes] = useState<InformeAnual[]>([]);
@@ -257,28 +264,47 @@ export default function InformesAnualesPage({ convenioId, onClose }: Props) {
                         {formatFecha(year.year_start)} - {formatFecha(year.year_end)}
                       </p>
                     </div>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      {tieneInforme ? (
-                        <>
+                    {/* Botones - Solo para usuarios NO admin */}
+                    {!isAdmin && (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {tieneInforme ? (
+                          <>
+                            <button
+                              onClick={() => abrirModalEditar(informe, year)}
+                              style={{
+                                background: "#FDB913",
+                                color: "#3D1A4F",
+                                border: "none",
+                                padding: "0.75rem 1.5rem",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "0.95rem",
+                                fontWeight: 600
+                              }}
+                            >
+                              <i className="bi bi-pencil"></i> Editar
+                            </button>
+                            <button
+                              onClick={() => eliminarInforme(informe.id)}
+                              style={{
+                                background: "#DC3545",
+                                color: "white",
+                                border: "none",
+                                padding: "0.75rem 1.5rem",
+                                borderRadius: "8px",
+                                cursor: "pointer",
+                                fontSize: "0.95rem",
+                                fontWeight: 600
+                              }}
+                            >
+                              <i className="bi bi-trash"></i> Eliminar
+                            </button>
+                          </>
+                        ) : (
                           <button
-                            onClick={() => abrirModalEditar(informe, year)}
+                            onClick={() => abrirModalNuevo(year)}
                             style={{
-                              background: "#FDB913",
-                              color: "#3D1A4F",
-                              border: "none",
-                              padding: "0.75rem 1.5rem",
-                              borderRadius: "8px",
-                              cursor: "pointer",
-                              fontSize: "0.95rem",
-                              fontWeight: 600
-                            }}
-                          >
-                            <i className="bi bi-pencil"></i> Editar
-                          </button>
-                          <button
-                            onClick={() => eliminarInforme(informe.id)}
-                            style={{
-                              background: "#DC3545",
+                              background: "#5B2C6F",
                               color: "white",
                               border: "none",
                               padding: "0.75rem 1.5rem",
@@ -288,27 +314,11 @@ export default function InformesAnualesPage({ convenioId, onClose }: Props) {
                               fontWeight: 600
                             }}
                           >
-                            <i className="bi bi-trash"></i> Eliminar
+                            <i className="bi bi-plus-circle"></i> Crear Informe
                           </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => abrirModalNuevo(year)}
-                          style={{
-                            background: "#5B2C6F",
-                            color: "white",
-                            border: "none",
-                            padding: "0.75rem 1.5rem",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                            fontSize: "0.95rem",
-                            fontWeight: 600
-                          }}
-                        >
-                          <i className="bi bi-plus-circle"></i> Crear Informe
-                        </button>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -76,6 +76,8 @@ export default function InformesRouter({
       <InformesSemestralesList
         convenioId={convenioId}
         convenioNombre={convenioNombre}
+        esResponsable={esResponsable}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -88,6 +90,8 @@ export default function InformesRouter({
     <InformesAnualesPage
       convenioId={convenioId}
       onClose={onClose}
+      esResponsable={esResponsable}
+      isAdmin={isAdmin}
     />
   );
 }
