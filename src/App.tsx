@@ -258,8 +258,149 @@ function MainLayout({
 
         {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
         {activePage === "movilidades" && <MovilidadesManager />}
-      </div>
+        </div>
     </div>
   );
-}
+}  // ← Cierre de MainLayout
 
+// Función principal App
+export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [role, setRole] = useState<string>("");
+  const [fullName, setFullName] = useState<string>("");
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const currentSession = data.session;
+      setSession(currentSession);
+
+      if (currentSession?.user) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("role, must_change_password, full_name")
+          .eq("user_id", currentSession.user.id)
+          .single();
+
+        if (error) {
+          console.error("Error cargando perfil:", error);
+        }
+
+        setRole(profile?.role || "");
+        setFullName(profile?.full_name || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
+      }
+      setLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      try {
+        listener.subscription.unsubscribe();
+      } catch (e) {
+        // noop
+      }
+    };
+  }, []);
+
+  const handleLogin = async (user: any) => {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role, must_change_password, full_name")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error) {
+      console.error("Error cargando perfil (login):", error);
+    }
+
+    setRole(profile?.role || "");
+    setFullName(profile?.full_name || "");
+    setMustChangePassword(profile?.must_change_password || false);
+    setSession({ user });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setMustChangePassword(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        background: "linear-gradient(135deg, #3D1A4F 0%, #5B2C6F 100%)",
+        color: "white",
+        fontSize: "1.5rem",
+        fontWeight: 500
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ marginBottom: "1rem" }}>
+            <div className="spinner-border" role="status">
+              <span className="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+          <p>Cargando Sistema de Convenios...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session)
+    return (
+      <Login
+        onLogin={handleLogin}
+        onRequirePasswordChange={(user: any) => {
+          setMustChangePassword(true);
+          setSession({ user });
+        }}
+      />
+    );
+
+  if (mustChangePassword && session?.user) {
+    return (
+      <ChangePassword
+        user={session.user}
+        onPasswordChanged={() => setMustChangePassword(false)}
+      />
+    );
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/renewals/:agreementId" element={<AgreementRenewalsPage />} />
+        <Route path="/areas-vinculadas" element={<AreasVinculadasList />} />
+        <Route 
+          path="/informes/:convenioId" 
+          element={
+            <InformesPage 
+              user={session.user} 
+              role={role} 
+            />
+          } 
+        />
+        <Route
+          path="*"
+          element={
+            <MainLayout
+              session={session}
+              role={role}
+              fullName={fullName}
+              mustChangePassword={mustChangePassword}
+              onLogout={handleLogout}
+            />
+          }
+        />
+      </Routes>
+    </Router>
+  );
+}
