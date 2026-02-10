@@ -6,7 +6,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import Sidebar from "./Sidebar";
 import Users from "./Users";
 import Login from "./Login";
-import ChangePasswordModal from "./ChangePasswordModal";
+import ChangePassword from "./ChangePassword";
 import AgreementsList from "./AgreementsList";
 import AgreementsForm from "./AgreementsForm";
 import InstitucionesList from "./InstitucionesList";
@@ -15,7 +15,7 @@ import ContraprestacionesEvidencias from "./ContraprestacionesEvidencias";
 import Reportes from "./Reportes";
 import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
-import MovilidadesManager from "./MovilidadesManager"; // 🆕 AGREGAR ESTA LÍNEA
+import MovilidadesManager from "./MovilidadesManager"; // 🆕 NUEVO
 import React from "react";
 
 // ✅ Nuevo componente: Layout principal dentro del Router
@@ -42,10 +42,10 @@ function MainLayout({
     | "contraprestaciones"
     | "contraprestacionesEvidencias"
     | "areasVinculadas"
-    | "consultaConvenios"  // 🆕 NUEVO
-    | "movilidades"
+    | "consultaConvenios"
+    | "movilidades"  // 🆕 NUEVO
   >("agreementsList");
-  console.log("🏠 App - activePage actual:", activePage); // 🆕 AGREGAR
+  console.log("🏠 App - activePage actual:", activePage);
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
 
@@ -196,7 +196,7 @@ function MainLayout({
               setSelectedAgreementId(id);
               setActivePage("contraprestacionesEvidencias");
             }}
-            />
+          />
         )}
 
         {/* Formulario de convenios */}
@@ -254,7 +254,6 @@ function MainLayout({
 
         {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
         {activePage === "movilidades" && <MovilidadesManager />}
-        
       </div>
     </div>
   );
@@ -276,7 +275,7 @@ export default function App() {
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
-          .eq("user_id", currentSession.user.id)  // ✅ Buscar por user_id
+          .eq("user_id", currentSession.user.id)
           .single();
 
         if (error) {
@@ -307,7 +306,7 @@ export default function App() {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("role, must_change_password, full_name")
-      .eq("user_id", user.id)  // ✅ Buscar por user_id
+      .eq("user_id", user.id)
       .single();
 
     if (error) {
@@ -363,13 +362,9 @@ export default function App() {
 
   if (mustChangePassword && session?.user) {
     return (
-      <ChangePasswordModal
+      <ChangePassword
         user={session.user}
-        onPasswordChanged={() => {
-          setMustChangePassword(false);
-          // Recargar el perfil para asegurar que el flag está limpio
-          handleLogin(session.user);
-        }}
+        onPasswordChanged={() => setMustChangePassword(false)}
       />
     );
   }
@@ -395,19 +390,6 @@ export default function App() {
     </Router>
   );
 }
-// Force rebuild
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
