@@ -8,9 +8,17 @@ interface Props {
   convenioId: string;
   convenioNombre: string;
   onClose?: () => void;
+  esResponsable?: boolean;
+  isAdmin?: boolean;
 }
 
-export default function InformesRouter({ convenioId, convenioNombre, onClose }: Props) {
+export default function InformesRouter({ 
+  convenioId, 
+  convenioNombre, 
+  onClose,
+  esResponsable = false,
+  isAdmin = false
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [esDocenteAsistencial, setEsDocenteAsistencial] = useState(false);
 

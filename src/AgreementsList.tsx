@@ -14,6 +14,7 @@ interface AgreementsListProps {
   onCreate: () => void;
   onOpenContraprestaciones: (agreementId: string) => void;
   onOpenEvidencias: (agreementId: string) => void;
+  onOpenInforme: (agreementId: string) => void;  // ← AGREGAR
 }
 
 /* ------------------ Utilidades de fecha (maneja YYYY-MM-DD) ------------------ */
@@ -93,7 +94,8 @@ export default function AgreementsList({
   onEdit,
   onCreate,
   onOpenContraprestaciones,
-  onOpenEvidencias
+  onOpenEvidencias,
+  onOpenInforme  // ← AGREGAR (sin coma al final)
 }: AgreementsListProps) {
   const navigate = useNavigate();
 
@@ -793,6 +795,15 @@ export default function AgreementsList({
                         📂 Cumplimiento
                       </button>
 
+                      <button 
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => onOpenInforme(a.id)}
+                        title="Informes del convenio"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        📝 Informes
+                      </button>
+                              
                       <button 
                         className="btn btn-sm btn-outline-dark" 
                         onClick={() => navigateToRenewalPage(a.id)} 
