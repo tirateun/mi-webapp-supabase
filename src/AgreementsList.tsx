@@ -251,14 +251,21 @@ export default function AgreementsList({
       // NOTA: No filtrar por IDs para evitar URL muy larga
       const { data: renewalsData, error: rError } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_date, new_duration_years, changed_at")
-        .order("changed_at", { ascending: false }); // más recientes primero
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_date, new_duration_years, changed_at");
 
-      if (rError) throw rError;
+      if (rError) {
+        console.error("Error cargando renovaciones:", rError);
+        throw rError;
+      }
 
       // Filtrar solo las renovaciones de los convenios visibles
       const renewalsFiltered = (renewalsData || []).filter((r: any) => 
         agreementIds.includes(r.agreement_id)
+      );
+
+      // Ordenar por changed_at desc (más recientes primero)
+      renewalsFiltered.sort((a: any, b: any) => 
+        new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
       );
 
       setRenewalsDataState(renewalsFiltered);
