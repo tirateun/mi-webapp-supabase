@@ -455,8 +455,39 @@ export default function AgreementsList({
     (a: any) => {
       const end = getEndDate(a);
       if (!end) return <small className="text-muted">Sin vigencia</small>;
+      
       const today = new Date();
-      const diff = diffDates(today, end);
+      const activeRenewal = getActiveRenewalFor(a.id);
+      
+      // Si hay renovación, calcular desde fecha de inicio de renovación
+      let startDate = today;
+      
+      if (activeRenewal && activeRenewal.old_expiration_date) {
+        const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
+        if (oldEnd) {
+          const renewalStart = new Date(oldEnd);
+          renewalStart.setDate(renewalStart.getDate() + 1);
+          
+          // Si la renovación aún no ha iniciado
+          if (today < renewalStart) {
+            const daysUntilRenewal = Math.ceil((renewalStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            return (
+              <div style={{ textAlign: "left" }}>
+                <div style={{ color: "#8a6d1f", fontWeight: 600 }}>
+                  Por renovar en {daysUntilRenewal} {daysUntilRenewal === 1 ? "día" : "días"}
+                </div>
+                <small className="text-muted">Inicia: {renewalStart.toLocaleDateString("es-PE")}</small>
+                <small className="text-muted d-block">Termina: {end.toLocaleDateString("es-PE")}</small>
+              </div>
+            );
+          }
+          
+          // Si la renovación ya inició, calcular desde su fecha de inicio
+          startDate = renewalStart;
+        }
+      }
+      
+      const diff = diffDates(startDate, end);
       const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
       const styleColor = diff.invert
         ? { color: "#6c757d" }
@@ -485,7 +516,7 @@ export default function AgreementsList({
         </div>
       );
     },
-    [getEndDate, renewalsMap]
+    [getEndDate, renewalsMap, renewalsDataState]
   );
 
   /* ------------------ Filtros (simple + advanced) ------------------ */
