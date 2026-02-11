@@ -255,6 +255,7 @@ export default function Reportes() {
   const [movilidadesPorConvenio, setMovilidadesPorConvenio] = useState<MovilidadPorConvenio[]>([]);
   const [movilidadesPorPais, setMovilidadesPorPais] = useState<MovilidadPorPais[]>([]);
   const [movilidadesDetalle, setMovilidadesDetalle] = useState<any[]>([]);
+  const [mostrarTodasMovilidades, setMostrarTodasMovilidades] = useState(false);
 
   // Filtros movilidades
   const [movilidadFechaInicio, setMovilidadFechaInicio] = useState<string>("");
@@ -436,6 +437,7 @@ export default function Reportes() {
 
       const movilidades = movilidadesData || [];
       setMovilidadesDetalle(movilidades);
+      setMostrarTodasMovilidades(false); // Resetear a vista limitada
 
       const stats: MovilidadStats = {
         total: movilidades.length,
@@ -1255,7 +1257,10 @@ export default function Reportes() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movilidadesDetalle.slice(0, 20).map((m: any, idx: number) => (
+                      {(mostrarTodasMovilidades 
+                        ? movilidadesDetalle 
+                        : movilidadesDetalle.slice(0, 20)
+                      ).map((m: any, idx: number) => (
                         <tr key={m.id} style={{ backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8f9fa' }}>
                           <td className="px-4 py-3"><strong>{m.nombre_completo}</strong></td>
                           <td className="px-4 py-3">
@@ -1284,8 +1289,18 @@ export default function Reportes() {
               )}
             </div>
             {movilidadesDetalle.length > 0 && (
-              <div className="card-footer bg-white border-0 p-3">
-                <small className="text-muted">Mostrando {Math.min(20, movilidadesDetalle.length)} de {movilidadesDetalle.length} movilidades</small>
+              <div className="card-footer bg-white border-0 p-3 d-flex justify-content-between align-items-center">
+                <small className="text-muted">
+                  Mostrando {mostrarTodasMovilidades ? movilidadesDetalle.length : Math.min(20, movilidadesDetalle.length)} de {movilidadesDetalle.length} movilidades
+                </small>
+                {movilidadesDetalle.length > 20 && (
+                  <button 
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setMostrarTodasMovilidades(!mostrarTodasMovilidades)}
+                  >
+                    {mostrarTodasMovilidades ? '📄 Ver menos' : '📋 Ver todas'}
+                  </button>
+                )}
               </div>
             )}
           </div>
