@@ -248,10 +248,10 @@ export default function AgreementsList({
       }
 
       // 2) traer renovaciones
-      // NOTA: No filtrar por IDs para evitar URL muy larga
       const { data: renewalsData, error: rError } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_date, new_duration_years, changed_at");
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
+        .order("changed_at", { ascending: false });
 
       if (rError) {
         console.error("Error cargando renovaciones:", rError);
@@ -261,11 +261,6 @@ export default function AgreementsList({
       // Filtrar solo las renovaciones de los convenios visibles
       const renewalsFiltered = (renewalsData || []).filter((r: any) => 
         agreementIds.includes(r.agreement_id)
-      );
-
-      // Ordenar por changed_at desc (más recientes primero)
-      renewalsFiltered.sort((a: any, b: any) => 
-        new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
       );
 
       setRenewalsDataState(renewalsFiltered);
@@ -336,8 +331,14 @@ export default function AgreementsList({
   const getEffectiveSignatureDate = (a: any): Date | null => {
     const activeRenewal = getActiveRenewalFor(a.id);
     
-    if (activeRenewal && activeRenewal.renewal_date) {
-      return parseLocalDate(activeRenewal.renewal_date);
+    // Si hay renovación, la fecha de inicio es el día después de la expiración anterior
+    if (activeRenewal && activeRenewal.old_expiration_date) {
+      const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
+      if (oldEnd) {
+        const renewalStart = new Date(oldEnd);
+        renewalStart.setDate(renewalStart.getDate() + 1);
+        return renewalStart;
+      }
     }
     
     return parseLocalDate(a.signature_date);
@@ -347,8 +348,27 @@ export default function AgreementsList({
   const getEffectiveDuration = (a: any): number | null => {
     const activeRenewal = getActiveRenewalFor(a.id);
     
-    if (activeRenewal && activeRenewal.new_duration_years) {
-      return Number(activeRenewal.new_duration_years);
+    // Si hay renovación, calcular duración desde fechas
+    if (activeRenewal && activeRenewal.old_expiration_date && activeRenewal.new_expiration_date) {
+      const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
+      const newEnd = parseLocalDate(activeRenewal.new_expiration_date);
+      
+      if (oldEnd && newEnd) {
+        const startDate = new Date(oldEnd);
+        startDate.setDate(startDate.getDate() + 1);
+        
+        // Calcular años de diferencia
+        const years = newEnd.getFullYear() - startDate.getFullYear();
+        const monthDiff = newEnd.getMonth() - startDate.getMonth();
+        const dayDiff = newEnd.getDate() - startDate.getDate();
+        
+        // Si la diferencia de meses/días es negativa, restar un año
+        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+          return years - 1;
+        }
+        
+        return years;
+      }
     }
     
     return a.duration_years ? Number(a.duration_years) : null;
