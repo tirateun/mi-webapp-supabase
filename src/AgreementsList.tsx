@@ -459,35 +459,32 @@ export default function AgreementsList({
       const today = new Date();
       const activeRenewal = getActiveRenewalFor(a.id);
       
-      // Si hay renovación, calcular desde fecha de inicio de renovación
+      // Determinar qué periodo mostrar
       let startDate = today;
+      let endDate = end;
+      let showingCurrentPeriod = false;
+      let renewalStartDate: Date | null = null;
       
       if (activeRenewal && activeRenewal.old_expiration_date) {
         const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
         if (oldEnd) {
-          const renewalStart = new Date(oldEnd);
-          renewalStart.setDate(renewalStart.getDate() + 1);
+          renewalStartDate = new Date(oldEnd);
+          renewalStartDate.setDate(renewalStartDate.getDate() + 1);
           
           // Si la renovación aún no ha iniciado
-          if (today < renewalStart) {
-            const daysUntilRenewal = Math.ceil((renewalStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            return (
-              <div style={{ textAlign: "left" }}>
-                <div style={{ color: "#8a6d1f", fontWeight: 600 }}>
-                  Por renovar en {daysUntilRenewal} {daysUntilRenewal === 1 ? "día" : "días"}
-                </div>
-                <small className="text-muted">Inicia: {renewalStart.toLocaleDateString("es-PE")}</small>
-                <small className="text-muted d-block">Termina: {end.toLocaleDateString("es-PE")}</small>
-              </div>
-            );
+          if (today < renewalStartDate) {
+            // Mostrar vigencia del periodo ACTUAL (hasta old_expiration_date)
+            endDate = oldEnd;
+            showingCurrentPeriod = true;
+          } else {
+            // La renovación ya inició, calcular desde su inicio
+            startDate = renewalStartDate;
+            endDate = end; // new_expiration_date
           }
-          
-          // Si la renovación ya inició, calcular desde su fecha de inicio
-          startDate = renewalStart;
         }
       }
       
-      const diff = diffDates(startDate, end);
+      const diff = diffDates(startDate, endDate);
       const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
       const styleColor = diff.invert
         ? { color: "#6c757d" }
@@ -499,18 +496,23 @@ export default function AgreementsList({
 
       return (
         <div style={{ textAlign: "left" }}>
-          <div style={styleColor} title={a.signature_date ? `Termina: ${end.toLocaleDateString("es-PE")}` : undefined}>
+          <div style={styleColor} title={a.signature_date ? `Termina: ${endDate.toLocaleDateString("es-PE")}` : undefined}>
             {text}
           </div>
-          <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
+          <small className="text-muted">
+            {showingCurrentPeriod ? "Termina: " : "Termina: "}
+            {endDate.toLocaleDateString("es-PE")}
+          </small>
 
           {/* mostrar renovaciones */}
           {renewalsMap[a.id] && (
             <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
               Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
-              {renewalsMap[a.id].latest_new_expiration_date
-                ? ` — último: ${parseLocalDate(renewalsMap[a.id].latest_new_expiration_date)?.toLocaleDateString("es-PE")}`
-                : ""}
+              {showingCurrentPeriod && renewalStartDate ? (
+                ` — inicia: ${renewalStartDate.toLocaleDateString("es-PE")}`
+              ) : renewalsMap[a.id].latest_new_expiration_date ? (
+                ` — último: ${parseLocalDate(renewalsMap[a.id].latest_new_expiration_date)?.toLocaleDateString("es-PE")}`
+              ) : ""}
             </div>
           )}
         </div>
