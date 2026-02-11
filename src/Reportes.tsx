@@ -75,6 +75,155 @@ interface MovilidadPorPais {
   salientes: number;
 }
 
+// ============================================
+// COMPONENTES AUXILIARES PARA TAB INFORMES
+// ============================================
+
+function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
+  const totalGeneral = datos.reduce((sum, r) => sum + r.total_alumnos, 0);
+  const totalInternos = datos.reduce((sum, r) => sum + r.total_internos, 0);
+  const totalCursos = datos.reduce((sum, r) => sum + r.total_cursos, 0);
+
+  return (
+    <div className="card">
+      <div className="card-header bg-light">
+        <div className="row text-center">
+          <div className="col">
+            <div className="text-muted small">Total Convenios</div>
+            <div className="h3 mb-0">{datos.length}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Internos</div>
+            <div className="h3 mb-0 text-primary">{totalInternos}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Cursos</div>
+            <div className="h3 mb-0 text-success">{totalCursos}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Alumnos</div>
+            <div className="h3 mb-0 text-warning">{totalGeneral}</div>
+          </div>
+        </div>
+      </div>
+      <div className="card-body p-0">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0">
+            <thead className="table-dark">
+              <tr>
+                <th>Convenio</th>
+                <th>Institución</th>
+                <th className="text-end">Internos</th>
+                <th className="text-end">Cursos</th>
+                <th className="text-end">Total</th>
+                <th className="text-end">Informes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-5">
+                    No hay datos disponibles con los filtros seleccionados
+                  </td>
+                </tr>
+              ) : (
+                datos.map((row, idx) => (
+                  <tr key={idx}>
+                    <td className="fw-bold">{row.convenio_nombre}</td>
+                    <td>{row.institucion_nombre}</td>
+                    <td className="text-end">{row.total_internos}</td>
+                    <td className="text-end">{row.total_cursos}</td>
+                    <td className="text-end fw-bold text-primary">{row.total_alumnos}</td>
+                    <td className="text-end">
+                      <span className="badge bg-secondary">{row.cantidad_informes}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
+  const totalConvenios = datos.reduce((sum, r) => sum + r.total_convenios, 0);
+  const totalInternos = datos.reduce((sum, r) => sum + r.total_internos, 0);
+  const totalCursos = datos.reduce((sum, r) => sum + r.total_cursos, 0);
+  const totalAlumnos = datos.reduce((sum, r) => sum + r.total_alumnos, 0);
+
+  return (
+    <div className="card">
+      <div className="card-header bg-light">
+        <div className="row text-center">
+          <div className="col">
+            <div className="text-muted small">Instituciones</div>
+            <div className="h3 mb-0">{datos.length}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Convenios</div>
+            <div className="h3 mb-0 text-info">{totalConvenios}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Internos</div>
+            <div className="h3 mb-0 text-primary">{totalInternos}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Cursos</div>
+            <div className="h3 mb-0 text-success">{totalCursos}</div>
+          </div>
+          <div className="col">
+            <div className="text-muted small">Total Alumnos</div>
+            <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
+          </div>
+        </div>
+      </div>
+      <div className="card-body p-0">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0">
+            <thead className="table-dark">
+              <tr>
+                <th>Institución</th>
+                <th className="text-end">Convenios</th>
+                <th className="text-end">Internos</th>
+                <th className="text-end">Cursos</th>
+                <th className="text-end">Total</th>
+                <th className="text-end">Informes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-5">
+                    No hay datos disponibles con los filtros seleccionados
+                  </td>
+                </tr>
+              ) : (
+                datos.map((row, idx) => (
+                  <tr key={idx}>
+                    <td className="fw-bold">{row.institucion_nombre}</td>
+                    <td className="text-end">
+                      <span className="badge bg-info">{row.total_convenios}</span>
+                    </td>
+                    <td className="text-end">{row.total_internos}</td>
+                    <td className="text-end">{row.total_cursos}</td>
+                    <td className="text-end fw-bold text-primary">{row.total_alumnos}</td>
+                    <td className="text-end">
+                      <span className="badge bg-secondary">{row.cantidad_informes}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Reportes() {
   // Estados de convenios
   const [convenios, setConvenios] = useState<Convenio[]>([]);
@@ -114,7 +263,20 @@ export default function Reportes() {
   const [movilidadDireccion, setMovilidadDireccion] = useState<string>("all");
 
   // Tab activo
-  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades">("convenios");
+  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes">("convenios");
+
+  // Estados para tab de Informes
+  const [vistaInformes, setVistaInformes] = useState<"convenios" | "instituciones">("convenios");
+  const [reporteInformesConvenios, setReporteInformesConvenios] = useState<any[]>([]);
+  const [reporteInformesInstituciones, setReporteInformesInstituciones] = useState<any[]>([]);
+  const [informesLoading, setInformesLoading] = useState(false);
+  const [informesAnioFiltro, setInformesAnioFiltro] = useState<number | null>(null);
+  const [informesSemestreFiltro, setInformesSemestreFiltro] = useState<number | null>(null);
+  const [informesAreaFiltro, setInformesAreaFiltro] = useState<string>("");
+  const [informesInstitucionFiltro, setInformesInstitucionFiltro] = useState<string>("");
+  const [informesAniosDisponibles, setInformesAniosDisponibles] = useState<number[]>([]);
+  const [informesAreasDisponibles, setInformesAreasDisponibles] = useState<any[]>([]);
+  const [informesInstitucionesDisponibles, setInformesInstitucionesDisponibles] = useState<any[]>([]);
 
   useEffect(() => {
     cargarReportes();
@@ -124,8 +286,21 @@ export default function Reportes() {
   useEffect(() => {
     if (activeTab === "movilidades") {
       cargarReportesMovilidades();
+    } else if (activeTab === "informes") {
+      cargarCatalogosInformes();
     }
   }, [activeTab, movilidadFechaInicio, movilidadFechaFin, movilidadCategoria, movilidadDireccion]);
+
+  // useEffect para recargar cuando cambian filtros de informes
+  useEffect(() => {
+    if (activeTab === "informes") {
+      if (vistaInformes === "convenios") {
+        cargarReporteInformesConvenios();
+      } else {
+        cargarReporteInformesInstituciones();
+      }
+    }
+  }, [activeTab, vistaInformes, informesAnioFiltro, informesSemestreFiltro, informesAreaFiltro, informesInstitucionFiltro]);
 
   const cargarReportes = async () => {
     setLoading(true);
@@ -404,6 +579,242 @@ export default function Reportes() {
     return movilidadStats.total > 0 ? Math.round((movilidadStats.completadas / movilidadStats.total) * 100) : 0;
   };
 
+  // ============================================
+  // FUNCIONES PARA TAB DE INFORMES
+  // ============================================
+
+  const cargarCatalogosInformes = async () => {
+    try {
+      const { data: informes } = await supabase
+        .from("informes_semestrales")
+        .select("anio")
+        .order("anio", { ascending: false });
+      
+      const anios = [...new Set((informes || []).map((i: any) => i.anio))];
+      setInformesAniosDisponibles(anios);
+
+      const { data: areas } = await supabase
+        .from("areas_vinculadas")
+        .select("id, nombre")
+        .order("nombre");
+      
+      setInformesAreasDisponibles(areas || []);
+
+      const { data: instituciones } = await supabase
+        .from("instituciones")
+        .select("id, nombre")
+        .order("nombre");
+      
+      setInformesInstitucionesDisponibles(instituciones || []);
+    } catch (error) {
+      console.error("Error cargando catálogos de informes:", error);
+    }
+  };
+
+  const cargarReporteInformesConvenios = async () => {
+    setInformesLoading(true);
+    try {
+      let query = supabase
+        .from("informes_semestrales")
+        .select(`
+          id,
+          convenio_id,
+          anio,
+          semestre,
+          agreements!inner (
+            id,
+            name,
+            institucion_id,
+            instituciones (
+              nombre
+            )
+          )
+        `);
+
+      if (informesAnioFiltro) query = query.eq("anio", informesAnioFiltro);
+      if (informesSemestreFiltro) query = query.eq("semestre", informesSemestreFiltro);
+      if (informesInstitucionFiltro) {
+        query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
+      }
+
+      const { data: informes, error: informesError } = await query;
+      if (informesError) throw informesError;
+
+      const reporteMap: Record<string, any> = {};
+
+      for (const informe of informes || []) {
+        let queryDetalle = supabase
+          .from("informes_semestrales_detalle")
+          .select("alumnos_internos, alumnos_cursos, total_alumnos, area_vinculada_id")
+          .eq("informe_id", informe.id);
+
+        if (informesAreaFiltro) {
+          queryDetalle = queryDetalle.eq("area_vinculada_id", informesAreaFiltro);
+        }
+
+        const { data: detalles } = await queryDetalle;
+
+        const totalInternos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_internos, 0);
+        const totalCursos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_cursos, 0);
+        const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
+
+        const convenioId = informe.convenio_id;
+        const agreement = (informe as any).agreements;
+        if (!reporteMap[convenioId]) {
+          reporteMap[convenioId] = {
+            convenio_id: convenioId,
+            convenio_nombre: agreement?.name || "Sin nombre",
+            institucion_nombre: agreement?.instituciones?.nombre || "Sin institución",
+            total_internos: 0,
+            total_cursos: 0,
+            total_alumnos: 0,
+            cantidad_informes: 0
+          };
+        }
+
+        reporteMap[convenioId].total_internos += totalInternos;
+        reporteMap[convenioId].total_cursos += totalCursos;
+        reporteMap[convenioId].total_alumnos += totalAlumnos;
+        reporteMap[convenioId].cantidad_informes += 1;
+      }
+
+      const reporte = Object.values(reporteMap).sort((a: any, b: any) => 
+        b.total_alumnos - a.total_alumnos
+      );
+
+      setReporteInformesConvenios(reporte);
+    } catch (error) {
+      console.error("Error cargando reporte de convenios:", error);
+    } finally {
+      setInformesLoading(false);
+    }
+  };
+
+  const cargarReporteInformesInstituciones = async () => {
+    setInformesLoading(true);
+    try {
+      let query = supabase
+        .from("informes_semestrales")
+        .select(`
+          id,
+          convenio_id,
+          anio,
+          semestre,
+          agreements!inner (
+            id,
+            name,
+            institucion_id,
+            instituciones (
+              id,
+              nombre
+            )
+          )
+        `);
+
+      if (informesAnioFiltro) query = query.eq("anio", informesAnioFiltro);
+      if (informesSemestreFiltro) query = query.eq("semestre", informesSemestreFiltro);
+      if (informesInstitucionFiltro) {
+        query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
+      }
+
+      const { data: informes, error: informesError } = await query;
+      if (informesError) throw informesError;
+
+      const reporteMap: Record<string, any> = {};
+
+      for (const informe of informes || []) {
+        let queryDetalle = supabase
+          .from("informes_semestrales_detalle")
+          .select("alumnos_internos, alumnos_cursos, total_alumnos, area_vinculada_id")
+          .eq("informe_id", informe.id);
+
+        if (informesAreaFiltro) {
+          queryDetalle = queryDetalle.eq("area_vinculada_id", informesAreaFiltro);
+        }
+
+        const { data: detalles } = await queryDetalle;
+
+        const totalInternos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_internos, 0);
+        const totalCursos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_cursos, 0);
+        const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
+
+        const agreement = (informe as any).agreements;
+        const institucionNombre = agreement?.instituciones?.nombre || "Sin institución";
+        
+        if (!reporteMap[institucionNombre]) {
+          reporteMap[institucionNombre] = {
+            institucion_nombre: institucionNombre,
+            convenios_set: new Set(),
+            total_internos: 0,
+            total_cursos: 0,
+            total_alumnos: 0,
+            cantidad_informes: 0
+          };
+        }
+
+        reporteMap[institucionNombre].convenios_set.add(informe.convenio_id);
+        reporteMap[institucionNombre].total_internos += totalInternos;
+        reporteMap[institucionNombre].total_cursos += totalCursos;
+        reporteMap[institucionNombre].total_alumnos += totalAlumnos;
+        reporteMap[institucionNombre].cantidad_informes += 1;
+      }
+
+      const reporte = Object.values(reporteMap).map((r: any) => ({
+        institucion_nombre: r.institucion_nombre,
+        total_convenios: r.convenios_set.size,
+        total_internos: r.total_internos,
+        total_cursos: r.total_cursos,
+        total_alumnos: r.total_alumnos,
+        cantidad_informes: r.cantidad_informes
+      })).sort((a: any, b: any) => b.total_alumnos - a.total_alumnos);
+
+      setReporteInformesInstituciones(reporte);
+    } catch (error) {
+      console.error("Error cargando reporte de instituciones:", error);
+    } finally {
+      setInformesLoading(false);
+    }
+  };
+
+  const limpiarFiltrosInformes = () => {
+    setInformesAnioFiltro(null);
+    setInformesSemestreFiltro(null);
+    setInformesAreaFiltro("");
+    setInformesInstitucionFiltro("");
+  };
+
+  const exportarInformesCSV = () => {
+    const datos = vistaInformes === "convenios" ? reporteInformesConvenios : reporteInformesInstituciones;
+    
+    if (datos.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+
+    let csv = "";
+    if (vistaInformes === "convenios") {
+      csv = "Convenio,Institución,Alumnos Internos,Alumnos Cursos,Total Alumnos,Cantidad Informes\n";
+      datos.forEach((r: any) => {
+        csv += `"${r.convenio_nombre}","${r.institucion_nombre}",${r.total_internos},${r.total_cursos},${r.total_alumnos},${r.cantidad_informes}\n`;
+      });
+    } else {
+      csv = "Institución,Total Convenios,Alumnos Internos,Alumnos Cursos,Total Alumnos,Cantidad Informes\n";
+      datos.forEach((r: any) => {
+        csv += `"${r.institucion_nombre}",${r.total_convenios},${r.total_internos},${r.total_cursos},${r.total_alumnos},${r.cantidad_informes}\n`;
+      });
+    }
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `reporte_informes_${vistaInformes}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -431,6 +842,15 @@ export default function Reportes() {
             style={activeTab === "movilidades" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
             🌍 Movilidades Académicas
+          </button>
+        </li>
+        <li className="nav-item">
+          <button 
+            className={"nav-link " + (activeTab === "informes" ? "active" : "")} 
+            onClick={() => setActiveTab("informes")} 
+            style={activeTab === "informes" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
+          >
+            📈 Informes Semestrales
           </button>
         </li>
       </ul>
@@ -870,6 +1290,120 @@ export default function Reportes() {
             )}
           </div>
         </>
+      )}
+
+      {/* TAB INFORMES SEMESTRALES */}
+      {activeTab === "informes" && (
+        <div>
+          {/* Sub-tabs: Por Convenio / Por Institución */}
+          <div className="btn-group mb-4" role="group">
+            <button
+              type="button"
+              className={`btn ${vistaInformes === "convenios" ? "btn-primary" : "btn-outline-primary"}`}
+              onClick={() => setVistaInformes("convenios")}
+            >
+              <i className="bi bi-file-text me-2"></i>
+              Por Convenio
+            </button>
+            <button
+              type="button"
+              className={`btn ${vistaInformes === "instituciones" ? "btn-primary" : "btn-outline-primary"}`}
+              onClick={() => setVistaInformes("instituciones")}
+            >
+              <i className="bi bi-building me-2"></i>
+              Por Institución
+            </button>
+          </div>
+
+          {/* Filtros */}
+          <div className="card mb-4">
+            <div className="card-header bg-light">
+              <h5 className="mb-0">🔍 Filtros</h5>
+            </div>
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-md-3">
+                  <label className="form-label fw-bold">Año</label>
+                  <select
+                    className="form-select"
+                    value={informesAnioFiltro || ""}
+                    onChange={(e) => setInformesAnioFiltro(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Todos</option>
+                    {informesAniosDisponibles.map(anio => (
+                      <option key={anio} value={anio}>{anio}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label fw-bold">Semestre</label>
+                  <select
+                    className="form-select"
+                    value={informesSemestreFiltro || ""}
+                    onChange={(e) => setInformesSemestreFiltro(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="1">Semestre I</option>
+                    <option value="2">Semestre II</option>
+                  </select>
+                </div>
+
+                <div className="col-md-3">
+                  <label className="form-label fw-bold">Área Vinculada</label>
+                  <select
+                    className="form-select"
+                    value={informesAreaFiltro}
+                    onChange={(e) => setInformesAreaFiltro(e.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    {informesAreasDisponibles.map(area => (
+                      <option key={area.id} value={area.id}>{area.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {vistaInformes === "convenios" && (
+                  <div className="col-md-3">
+                    <label className="form-label fw-bold">Institución</label>
+                    <select
+                      className="form-select"
+                      value={informesInstitucionFiltro}
+                      onChange={(e) => setInformesInstitucionFiltro(e.target.value)}
+                    >
+                      <option value="">Todas</option>
+                      {informesInstitucionesDisponibles.map(inst => (
+                        <option key={inst.id} value={inst.id}>{inst.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3">
+                <button className="btn btn-secondary me-2" onClick={limpiarFiltrosInformes}>
+                  🔄 Limpiar Filtros
+                </button>
+                <button className="btn btn-success" onClick={exportarInformesCSV}>
+                  📥 Exportar CSV
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Contenido */}
+          {informesLoading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : vistaInformes === "convenios" ? (
+            <TablaReporteInformesConvenios datos={reporteInformesConvenios} />
+          ) : (
+            <TablaReporteInformesInstituciones datos={reporteInformesInstituciones} />
+          )}
+        </div>
       )}
 
       {loading && (
