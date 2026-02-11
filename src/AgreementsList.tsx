@@ -249,7 +249,7 @@ export default function AgreementsList({
 
       const { data: renewalsData, error: rError } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_date, new_duration_years, changed_at")
         .in("agreement_id", agreementIds)
         .order("changed_at", { ascending: false }); // más recientes primero
 
@@ -289,25 +289,56 @@ export default function AgreementsList({
 
   /* ------------------ Helpers vigencia ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
-    // 🔧 CORRECCIÓN: Usar parseLocalDate para evitar problemas de zona horaria
+    // Si hay renovaciones, usar la fecha de la renovación más reciente
+    const activeRenewal = getActiveRenewalFor(a.id);
+    
+    if (activeRenewal && activeRenewal.new_expiration_date) {
+      return parseLocalDate(activeRenewal.new_expiration_date);
+    }
+    
+    // Sino, usar fecha de expiración directa del convenio
     if (a?.expiration_date) {
       return parseLocalDate(a.expiration_date);
     }
+    
+    // Calcular desde signature_date + duration_years
     if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
     if (!sig) return null;
     return computeEndDate(sig, Number(a.duration_years));
-  }, []);
+  }, [renewalsDataState]);
 
   const getActiveRenewalFor = (agreementId: string) => {
     if (!renewalsDataState || renewalsDataState.length === 0) return null;
   
     // Buscamos la renovación más reciente de ese convenio
     const r = renewalsDataState
-      .filter((x) => x.agreement_id === agreementId)
-      .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+      .filter((x: any) => x.agreement_id === agreementId)
+      .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
   
     return r.length > 0 ? r[0] : null; // la más reciente
+  };
+
+  // Nueva función: Obtener fecha de firma efectiva (renovación o inicial)
+  const getEffectiveSignatureDate = (a: any): Date | null => {
+    const activeRenewal = getActiveRenewalFor(a.id);
+    
+    if (activeRenewal && activeRenewal.renewal_date) {
+      return parseLocalDate(activeRenewal.renewal_date);
+    }
+    
+    return parseLocalDate(a.signature_date);
+  };
+
+  // Nueva función: Obtener duración efectiva (renovación o inicial)
+  const getEffectiveDuration = (a: any): number | null => {
+    const activeRenewal = getActiveRenewalFor(a.id);
+    
+    if (activeRenewal && activeRenewal.new_duration_years) {
+      return Number(activeRenewal.new_duration_years);
+    }
+    
+    return a.duration_years ? Number(a.duration_years) : null;
   };
   
   /* ------------------ Helpers renovaciones (vigencia + renovación activa) ------------------ */
@@ -488,11 +519,11 @@ export default function AgreementsList({
         }
 
         if (anioInicio !== null) {
-          const sig = parseLocalDate(item.signature_date);
+          const sig = getEffectiveSignatureDate(item);
           checks.push(sig ? sig.getFullYear() >= anioInicio : false);
         }
         if (anioFin !== null) {
-          const sig = parseLocalDate(item.signature_date);
+          const sig = getEffectiveSignatureDate(item);
           checks.push(sig ? sig.getFullYear() <= anioFin : false);
         }
 
@@ -724,9 +755,23 @@ export default function AgreementsList({
 
                   <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>
 
-                  <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
+                  <td style={{ verticalAlign: "middle" }}>
+                    {(() => {
+                      const effectiveDuration = getEffectiveDuration(a);
+                      return effectiveDuration 
+                        ? `${effectiveDuration} ${effectiveDuration === 1 ? "año" : "años"}` 
+                        : "Sin dato";
+                    })()}
+                  </td>
 
-                  <td style={{ verticalAlign: "middle" }}>{a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}</td>
+                  <td style={{ verticalAlign: "middle" }}>
+                    {(() => {
+                      const effectiveSignature = getEffectiveSignatureDate(a);
+                      return effectiveSignature 
+                        ? effectiveSignature.toLocaleDateString("es-PE") 
+                        : "-";
+                    })()}
+                  </td>
 
                   <td style={{ verticalAlign: "middle", textAlign: "left" }}>{renderCountdown(a)}</td>
 
