@@ -250,7 +250,7 @@ export default function AgreementsList({
       // 2) traer renovaciones
       const { data: renewalsData, error: rError } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_signature_date, changed_at")
         .order("changed_at", { ascending: false });
 
       if (rError) {
@@ -334,16 +334,24 @@ export default function AgreementsList({
   const getEffectiveSignatureDate = (a: any): Date | null => {
     const activeRenewal = getActiveRenewalFor(a.id);
     
-    // Si hay renovación, la fecha de inicio es el día después de la expiración anterior
-    if (activeRenewal && activeRenewal.old_expiration_date) {
-      const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
-      if (oldEnd) {
-        const renewalStart = new Date(oldEnd);
-        renewalStart.setDate(renewalStart.getDate() + 1);
-        return renewalStart;
+    if (activeRenewal) {
+      // PRIORIDAD 1: Si hay fecha de firma de renovación registrada, usarla
+      if (activeRenewal.renewal_signature_date) {
+        return parseLocalDate(activeRenewal.renewal_signature_date);
+      }
+      
+      // PRIORIDAD 2: Si no, calcular como día después de expiración anterior
+      if (activeRenewal.old_expiration_date) {
+        const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
+        if (oldEnd) {
+          const renewalStart = new Date(oldEnd);
+          renewalStart.setDate(renewalStart.getDate() + 1);
+          return renewalStart;
+        }
       }
     }
     
+    // PRIORIDAD 3: Fecha original del convenio
     return parseLocalDate(a.signature_date);
   };
 
