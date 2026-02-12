@@ -2,7 +2,6 @@
 // ✅ VERSIÓN ADAPTADA CON SISTEMA HÍBRIDO DE INFORMES
 import React, { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import InformesRouter from "./InformesRouter";
 
 interface AgreementDetailsModalProps {
   show: boolean;
@@ -28,8 +27,8 @@ export default function AgreementDetailsModal({
   const [areas, setAreas] = useState<any[]>([]);
   const [subtypes, setSubtypes] = useState<Subtype[]>([]);
   
-  // 🆕 Estado para tabs
-  const [activeTab, setActiveTab] = useState<"detalles" | "informes">("detalles");
+  // Estado para tabs (solo detalles ahora, informes se accede desde botón en lista)
+  const [activeTab, setActiveTab] = useState<"detalles">("detalles");
 
   // 🔍 DEBUG - Log cada vez que cambia activeTab
   useEffect(() => {
@@ -252,19 +251,6 @@ export default function AgreementDetailsModal({
               >
                 <i className="bi bi-info-circle me-2"></i>
                 Información General
-              </button>
-              <button
-                type="button"
-                className={`btn ${activeTab === "informes" ? "btn-primary" : "btn-outline-primary"}`}
-                onClick={() => {
-                  console.log("🔘 CLIC en botón Informes");
-                  console.log("🔘 activeTab ANTES:", activeTab);
-                  setActiveTab("informes");
-                  console.log("🔘 setActiveTab llamado con 'informes'");
-                }}
-              >
-                <i className="bi bi-file-text me-2"></i>
-                Informes
               </button>
             </div>
           </div>
@@ -567,21 +553,6 @@ export default function AgreementDetailsModal({
                       </div>
                     </div>
                   </>
-                )}
-
-                {/* TAB 2: INFORMES - SISTEMA HÍBRIDO 🆕 */}
-                {activeTab === "informes" && agreement && (
-                  <div style={{
-                    background: "#FFFFFF",
-                    color: "#212529",
-                    minHeight: "400px",
-                    padding: "0"
-                  }}>
-                    <InformesRouter
-                      convenioId={agreementId}
-                      convenioNombre={agreement.name}
-                    />
-                  </div>
                 )}
                               </>
                             )}
