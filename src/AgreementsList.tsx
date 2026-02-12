@@ -296,6 +296,20 @@ export default function AgreementsList({
   }, [user?.id, role, fetchAgreementsAndRenewals, fetchAreas]);
 
   /* ------------------ Helpers vigencia ------------------ */
+  
+  // PRIMERO: Función auxiliar para obtener renovación activa
+  const getActiveRenewalFor = (agreementId: string) => {
+    if (!renewalsDataState || renewalsDataState.length === 0) return null;
+  
+    // Buscamos la renovación más reciente de ese convenio
+    const r = renewalsDataState
+      .filter((x: any) => x.agreement_id === agreementId)
+      .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+  
+    return r.length > 0 ? r[0] : null; // la más reciente
+  };
+
+  // SEGUNDO: Funciones que usan getActiveRenewalFor
   const getEndDate = useCallback((a: any): Date | null => {
     // Si hay renovaciones, usar la fecha de la renovación más reciente
     const activeRenewal = getActiveRenewalFor(a.id);
@@ -315,17 +329,6 @@ export default function AgreementsList({
     if (!sig) return null;
     return computeEndDate(sig, Number(a.duration_years));
   }, [renewalsDataState]);
-
-  const getActiveRenewalFor = (agreementId: string) => {
-    if (!renewalsDataState || renewalsDataState.length === 0) return null;
-  
-    // Buscamos la renovación más reciente de ese convenio
-    const r = renewalsDataState
-      .filter((x: any) => x.agreement_id === agreementId)
-      .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
-  
-    return r.length > 0 ? r[0] : null; // la más reciente
-  };
 
   // Nueva función: Obtener fecha de firma efectiva (renovación o inicial)
   const getEffectiveSignatureDate = (a: any): Date | null => {
