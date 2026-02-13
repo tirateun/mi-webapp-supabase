@@ -19,8 +19,9 @@ export default function RenewalModal({ agreement, onClose, onRenew }: any) {
         .from("agreement_renewals")
         .insert({
           agreement_id: agreement.id,
-          start_date: startDate,
-          end_date: endDate,
+          old_expiration_date: agreement.expiration_date, // Fecha fin del convenio actual
+          new_expiration_date: endDate,                    // Nueva fecha fin
+          renewal_signature_date: startDate,               // Fecha de firma de renovación
         })
         .select()
         .single();
