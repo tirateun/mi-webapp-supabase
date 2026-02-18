@@ -1,110 +1,117 @@
+// src/utils/generateYearsIfNeeded.ts
 import { supabase } from "../supabaseClient";
 
 /**
- * Genera los años del convenio en agreement_years
- * SOLO si no existen o están incompletos.
+ * Genera automáticamente los años de vigencia de un convenio si no existen.
+ * Genera años contiguos desde signature_date hasta expiration_date.
  *
- * TABLA: agreement_years
- * COLUMNAS:
- *  - agreement_id (uuid)
- *  - year_number (int)
- *  - year_start (date)
- *  - year_end (date)
+ * @param agreementId        ID del convenio (uuid string)
+ * @param signatureDate      Fecha de firma (YYYY-MM-DD)
+ * @param expirationDate     Fecha de expiración (YYYY-MM-DD)
+ * @param durationYears      Duración en años (usado si no hay expirationDate)
  */
 export default async function generateYearsIfNeeded(
-  agreementId: string,
+  agreementId: string | number,
   signatureDate: string | null,
   expirationDate: string | null,
   durationYears: number | null
 ) {
-  // ---- Validaciones duras (evitan basura en BD) ----
-  if (!agreementId) {
-    console.warn("generateYearsIfNeeded: agreementId vacío");
-    return;
+  try {
+    if (!agreementId) {
+      console.warn("❌ generateYearsIfNeeded: no agreementId");
+      return;
+    }
+
+    const agreementIdSafe = String(agreementId);
+
+    if (!signatureDate) {
+      console.warn("❌ generateYearsIfNeeded: falta signatureDate");
+      return;
+    }
+
+    // Calcular fecha de expiración si no existe
+    let endDate: Date;
+    
+    if (expirationDate) {
+      endDate = new Date(expirationDate);
+    } else if (durationYears) {
+      const start = new Date(signatureDate);
+      endDate = new Date(start);
+      endDate.setFullYear(endDate.getFullYear() + Number(durationYears));
+      endDate.setDate(endDate.getDate() - 1);
+    } else {
+      console.warn("❌ generateYearsIfNeeded: falta expirationDate y durationYears");
+      return;
+    }
+
+    // Verificar si ya tiene años generados
+    const { data: existingYears, error: fetchError } = await supabase
+      .from("agreement_years")
+      .select("id")
+      .eq("agreement_id", agreementIdSafe)
+      .limit(1);
+
+    if (fetchError) {
+      console.error("❌ Error verificando años existentes:", fetchError);
+      return;
+    }
+
+    if (existingYears && existingYears.length > 0) {
+      console.log("📅 Años ya existentes para convenio, saltando generación");
+      return;
+    }
+
+    // Generar años de vigencia
+    const start = new Date(signatureDate);
+    const yearRows: any[] = [];
+    let yearNum = 1;
+    let cursor = new Date(start);
+
+    while (cursor < endDate) {
+      const yearStart = new Date(cursor);
+      const yearEnd = new Date(yearStart);
+      yearEnd.setFullYear(yearEnd.getFullYear() + 1);
+      yearEnd.setDate(yearEnd.getDate() - 1);
+
+      // Si el fin de año excede la expiración, ajustar
+      if (yearEnd > endDate) {
+        yearEnd.setTime(endDate.getTime());
+      }
+
+      yearRows.push({
+        agreement_id: agreementIdSafe,
+        year_number: yearNum,
+        year_start: yearStart.toISOString().slice(0, 10),
+        year_end: yearEnd.toISOString().slice(0, 10),
+      });
+
+      // Si llegamos al final, salir
+      if (yearEnd >= endDate) break;
+
+      // Avanzar al siguiente año
+      cursor = new Date(yearEnd);
+      cursor.setDate(cursor.getDate() + 1);
+      yearNum++;
+    }
+
+    if (yearRows.length === 0) {
+      console.warn("⚠️ No se generaron años (duración muy corta?)");
+      return;
+    }
+
+    // Insertar años en la BD
+    const { error: insertError } = await supabase
+      .from("agreement_years")
+      .insert(yearRows);
+
+    if (insertError) {
+      console.error("❌ Error insertando años:", insertError);
+      throw insertError;
+    }
+
+    console.log(`✅ Generados ${yearRows.length} año(s) para convenio ${agreementIdSafe}`);
+  } catch (err) {
+    console.error("❌ Error en generateYearsIfNeeded:", err);
+    throw err;
   }
-
-  if (!signatureDate || !durationYears || durationYears <= 0) {
-    console.warn("generateYearsIfNeeded: datos insuficientes", {
-      signatureDate,
-      durationYears,
-    });
-    return;
-  }
-
-  // Redondear duración hacia arriba para generar años completos
-  // Ejemplo: 1.5 años → genera Año 1 y Año 2
-  const totalYears = Math.ceil(durationYears);
-
-  // ---- Verificar si ya existen años ----
-  const { data: existing, error: checkErr } = await supabase
-    .from("agreement_years")
-    .select("id")
-    .eq("agreement_id", agreementId);
-
-  if (checkErr) {
-    console.error("Error verificando agreement_years:", checkErr);
-    return;
-  }
-
-  // Si ya existen TODOS los años, no hacer nada
-  if (existing && existing.length === totalYears) {
-    console.log("agreement_years ya completos, no se generan nuevamente");
-    return;
-  }
-
-  // ---- Borrar los años existentes (si están truncados o inconsistentes) ----
-  await supabase
-    .from("agreement_years")
-    .delete()
-    .eq("agreement_id", agreementId);
-
-  // ---- Calcular años usando zona horaria local ----
-  // 🔧 CORRECCIÓN: Parsear fecha manualmente para evitar problemas de zona horaria
-  const [year, month, day] = signatureDate.split('-').map(Number);
-  const baseDate = new Date(year, month - 1, day); // mes es 0-indexed en JS
-
-  const rows: any[] = [];
-
-  for (let i = 0; i < totalYears; i++) {
-    // Año N empieza en la fecha base + i años
-    const start = new Date(baseDate);
-    start.setFullYear(baseDate.getFullYear() + i);
-
-    // Año N termina exactamente 1 año después - 1 día
-    const end = new Date(start);
-    end.setFullYear(end.getFullYear() + 1);
-    end.setDate(end.getDate() - 1);
-
-    // Formatear a YYYY-MM-DD manualmente
-    const startStr = formatDate(start);
-    const endStr = formatDate(end);
-
-    rows.push({
-      agreement_id: agreementId,
-      year_number: i + 1,
-      year_start: startStr,
-      year_end: endStr,
-    });
-  }
-
-  // ---- Insertar ----
-  const { error: insertErr } = await supabase
-    .from("agreement_years")
-    .insert(rows);
-
-  if (insertErr) {
-    console.error("Error insertando agreement_years:", insertErr);
-  } else {
-    console.log("agreement_years generados correctamente:", rows.length);
-  }
-}
-
-/**
- * Formatea Date a YYYY-MM-DD sin problemas de zona horaria
- */
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
