@@ -75,6 +75,55 @@ interface MovilidadPorPais {
   salientes: number;
 }
 
+// Interfaces para Contraprestaciones
+interface ContraprestacionDashboard {
+  total_contraprestaciones: number;
+  total_convenios_con_contraprestaciones: number;
+  total_instituciones: number;
+  total_unidades_comprometidas: number;
+  cumplidas: number;
+  pendientes: number;
+  parcialmente_cumplidas: number;
+  sin_seguimiento: number;
+  porcentaje_cumplimiento_global: number;
+  tipos_contraprestaciones_distintos: number;
+}
+
+interface TopTipoContraprestacion {
+  catalogo_id: number;
+  tipo_contraprestacion: string;
+  unidad: string;
+  total_contraprestaciones: number;
+  total_unidades_comprometidas: number;
+  porcentaje: number;
+}
+
+interface ContraprestacionPorInstitucion {
+  institucion_id: string;
+  institucion: string;
+  pais: string;
+  tipo_institucion: string;
+  total_contraprestaciones: number;
+  total_convenios: number;
+  total_unidades_comprometidas: number;
+  cumplidas: number;
+  pendientes: number;
+  parcialmente_cumplidas: number;
+  sin_seguimiento: number;
+  porcentaje_cumplimiento: number;
+}
+
+interface ContraprestacionPorArea {
+  area_id: string;
+  area_vinculada: string;
+  total_contraprestaciones: number;
+  total_convenios: number;
+  total_unidades_comprometidas: number;
+  cumplidas: number;
+  pendientes: number;
+}
+
+
 // ============================================
 // COMPONENTES AUXILIARES PARA TAB INFORMES
 // ============================================
@@ -264,7 +313,7 @@ export default function Reportes() {
   const [movilidadDireccion, setMovilidadDireccion] = useState<string>("all");
 
   // Tab activo
-  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes">("convenios");
+  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "contraprestaciones">("convenios");
 
   // Estados para tab de Informes
   const [vistaInformes, setVistaInformes] = useState<"convenios" | "instituciones">("convenios");
@@ -279,10 +328,26 @@ export default function Reportes() {
   const [informesAreasDisponibles, setInformesAreasDisponibles] = useState<any[]>([]);
   const [informesInstitucionesDisponibles, setInformesInstitucionesDisponibles] = useState<any[]>([]);
 
+  // Estados para Contraprestaciones
+  const [vistaContraprestaciones, setVistaContraprestaciones] = useState<"tipos" | "instituciones" | "areas">("tipos");
+  const [dashboardContra, setDashboardContra] = useState<ContraprestacionDashboard | null>(null);
+  const [topTipos, setTopTipos] = useState<TopTipoContraprestacion[]>([]);
+  const [contraPorInstitucion, setContraPorInstitucion] = useState<ContraprestacionPorInstitucion[]>([]);
+  const [contraPorArea, setContraPorArea] = useState<ContraprestacionPorArea[]>([]);
+  const [contraLoading, setContraLoading] = useState(false);
+
+
   useEffect(() => {
     cargarReportes();
     cargarResponsables();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'contraprestaciones') {
+      cargarDatosContraprestaciones();
+    }
+  }, [activeTab]);
+
 
   useEffect(() => {
     if (activeTab === "movilidades") {
@@ -785,6 +850,84 @@ export default function Reportes() {
     setInformesInstitucionFiltro("");
   };
 
+  const cargarDatosContraprestaciones = async () => {
+    setContraLoading(true);
+    try {
+      const { data: dashboard } = await supabase
+        .from('vista_dashboard_contraprestaciones')
+        .select('*')
+        .single();
+      
+      setDashboardContra(dashboard);
+
+      const { data: tipos } = await supabase
+        .from('vista_top_tipos_contraprestaciones')
+        .select('*');
+      
+      setTopTipos(tipos || []);
+
+      const { data: instituciones } = await supabase
+        .from('vista_contraprestaciones_por_institucion')
+        .select('*');
+      
+      setContraPorInstitucion(instituciones || []);
+
+      const { data: areas } = await supabase
+        .from('vista_contraprestaciones_por_area')
+        .select('*');
+      
+      setContraPorArea(areas || []);
+
+    } catch (error) {
+      console.error('Error cargando contraprestaciones:', error);
+    } finally {
+      setContraLoading(false);
+    }
+  };
+
+  const exportarContraprestacionesExcel = () => {
+    let datos: any[] = [];
+    let nombreHoja = '';
+
+    if (vistaContraprestaciones === 'tipos') {
+      datos = topTipos.map((t: TopTipoContraprestacion) => ({
+        'Tipo de Contraprestación': t.tipo_contraprestacion,
+        'Unidad': t.unidad,
+        'Total': t.total_contraprestaciones,
+        'Unidades Comprometidas': t.total_unidades_comprometidas,
+        'Porcentaje': `${t.porcentaje}%`
+      }));
+      nombreHoja = 'Top de Tipos';
+    } else if (vistaContraprestaciones === 'instituciones') {
+      datos = contraPorInstitucion.map((i: ContraprestacionPorInstitucion) => ({
+        'Institución': i.institucion,
+        'País': i.pais,
+        'Tipo': i.tipo_institucion,
+        'Total Contraprestaciones': i.total_contraprestaciones,
+        'Convenios': i.total_convenios,
+        'Cumplidas': i.cumplidas,
+        'Pendientes': i.pendientes,
+        '% Cumplimiento': `${i.porcentaje_cumplimiento}%`
+      }));
+      nombreHoja = 'Por Institución';
+    } else {
+      datos = contraPorArea.map((a: ContraprestacionPorArea) => ({
+        'Área Vinculada': a.area_vinculada,
+        'Total Contraprestaciones': a.total_contraprestaciones,
+        'Convenios': a.total_convenios,
+        'Cumplidas': a.cumplidas,
+        'Pendientes': a.pendientes
+      }));
+      nombreHoja = 'Por Área';
+    }
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+    XLSX.writeFile(wb, `Contraprestaciones_${nombreHoja.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+
   const exportarInformesCSV = () => {
     const datos = vistaInformes === "convenios" ? reporteInformesConvenios : reporteInformesInstituciones;
     
@@ -855,7 +998,19 @@ export default function Reportes() {
             📈 Informes Semestrales
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={"nav-link " + (activeTab === "contraprestaciones" ? "active" : "")} 
+            onClick={() => setActiveTab("contraprestaciones")}
+            style={activeTab === "contraprestaciones" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
+          >
+            <i className="bi bi-clipboard-check me-2"></i>
+            Contraprestaciones
+          </button>
+        </li>
       </ul>
+
 
       {/* TAB CONVENIOS */}
       {activeTab === "convenios" && (
@@ -1420,6 +1575,336 @@ export default function Reportes() {
           )}
         </div>
       )}
+
+
+      {/* TAB CONTRAPRESTACIONES */}
+      {activeTab === "contraprestaciones" && (
+        <div>
+          {/* Dashboard de KPIs */}
+          {dashboardContra && (
+            <div className="row g-4 mb-4">
+              <div className="col-md-3">
+                <div className="card border-0 shadow-sm h-100">
+                  <div className="card-body text-center">
+                    <div className="text-muted small mb-2">Total Contraprestaciones</div>
+                    <div className="h2 mb-0 text-primary fw-bold">{dashboardContra?.total_contraprestaciones}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card border-0 shadow-sm h-100">
+                  <div className="card-body text-center">
+                    <div className="text-muted small mb-2">Convenios con Contraprestaciones</div>
+                    <div className="h2 mb-0 text-info fw-bold">{dashboardContra?.total_convenios_con_contraprestaciones}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card border-0 shadow-sm h-100">
+                  <div className="card-body text-center">
+                    <div className="text-muted small mb-2">Cumplidas</div>
+                    <div className="h2 mb-0 text-success fw-bold">{dashboardContra?.cumplidas}</div>
+                    <small className="text-muted">{dashboardContra?.porcentaje_cumplimiento_global}% del total</small>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="card border-0 shadow-sm h-100">
+                  <div className="card-body text-center">
+                    <div className="text-muted small mb-2">Instituciones</div>
+                    <div className="h2 mb-0 text-warning fw-bold">{dashboardContra?.total_instituciones}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sub-tabs */}
+          <div className="btn-group mb-4" role="group">
+            <button
+              type="button"
+              className={`btn ${vistaContraprestaciones === "tipos" ? "btn-primary" : "btn-outline-primary"}`}
+              onClick={() => setVistaContraprestaciones("tipos")}
+            >
+              <i className="bi bi-bar-chart me-2"></i>
+              Top de Tipos
+            </button>
+            <button
+              type="button"
+              className={`btn ${vistaContraprestaciones === "instituciones" ? "btn-primary" : "btn-outline-primary"}`}
+              onClick={() => setVistaContraprestaciones("instituciones")}
+            >
+              <i className="bi bi-building me-2"></i>
+              Por Institución
+            </button>
+            <button
+              type="button"
+              className={`btn ${vistaContraprestaciones === "areas" ? "btn-primary" : "btn-outline-primary"}`}
+              onClick={() => setVistaContraprestaciones("areas")}
+            >
+              <i className="bi bi-diagram-3 me-2"></i>
+              Por Área Vinculada
+            </button>
+          </div>
+
+          {/* Botón exportar */}
+          <div className="mb-4">
+            <button className="btn btn-success" onClick={exportarContraprestacionesExcel}>
+              📥 Exportar a Excel
+            </button>
+          </div>
+
+          {contraLoading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Vista: Top de Tipos */}
+              {vistaContraprestaciones === "tipos" && (
+                <div className="row g-4">
+                  {/* Gráfico de barras */}
+                  <div className="col-md-8">
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white border-0 p-4">
+                        <h5 className="mb-0 fw-bold">📊 Top de Tipos de Contraprestaciones</h5>
+                      </div>
+                      <div className="card-body">
+                        <ResponsiveContainer width="100%" height={400}>
+                          <BarChart data={topTipos}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="tipo_contraprestacion" 
+                              angle={-45}
+                              textAnchor="end"
+                              height={100}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="total_contraprestaciones" fill="#3b82f6" name="Total" />
+                            <Bar dataKey="total_unidades_comprometidas" fill="#10b981" name="Unidades" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Gráfico de pie */}
+                  <div className="col-md-4">
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white border-0 p-4">
+                        <h5 className="mb-0 fw-bold">📈 Distribución %</h5>
+                      </div>
+                      <div className="card-body">
+                        <ResponsiveContainer width="100%" height={400}>
+                          <PieChart>
+                            <Pie
+                              data={topTipos as any[]}
+                              dataKey="total_contraprestaciones"
+                              nameKey="tipo_contraprestacion"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={100}
+                              label={(entry: any) => `${entry.porcentaje}%`}
+                            >
+                              {topTipos.map((_: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabla detalle */}
+                  <div className="col-12">
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-header bg-white border-0 p-4">
+                        <h5 className="mb-0 fw-bold">📋 Detalle por Tipo</h5>
+                      </div>
+                      <div className="card-body p-0">
+                        <div className="table-responsive">
+                          <table className="table table-hover align-middle mb-0">
+                            <thead style={{ backgroundColor: '#f8f9fa' }}>
+                              <tr>
+                                <th className="px-4 py-3">Tipo de Contraprestación</th>
+                                <th className="px-4 py-3">Unidad</th>
+                                <th className="px-4 py-3 text-end">Total</th>
+                                <th className="px-4 py-3 text-end">Unidades Comprometidas</th>
+                                <th className="px-4 py-3 text-end">Porcentaje</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {topTipos.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} className="text-center py-5 text-muted">
+                                    No hay datos disponibles
+                                  </td>
+                                </tr>
+                              ) : (
+                                topTipos.map((tipo: TopTipoContraprestacion) => (
+                                  <tr key={tipo.catalogo_id}>
+                                    <td className="px-4 py-3 fw-bold">{tipo.tipo_contraprestacion}</td>
+                                    <td className="px-4 py-3">
+                                      <span className="badge bg-secondary">{tipo.unidad}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-end">
+                                      <span className="badge bg-primary">{tipo.total_contraprestaciones}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-end">{tipo.total_unidades_comprometidas}</td>
+                                    <td className="px-4 py-3 text-end">
+                                      <strong className="text-primary">{tipo.porcentaje}%</strong>
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vista: Por Institución */}
+              {vistaContraprestaciones === "instituciones" && (
+                <div className="card border-0 shadow-sm">
+                  <div className="card-header bg-white border-0 p-4">
+                    <h5 className="mb-0 fw-bold">🏛️ Contraprestaciones por Institución</h5>
+                  </div>
+                  <div className="card-body p-0">
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0">
+                        <thead style={{ backgroundColor: '#f8f9fa' }}>
+                          <tr>
+                            <th className="px-4 py-3">Institución</th>
+                            <th className="px-4 py-3">País</th>
+                            <th className="px-4 py-3">Tipo</th>
+                            <th className="px-4 py-3 text-end">Total</th>
+                            <th className="px-4 py-3 text-end">Convenios</th>
+                            <th className="px-4 py-3 text-end">Cumplidas</th>
+                            <th className="px-4 py-3 text-end">Pendientes</th>
+                            <th className="px-4 py-3 text-end">% Cumplimiento</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contraPorInstitucion.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="text-center py-5 text-muted">
+                                No hay datos disponibles
+                              </td>
+                            </tr>
+                          ) : (
+                            contraPorInstitucion.map((inst: ContraprestacionPorInstitucion) => (
+                              <tr key={inst.institucion_id}>
+                                <td className="px-4 py-3 fw-bold">{inst.institucion}</td>
+                                <td className="px-4 py-3">
+                                  <span className="badge bg-info">{inst.pais}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <small className="text-muted">{inst.tipo_institucion}</small>
+                                </td>
+                                <td className="px-4 py-3 text-end">
+                                  <span className="badge bg-primary">{inst.total_contraprestaciones}</span>
+                                </td>
+                                <td className="px-4 py-3 text-end">{inst.total_convenios}</td>
+                                <td className="px-4 py-3 text-end">
+                                  <span className="badge bg-success">{inst.cumplidas}</span>
+                                </td>
+                                <td className="px-4 py-3 text-end">
+                                  {inst.pendientes > 0 ? (
+                                    <span className="badge bg-warning">{inst.pendientes}</span>
+                                  ) : (
+                                    <span className="text-muted">0</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 text-end">
+                                  <div className="d-flex align-items-center justify-content-end">
+                                    <div className="progress" style={{ width: '80px', height: '8px' }}>
+                                      <div 
+                                        className={`progress-bar ${inst.porcentaje_cumplimiento === 100 ? 'bg-success' : inst.porcentaje_cumplimiento >= 50 ? 'bg-warning' : 'bg-danger'}`}
+                                        style={{ width: `${inst.porcentaje_cumplimiento}%` }}
+                                      ></div>
+                                    </div>
+                                    <strong className="ms-2 text-primary">{inst.porcentaje_cumplimiento}%</strong>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Vista: Por Área Vinculada */}
+              {vistaContraprestaciones === "areas" && (
+                <div className="card border-0 shadow-sm">
+                  <div className="card-header bg-white border-0 p-4">
+                    <h5 className="mb-0 fw-bold">🎓 Contraprestaciones por Área Vinculada</h5>
+                  </div>
+                  <div className="card-body p-0">
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle mb-0">
+                        <thead style={{ backgroundColor: '#f8f9fa' }}>
+                          <tr>
+                            <th className="px-4 py-3">Escuela Profesional</th>
+                            <th className="px-4 py-3 text-end">Total</th>
+                            <th className="px-4 py-3 text-end">Convenios</th>
+                            <th className="px-4 py-3 text-end">Unidades</th>
+                            <th className="px-4 py-3 text-end">Cumplidas</th>
+                            <th className="px-4 py-3 text-end">Pendientes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {contraPorArea.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="text-center py-5 text-muted">
+                                No hay datos disponibles
+                              </td>
+                            </tr>
+                          ) : (
+                            contraPorArea.map((area: ContraprestacionPorArea) => (
+                              <tr key={area.area_id}>
+                                <td className="px-4 py-3 fw-bold">{area.area_vinculada}</td>
+                                <td className="px-4 py-3 text-end">
+                                  <span className="badge bg-primary">{area.total_contraprestaciones}</span>
+                                </td>
+                                <td className="px-4 py-3 text-end">{area.total_convenios}</td>
+                                <td className="px-4 py-3 text-end">{area.total_unidades_comprometidas}</td>
+                                <td className="px-4 py-3 text-end">
+                                  <span className="badge bg-success">{area.cumplidas}</span>
+                                </td>
+                                <td className="px-4 py-3 text-end">
+                                  {area.pendientes > 0 ? (
+                                    <span className="badge bg-warning">{area.pendientes}</span>
+                                  ) : (
+                                    <span className="text-muted">0</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
 
       {loading && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style={{ backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 9999 }}>
