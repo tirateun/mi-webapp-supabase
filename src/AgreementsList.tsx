@@ -167,20 +167,61 @@ export default function AgreementsList({
         if (error) throw error;
         visible = data || [];
       } else if (["internal", "interno"].includes(role)) {
-        // ✅ CONSULTAR CONVENIOS: Los usuarios internos ven TODOS los convenios
-        // (Este es el panel de solo lectura, sin acciones de gestión)
-        const { data, error } = await supabase
-          .from("agreements")
-          .select(`
-            *,
-            agreement_subtypes (
-              id,
-              subtipo_nombre
-            )
-          `)
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        visible = data || [];
+        // ✅ PANEL DE GESTIÓN: Los usuarios internos solo ven convenios donde son responsables
+        // Buscar convenios donde el usuario es responsable:
+        // 1. Responsable general (agreement_internal_responsibles)
+        // 2. Responsable de algún subtipo (subtype_internal_responsibles)
+        
+        // Opción 1: Responsable general
+        const { data: vinculos, error: err1 } = await supabase
+          .from("agreement_internal_responsibles")
+          .select("agreement_id")
+          .eq("internal_responsible_id", user.id);
+        if (err1) throw err1;
+        
+        const idsGeneral = (vinculos || []).map((v: any) => v.agreement_id);
+        
+        // Opción 2: Responsable de subtipo
+        const { data: subtypeResponsibles, error: err2 } = await supabase
+          .from("subtype_internal_responsibles")
+          .select("subtype_id, internal_responsible_id")
+          .eq("internal_responsible_id", user.id);
+          
+        if (err2) throw err2;
+        
+        // Obtener agreement_ids desde los subtipos
+        const subtypeIds = (subtypeResponsibles || []).map((s: any) => s.subtype_id);
+        
+        let idsSubtipos: string[] = [];
+        if (subtypeIds.length > 0) {
+          const { data: subtypes } = await supabase
+            .from("agreement_subtypes")
+            .select("agreement_id")
+            .in("id", subtypeIds);
+          
+          idsSubtipos = (subtypes || []).map((s: any) => s.agreement_id);
+        }
+        
+        // Combinar ambos (sin duplicados)
+        const allIds = [...new Set([...idsGeneral, ...idsSubtipos])];
+        
+        if (allIds.length > 0) {
+          const { data, error } = await supabase
+            .from("agreements")
+            .select(`
+              *,
+              agreement_subtypes (
+                id,
+                subtipo_nombre
+              )
+            `)
+            .in("id", allIds)
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          visible = data || [];
+        } else {
+          visible = [];
+        }
       } else {
         const { data, error } = await supabase
           .from("agreements")
@@ -815,18 +856,18 @@ export default function AgreementsList({
                     <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '350px' }}>
                       
                       {/* 🆕 BOTÓN VER - AL PRINCIPIO */}
-                      <button 
-                        className="btn btn-sm btn-outline-info" 
-                        onClick={() => handleOpenDetails(a)} 
-                        title="Ver detalles completos"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        👁️ Ver
-                      </button>
-
-                      {/* Solo Admin puede editar y eliminar */}
+                      {/* Solo Admin puede ver, editar y eliminar */}
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
+                          <button 
+                            className="btn btn-sm btn-outline-info" 
+                            onClick={() => handleOpenDetails(a)} 
+                            title="Ver detalles completos"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            👁️ Ver
+                          </button>
+                      
                           <button 
                             className="btn btn-sm btn-outline-secondary" 
                             onClick={() => onEdit(a)} 
@@ -855,25 +896,48 @@ export default function AgreementsList({
                         </>
                       )}
 
-                      {/* Botones disponibles para todos */}
-                      <button 
-                        className="btn btn-sm btn-outline-success"
-                        onClick={() => onOpenContraprestaciones(a.id)}
-                        title="Programar contraprestaciones"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📋 Programar
-                      </button>
+                      {/* Solo Admin: Programar, Cumplimiento, Renovar, Historial */}
+                      {["admin", "Admin", "Administrador"].includes(role) && (
+                        <>
+                          <button 
+                            className="btn btn-sm btn-outline-success"
+                            onClick={() => onOpenContraprestaciones(a.id)}
+                            title="Programar contraprestaciones"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            📋 Programar
+                          </button>
 
-                      <button 
-                        className="btn btn-sm btn-outline-warning"
-                        onClick={() => onOpenEvidencias(a.id)}
-                        title="Cumplimiento / Evidencias"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📂 Cumplimiento
-                      </button>
+                          <button 
+                            className="btn btn-sm btn-outline-warning"
+                            onClick={() => onOpenEvidencias(a.id)}
+                            title="Cumplimiento / Evidencias"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            📂 Cumplimiento
+                          </button>
 
+                          <button 
+                            className="btn btn-sm btn-outline-dark" 
+                            onClick={() => navigateToRenewalPage(a.id)} 
+                            title="Renovar convenio"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            🔄 Renovar
+                          </button>
+
+                          <button 
+                            className="btn btn-sm btn-outline-info" 
+                            onClick={() => handleOpenHistory(a)} 
+                            title="Ver historial de renovaciones"
+                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                          >
+                            📜 Historial
+                          </button>
+                        </>
+                      )}
+
+                      {/* Todos pueden ver Informes */}
                       <button 
                         className="btn btn-sm btn-outline-primary"
                         onClick={() => onOpenInforme(a.id)}
@@ -881,24 +945,6 @@ export default function AgreementsList({
                         style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📝 Informes
-                      </button>
-                              
-                      <button 
-                        className="btn btn-sm btn-outline-dark" 
-                        onClick={() => navigateToRenewalPage(a.id)} 
-                        title="Renovar convenio"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        🔄 Renovar
-                      </button>
-
-                      <button 
-                        className="btn btn-sm btn-outline-info" 
-                        onClick={() => handleOpenHistory(a)} 
-                        title="Ver historial de renovaciones"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📜 Historial
                       </button>
                     </div>
                   </td>
