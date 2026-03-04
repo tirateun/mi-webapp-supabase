@@ -32,7 +32,9 @@ export default function InformeSemestralForm({
   
   const [saving, setSaving] = useState(false);
   
-  // 🆕 Estado para determinar el tipo de convenio (pregrado vs postgrado)
+  // 🆕 Estados para manejar subtipos
+  const [subtiposDisponibles, setSubtiposDisponibles] = useState<any[]>([]);
+  const [subtipoSeleccionado, setSubtipoSeleccionado] = useState<string>("");
   const [esPregrado, setEsPregrado] = useState(true);
   
   // Datos del informe
@@ -41,34 +43,38 @@ export default function InformeSemestralForm({
   const [sedeConvenio, setSedeConvenio] = useState("");
   const [observacionesGenerales, setObservacionesGenerales] = useState("");
   
-  // 🆕 Agregar este useEffect para cargar la institución y detectar tipo
+  // 🆕 Agregar este useEffect para cargar la institución y subtipos
   useEffect(() => {
     cargarInstitucionDelConvenio();
-    detectarTipoConvenio();
+    cargarSubtiposDelConvenio();
   }, [convenioId]);
 
-  const detectarTipoConvenio = async () => {
+  const cargarSubtiposDelConvenio = async () => {
     try {
-      // Obtener los subtipos del convenio
       const { data: subtypes, error } = await supabase
         .from("agreement_subtypes")
-        .select("subtipo_nombre")
-        .eq("agreement_id", convenioId);
+        .select("id, subtipo_nombre")
+        .eq("agreement_id", convenioId)
+        .order("subtipo_nombre");
       
       if (error) throw error;
       
-      // Si algún subtipo contiene "PREGRADO", es pregrado
-      // De lo contrario, es postgrado (residentes)
-      const tienePregrado = (subtypes || []).some((st: any) => 
-        st.subtipo_nombre?.toUpperCase().includes("PREGRADO")
-      );
+      setSubtiposDisponibles(subtypes || []);
       
-      setEsPregrado(tienePregrado);
-      console.log("✅ Tipo de convenio detectado:", tienePregrado ? "PREGRADO (Internos)" : "POSTGRADO (Residentes)");
+      // Si está editando, cargar el subtipo del informe existente
+      if (informeExistente?.subtipo_id) {
+        setSubtipoSeleccionado(informeExistente.subtipo_id);
+        const subtipo = (subtypes || []).find((s: any) => s.id === informeExistente.subtipo_id);
+        if (subtipo) {
+          const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
+          setEsPregrado(esPre);
+        }
+      }
+      
+      console.log("✅ Subtipos cargados:", subtypes?.length || 0);
     } catch (error) {
-      console.error("❌ Error detectando tipo de convenio:", error);
-      // Por defecto, asumir pregrado
-      setEsPregrado(true);
+      console.error("❌ Error cargando subtipos:", error);
+      setSubtiposDisponibles([]);
     }
   };
 
@@ -121,6 +127,20 @@ export default function InformeSemestralForm({
       cargarDatosExistentes();
     }
   }, [informeExistente]);
+  
+  // 🆕 Detectar tipo cuando se selecciona un subtipo
+  const handleSubtipoChange = (subtipoId: string) => {
+    setSubtipoSeleccionado(subtipoId);
+    
+    // Encontrar el subtipo seleccionado
+    const subtipo = subtiposDisponibles.find(s => s.id === subtipoId);
+    if (subtipo) {
+      // Detectar si es PREGRADO o POSTGRADO
+      const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
+      setEsPregrado(esPre);
+      console.log("✅ Subtipo seleccionado:", subtipo.subtipo_nombre, "- Es pregrado:", esPre);
+    }
+  };
   
   const cargarAreasVinculadas = async () => {
     const { data } = await supabase
@@ -235,6 +255,12 @@ export default function InformeSemestralForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar que se haya seleccionado un subtipo
+    if (!subtipoSeleccionado) {
+      alert("Debes seleccionar un subtipo docente asistencial");
+      return;
+    }
+    
     if (detalles.length === 0) {
       alert("Debes agregar al menos un área vinculada con alumnos");
       return;
@@ -267,6 +293,7 @@ export default function InformeSemestralForm({
             convenio_id: convenioId,
             anio,
             semestre,
+            subtipo_id: subtipoSeleccionado,
             sede_convenio: sedeConvenio,
             observaciones_generales: observacionesGenerales
           })
@@ -449,6 +476,45 @@ export default function InformeSemestralForm({
                 </select>
               </div>
             </div>
+          </div>
+          
+          {/* 🆕 Selector de Subtipo Docente Asistencial */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
+              📋 Subtipo Docente Asistencial <span style={{ color: "#DC3545" }}>*</span>
+            </label>
+            <select
+              value={subtipoSeleccionado}
+              onChange={(e) => handleSubtipoChange(e.target.value)}
+              required
+              disabled={!!informeExistente}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                border: "2px solid #E9ECEF",
+                borderRadius: "8px",
+                fontSize: "1rem",
+                backgroundColor: informeExistente ? "#F8F9FA" : "white",
+                cursor: informeExistente ? "not-allowed" : "pointer"
+              }}
+            >
+              <option value="">Selecciona un subtipo...</option>
+              {subtiposDisponibles.map((subtipo) => (
+                <option key={subtipo.id} value={subtipo.id}>
+                  {subtipo.subtipo_nombre}
+                </option>
+              ))}
+            </select>
+            {informeExistente && (
+              <small style={{ display: "block", marginTop: "0.5rem", color: "#6C757D", fontSize: "0.85rem" }}>
+                ℹ️ El subtipo no puede cambiar al editar un informe
+              </small>
+            )}
+            {!subtipoSeleccionado && (
+              <small style={{ display: "block", marginTop: "0.5rem", color: "#856404", fontSize: "0.85rem" }}>
+                ⚠️ Los labels de los campos cambiarán según el subtipo seleccionado
+              </small>
+            )}
           </div>
           
           <div style={{ marginBottom: "1.5rem" }}>

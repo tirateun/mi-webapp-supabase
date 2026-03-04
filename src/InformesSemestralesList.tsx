@@ -21,37 +21,20 @@ export default function InformesSemestralesList({
   const [mostrarForm, setMostrarForm] = useState(false);
   const [informeAEditar, setInformeAEditar] = useState<any>(null);
   const [totalHistorico, setTotalHistorico] = useState(0);
-  const [esPregrado, setEsPregrado] = useState(true);
   
   useEffect(() => {
     cargarInformes();
-    detectarTipoConvenio();
   }, [convenioId]);
-  
-  const detectarTipoConvenio = async () => {
-    try {
-      const { data: subtypes } = await supabase
-        .from("agreement_subtypes")
-        .select("subtipo_nombre")
-        .eq("agreement_id", convenioId);
-      
-      const tienePregrado = (subtypes || []).some((st: any) => 
-        st.subtipo_nombre?.toUpperCase().includes("PREGRADO")
-      );
-      
-      setEsPregrado(tienePregrado);
-    } catch (error) {
-      console.error("Error detectando tipo de convenio:", error);
-      setEsPregrado(true);
-    }
-  };
   
   const cargarInformes = async () => {
     setLoading(true);
     try {
       const { data: informesData, error } = await supabase
         .from("informes_semestrales")
-        .select("*")
+        .select(`
+          *,
+          agreement_subtypes(id, subtipo_nombre)
+        `)
         .eq("convenio_id", convenioId)
         .order("anio", { ascending: false })
         .order("semestre", { ascending: false });
@@ -66,7 +49,18 @@ export default function InformesSemestralesList({
             .eq("informe_id", informe.id);
           
           const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
-          return { ...informe, detalles: detalles || [], total_alumnos: totalAlumnos };
+          
+          // Detectar tipo basado en el subtipo
+          const subtipoNombre = informe.agreement_subtypes?.subtipo_nombre || "";
+          const esPregrado = subtipoNombre.toUpperCase().includes("PREGRADO");
+          
+          return { 
+            ...informe, 
+            detalles: detalles || [], 
+            total_alumnos: totalAlumnos,
+            subtipo_nombre: subtipoNombre,
+            es_pregrado: esPregrado
+          };
         })
       );
       
@@ -90,10 +84,6 @@ export default function InformesSemestralesList({
       alert("❌ Error: " + error.message);
     }
   };
-  
-  // 🆕 Labels dinámicos según tipo de convenio
-  const labelTipo1 = esPregrado ? "Internos" : "Residentes";
-  const labelTipo2 = esPregrado ? "Alumnos no internos" : "Rotaciones";
   
   if (mostrarForm) {
     return (
@@ -245,6 +235,16 @@ export default function InformesSemestralesList({
                   <h3 style={{ margin: 0, color: "#3D1A4F", fontSize: "1.5rem", fontWeight: 700 }}>
                     📅 {informe.anio} - Semestre {informe.semestre === 1 ? "I" : "II"}
                   </h3>
+                  {informe.subtipo_nombre && (
+                    <p style={{ 
+                      margin: "0.5rem 0 0 0", 
+                      color: "#5B2C6F",
+                      fontWeight: 600,
+                      fontSize: "1rem"
+                    }}>
+                      📋 {informe.subtipo_nombre}
+                    </p>
+                  )}
                   {informe.sede_convenio && (
                     <p style={{ margin: "0.5rem 0 0 0", color: "#6C757D" }}>
                       🏥 {informe.sede_convenio}
@@ -279,7 +279,12 @@ export default function InformesSemestralesList({
                   gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", 
                   gap: "1rem" 
                 }}>
-                  {informe.detalles.map((d: any) => (
+                  {informe.detalles.map((d: any) => {
+                    // Labels dinámicos según el tipo de este informe específico
+                    const labelTipo1Informe = informe.es_pregrado ? "Internos" : "Residentes";
+                    const labelTipo2Informe = informe.es_pregrado ? "Alumnos no internos" : "Rotaciones";
+                    
+                    return (
                     <div 
                       key={d.id} 
                       style={{ 
@@ -298,7 +303,7 @@ export default function InformesSemestralesList({
                         {d.areas_vinculadas?.nombre || "Área sin nombre"}
                       </div>
                       <div style={{ fontSize: "0.9rem", color: "#6C757D", marginBottom: "0.5rem" }}>
-                        👨‍🎓 {labelTipo1}: {d.alumnos_internos} | 📚 {labelTipo2}: {d.alumnos_cursos}
+                        👨‍🎓 {labelTipo1Informe}: {d.alumnos_internos} | 📚 {labelTipo2Informe}: {d.alumnos_cursos}
                       </div>
                       <div style={{ 
                         fontSize: "1.1rem", 
@@ -327,7 +332,8 @@ export default function InformesSemestralesList({
                         </a>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               
