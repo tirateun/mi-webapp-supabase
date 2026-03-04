@@ -32,16 +32,45 @@ export default function InformeSemestralForm({
   
   const [saving, setSaving] = useState(false);
   
+  // 🆕 Estado para determinar el tipo de convenio (pregrado vs postgrado)
+  const [esPregrado, setEsPregrado] = useState(true);
+  
   // Datos del informe
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [semestre, setSemestre] = useState<number>(1);
   const [sedeConvenio, setSedeConvenio] = useState("");
   const [observacionesGenerales, setObservacionesGenerales] = useState("");
   
-  // 🆕 Agregar este useEffect para cargar la institución
+  // 🆕 Agregar este useEffect para cargar la institución y detectar tipo
   useEffect(() => {
     cargarInstitucionDelConvenio();
+    detectarTipoConvenio();
   }, [convenioId]);
+
+  const detectarTipoConvenio = async () => {
+    try {
+      // Obtener los subtipos del convenio
+      const { data: subtypes, error } = await supabase
+        .from("agreement_subtypes")
+        .select("subtipo_nombre")
+        .eq("agreement_id", convenioId);
+      
+      if (error) throw error;
+      
+      // Si algún subtipo contiene "PREGRADO", es pregrado
+      // De lo contrario, es postgrado (residentes)
+      const tienePregrado = (subtypes || []).some((st: any) => 
+        st.subtipo_nombre?.toUpperCase().includes("PREGRADO")
+      );
+      
+      setEsPregrado(tienePregrado);
+      console.log("✅ Tipo de convenio detectado:", tienePregrado ? "PREGRADO (Internos)" : "POSTGRADO (Residentes)");
+    } catch (error) {
+      console.error("❌ Error detectando tipo de convenio:", error);
+      // Por defecto, asumir pregrado
+      setEsPregrado(true);
+    }
+  };
 
   const cargarInstitucionDelConvenio = async () => {
     try {
@@ -296,6 +325,15 @@ export default function InformeSemestralForm({
   const totalInternos = detalles.reduce((sum, d) => sum + d.alumnos_internos, 0);
   const totalCursos = detalles.reduce((sum, d) => sum + d.alumnos_cursos, 0);
   
+  // 🆕 Labels dinámicos según tipo de convenio
+  const labelTipo1 = esPregrado ? "N° de Internos" : "N° de Residentes";
+  const labelTipo2 = esPregrado ? "N° de alumnos no internos" : "N° de rotaciones de residentes";
+  const labelTotalTipo1 = esPregrado ? "N° de Internos" : "Residentes";
+  const labelTotalTipo2 = esPregrado ? "Alumnos no internos" : "Rotaciones";
+  const textoVerificacion = esPregrado 
+    ? "Subir en PDF relación de internos y de alumnos no internos que coincida con el número declarado"
+    : "Subir en PDF relación de residentes y de rotaciones que coincida con el número declarado";
+  
   return (
     <div style={{
       position: "fixed",
@@ -532,7 +570,7 @@ export default function InformeSemestralForm({
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
                     <div>
                       <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                        Internos
+                        {labelTipo1}
                       </label>
                       <input
                         type="number"
@@ -550,7 +588,7 @@ export default function InformeSemestralForm({
                     
                     <div>
                       <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                        Cursos
+                        {labelTipo2}
                       </label>
                       <input
                         type="number"
@@ -585,8 +623,19 @@ export default function InformeSemestralForm({
                   
                   <div style={{ marginBottom: "1rem" }}>
                     <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                      📎 Documento PDF
+                      📎 Documento de Verificación (PDF)
                     </label>
+                    <div style={{
+                      background: "#E7F3FF",
+                      border: "1px solid #90CAF9",
+                      borderRadius: "8px",
+                      padding: "0.75rem",
+                      marginBottom: "0.75rem",
+                      fontSize: "0.85rem",
+                      color: "#1565C0"
+                    }}>
+                      <strong>ℹ️ Importante:</strong> {textoVerificacion}
+                    </div>
                     {detalle.documento_url && !detalle.documento_file && (
                       <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#28A745" }}>
                         ✅ {detalle.documento_nombre}
@@ -637,11 +686,11 @@ export default function InformeSemestralForm({
               <h3 style={{ margin: "0 0 1rem 0" }}>📊 Totales</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", textAlign: "center" }}>
                 <div>
-                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>Internos</div>
+                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>{labelTotalTipo1}</div>
                   <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalInternos}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>Cursos</div>
+                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>{labelTotalTipo2}</div>
                   <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalCursos}</div>
                 </div>
                 <div>

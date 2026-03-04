@@ -21,10 +21,30 @@ export default function InformesSemestralesList({
   const [mostrarForm, setMostrarForm] = useState(false);
   const [informeAEditar, setInformeAEditar] = useState<any>(null);
   const [totalHistorico, setTotalHistorico] = useState(0);
+  const [esPregrado, setEsPregrado] = useState(true);
   
   useEffect(() => {
     cargarInformes();
+    detectarTipoConvenio();
   }, [convenioId]);
+  
+  const detectarTipoConvenio = async () => {
+    try {
+      const { data: subtypes } = await supabase
+        .from("agreement_subtypes")
+        .select("subtipo_nombre")
+        .eq("agreement_id", convenioId);
+      
+      const tienePregrado = (subtypes || []).some((st: any) => 
+        st.subtipo_nombre?.toUpperCase().includes("PREGRADO")
+      );
+      
+      setEsPregrado(tienePregrado);
+    } catch (error) {
+      console.error("Error detectando tipo de convenio:", error);
+      setEsPregrado(true);
+    }
+  };
   
   const cargarInformes = async () => {
     setLoading(true);
@@ -70,6 +90,10 @@ export default function InformesSemestralesList({
       alert("❌ Error: " + error.message);
     }
   };
+  
+  // 🆕 Labels dinámicos según tipo de convenio
+  const labelTipo1 = esPregrado ? "Internos" : "Residentes";
+  const labelTipo2 = esPregrado ? "Alumnos no internos" : "Rotaciones";
   
   if (mostrarForm) {
     return (
@@ -274,7 +298,7 @@ export default function InformesSemestralesList({
                         {d.areas_vinculadas?.nombre || "Área sin nombre"}
                       </div>
                       <div style={{ fontSize: "0.9rem", color: "#6C757D", marginBottom: "0.5rem" }}>
-                        👨‍🎓 Internos: {d.alumnos_internos} | 📚 Cursos: {d.alumnos_cursos}
+                        👨‍🎓 {labelTipo1}: {d.alumnos_internos} | 📚 {labelTipo2}: {d.alumnos_cursos}
                       </div>
                       <div style={{ 
                         fontSize: "1.1rem", 
