@@ -29,12 +29,21 @@ export default function ChangePassword({ user, onPasswordChanged }: ChangePasswo
       setMessage("❌ Error al actualizar contraseña.");
     } else {
       // 🔹 Actualizamos el campo must_change_password a false
-      await supabase
+      const { error: updateProfileError } = await supabase
         .from("profiles")
-        .update({ must_change_password: false })
-        .eq("id", user.id);
+        .update({ 
+          must_change_password: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", user.id);  // ✅ CORRECTO: user_id apunta a auth.users.id
 
-      setMessage("✅ Contraseña cambiada correctamente.");
+      if (updateProfileError) {
+        console.error('Error al actualizar perfil:', updateProfileError);
+        setMessage("⚠️ Contraseña cambiada pero hubo un error en el perfil.");
+      } else {
+        setMessage("✅ Contraseña cambiada correctamente.");
+      }
+      
       setTimeout(onPasswordChanged, 1500);
     }
 
