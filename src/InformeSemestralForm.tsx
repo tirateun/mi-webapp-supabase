@@ -1,4 +1,5 @@
 // src/InformeSemestralForm.tsx
+// NUEVA ARQUITECTURA: 1 Informe = 1 Área
 
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
@@ -11,17 +12,6 @@ interface InformeSemestralFormProps {
   informeExistente?: any;
 }
 
-interface AreaDetalle {
-  area_vinculada_id: string;
-  area_nombre: string;
-  alumnos_internos: number;
-  alumnos_cursos: number;
-  documento_file?: File;
-  documento_url?: string;
-  documento_nombre?: string;
-  observaciones: string;
-}
-
 export default function InformeSemestralForm({
   convenioId,
   convenioNombre,
@@ -32,23 +22,65 @@ export default function InformeSemestralForm({
   
   const [saving, setSaving] = useState(false);
   
-  // 🆕 Estados para manejar subtipos
+  // Estados para selección
   const [subtiposDisponibles, setSubtiposDisponibles] = useState<any[]>([]);
   const [subtipoSeleccionado, setSubtipoSeleccionado] = useState<string>("");
   const [esPregrado, setEsPregrado] = useState(true);
+  
+  const [areasDisponibles, setAreasDisponibles] = useState<any[]>([]);
+  const [areaSeleccionada, setAreaSeleccionada] = useState<string>("");
   
   // Datos del informe
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [semestre, setSemestre] = useState<number>(1);
   const [sedeConvenio, setSedeConvenio] = useState("");
-  const [observacionesGenerales, setObservacionesGenerales] = useState("");
   
-  // 🆕 Agregar este useEffect para cargar la institución y subtipos
+  // Datos de alumnos (directamente en el informe)
+  const [alumnosInternos, setAlumnosInternos] = useState<number>(0);
+  const [alumnosCursos, setAlumnosCursos] = useState<number>(0);
+  
+  // Documento
+  const [documentoFile, setDocumentoFile] = useState<File | null>(null);
+  const [documentoUrl, setDocumentoUrl] = useState<string>("");
+  const [documentoNombre, setDocumentoNombre] = useState<string>("");
+  
+  // Observaciones
+  const [observaciones, setObservaciones] = useState("");
+  
   useEffect(() => {
     cargarInstitucionDelConvenio();
     cargarSubtiposDelConvenio();
-  }, [convenioId]);
-
+    cargarAreasVinculadas();
+    
+    if (informeExistente) {
+      cargarDatosExistentes();
+    }
+  }, [convenioId, informeExistente]);
+  
+  const cargarInstitucionDelConvenio = async () => {
+    try {
+      const { data: convenio } = await supabase
+        .from("agreements")
+        .select("institucion_id")
+        .eq("id", convenioId)
+        .single();
+      
+      if (convenio?.institucion_id) {
+        const { data: institucion } = await supabase
+          .from("instituciones")
+          .select("nombre")
+          .eq("id", convenio.institucion_id)
+          .single();
+        
+        if (institucion?.nombre) {
+          setSedeConvenio(institucion.nombre);
+        }
+      }
+    } catch (error) {
+      console.error("Error cargando institución:", error);
+    }
+  };
+  
   const cargarSubtiposDelConvenio = async () => {
     try {
       const { data: subtypes, error } = await supabase
@@ -61,7 +93,6 @@ export default function InformeSemestralForm({
       
       setSubtiposDisponibles(subtypes || []);
       
-      // Si está editando, cargar el subtipo del informe existente
       if (informeExistente?.subtipo_id) {
         setSubtipoSeleccionado(informeExistente.subtipo_id);
         const subtipo = (subtypes || []).find((s: any) => s.id === informeExistente.subtipo_id);
@@ -70,85 +101,27 @@ export default function InformeSemestralForm({
           setEsPregrado(esPre);
         }
       }
-      
-      console.log("✅ Subtipos cargados:", subtypes?.length || 0);
     } catch (error) {
-      console.error("❌ Error cargando subtipos:", error);
-      setSubtiposDisponibles([]);
-    }
-  };
-
-  const cargarInstitucionDelConvenio = async () => {
-    try {
-      // 1. Obtener el convenio
-      const { data: convenio, error: errorConvenio } = await supabase
-        .from("agreements")
-        .select("institucion_id")
-        .eq("id", convenioId)
-        .single();
-      
-      if (errorConvenio) throw errorConvenio;
-      
-      if (!convenio?.institucion_id) {
-        console.log("⚠️ Convenio sin institución asignada");
-        return;
-      }
-      
-      // 2. Obtener la institución
-      const { data: institucion, error: errorInst } = await supabase
-        .from("instituciones")
-        .select("nombre")
-        .eq("id", convenio.institucion_id)
-        .single();
-      
-      if (errorInst) throw errorInst;
-      
-      if (institucion?.nombre) {
-        setSedeConvenio(institucion.nombre);
-        console.log("✅ Sede auto-llenada:", institucion.nombre);
-      }
-    } catch (error) {
-      console.error("❌ Error cargando institución:", error);
-    }
-  };
-  // Áreas vinculadas disponibles
-  const [areasDisponibles, setAreasDisponibles] = useState<any[]>([]);
-  
-  // Detalles por área
-  const [detalles, setDetalles] = useState<AreaDetalle[]>([]);
-  
-  // 🆕 Agregar este estado
-  const [areaSeleccionada, setAreaSeleccionada] = useState<string>("");
-
-  // Cargar áreas vinculadas y datos existentes
-  useEffect(() => {
-    cargarAreasVinculadas();
-    if (informeExistente) {
-      cargarDatosExistentes();
-    }
-  }, [informeExistente]);
-  
-  // 🆕 Detectar tipo cuando se selecciona un subtipo
-  const handleSubtipoChange = (subtipoId: string) => {
-    setSubtipoSeleccionado(subtipoId);
-    
-    // Encontrar el subtipo seleccionado
-    const subtipo = subtiposDisponibles.find(s => s.id === subtipoId);
-    if (subtipo) {
-      // Detectar si es PREGRADO o POSTGRADO
-      const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
-      setEsPregrado(esPre);
-      console.log("✅ Subtipo seleccionado:", subtipo.subtipo_nombre, "- Es pregrado:", esPre);
+      console.error("Error cargando subtipos:", error);
     }
   };
   
   const cargarAreasVinculadas = async () => {
-    const { data } = await supabase
-      .from("areas_vinculadas")
-      .select("id, nombre")
-      .order("nombre");
-    
-    setAreasDisponibles(data || []);
+    try {
+      const { data, error } = await supabase
+        .from("areas_vinculadas")
+        .select("id, nombre")
+        .order("nombre");
+      
+      if (error) throw error;
+      setAreasDisponibles(data || []);
+      
+      if (informeExistente?.area_vinculada_id) {
+        setAreaSeleccionada(informeExistente.area_vinculada_id);
+      }
+    } catch (error) {
+      console.error("Error cargando áreas:", error);
+    }
   };
   
   const cargarDatosExistentes = async () => {
@@ -157,83 +130,37 @@ export default function InformeSemestralForm({
     setAnio(informeExistente.anio);
     setSemestre(informeExistente.semestre);
     setSedeConvenio(informeExistente.sede_convenio || "");
-    setObservacionesGenerales(informeExistente.observaciones_generales || "");
+    setObservaciones(informeExistente.observaciones || "");
     
-    const { data: detallesData } = await supabase
+    // Cargar datos del detalle
+    const { data: detalleData } = await supabase
       .from("informes_semestrales_detalle")
-      .select(`*, areas_vinculadas(id, nombre)`)
-      .eq("informe_id", informeExistente.id);
+      .select("*")
+      .eq("informe_id", informeExistente.id)
+      .single();
     
-    const detallesMapeados: AreaDetalle[] = (detallesData || []).map((d: any) => ({
-      area_vinculada_id: d.area_vinculada_id,
-      area_nombre: d.areas_vinculadas?.nombre || "",
-      alumnos_internos: d.alumnos_internos || 0,
-      alumnos_cursos: d.alumnos_cursos || 0,
-      documento_url: d.documento_verificacion_url,
-      documento_nombre: d.documento_verificacion_nombre,
-      observaciones: d.observaciones || ""
-    }));
-    
-    setDetalles(detallesMapeados);
-  };
-  
-  const agregarArea = () => {
-    if (!areaSeleccionada) {
-      alert("Por favor selecciona un área primero");
-      return;
+    if (detalleData) {
+      setAlumnosInternos(detalleData.alumnos_internos || 0);
+      setAlumnosCursos(detalleData.alumnos_cursos || 0);
+      setDocumentoUrl(detalleData.documento_verificacion_url || "");
+      setDocumentoNombre(detalleData.documento_verificacion_nombre || "");
     }
+  };
+  
+  const handleSubtipoChange = (subtipoId: string) => {
+    setSubtipoSeleccionado(subtipoId);
     
-    // Verificar si ya fue agregada
-    if (detalles.some(d => d.area_vinculada_id === areaSeleccionada)) {
-      alert("Esta área ya fue agregada");
-      return;
+    const subtipo = subtiposDisponibles.find(s => s.id === subtipoId);
+    if (subtipo) {
+      const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
+      setEsPregrado(esPre);
     }
-    
-    // Buscar el área seleccionada
-    const area = areasDisponibles.find(a => a.id === areaSeleccionada);
-    
-    if (!area) {
-      alert("Área no encontrada");
-      return;
-    }
-    
-    // Agregar el área
-    setDetalles([
-      ...detalles,
-      {
-        area_vinculada_id: area.id,
-        area_nombre: area.nombre,
-        alumnos_internos: 0,
-        alumnos_cursos: 0,
-        observaciones: ""
-      }
-    ]);
-    
-    // Limpiar selección
-    setAreaSeleccionada("");
   };
   
-  const eliminarArea = (index: number) => {
-    setDetalles(detalles.filter((_, i) => i !== index));
-  };
-  
-  const actualizarDetalle = (index: number, campo: keyof AreaDetalle, valor: any) => {
-    const nuevosDetalles = [...detalles];
-    (nuevosDetalles[index] as any)[campo] = valor;
-    setDetalles(nuevosDetalles);
-  };
-  
-  const handleFileChange = (index: number, file: File | null) => {
-    if (!file) return;
-    const nuevosDetalles = [...detalles];
-    nuevosDetalles[index].documento_file = file;
-    setDetalles(nuevosDetalles);
-  };
-  
-  const subirDocumento = async (file: File, areaId: string): Promise<string | undefined> => {
+  const subirDocumento = async (file: File): Promise<string | undefined> => {
     try {
       const timestamp = Date.now();
-      const fileName = `${convenioId}/${anio}_S${semestre}_${areaId}_${timestamp}.pdf`;
+      const fileName = `${convenioId}/${anio}_S${semestre}_${areaSeleccionada}_${timestamp}.pdf`;
       
       const { error } = await supabase.storage
         .from("documentos-verificacion-alumnos")
@@ -255,19 +182,18 @@ export default function InformeSemestralForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar que se haya seleccionado un subtipo
     if (!subtipoSeleccionado) {
       alert("Debes seleccionar un subtipo docente asistencial");
       return;
     }
     
-    if (detalles.length === 0) {
-      alert("Debes agregar al menos un área vinculada con alumnos");
+    if (!areaSeleccionada) {
+      alert("Debes seleccionar un área vinculada");
       return;
     }
     
-    const totalAlumnos = detalles.reduce((sum, d) => sum + d.alumnos_internos + d.alumnos_cursos, 0);
-    if (totalAlumnos === 0) {
+    const total = alumnosInternos + alumnosCursos;
+    if (total === 0) {
       alert("Debes ingresar al menos un alumno");
       return;
     }
@@ -276,90 +202,91 @@ export default function InformeSemestralForm({
     
     try {
       let informeId = informeExistente?.id;
+      let documentoUrlFinal = documentoUrl;
+      
+      // Subir documento si hay uno nuevo
+      if (documentoFile) {
+        const url = await subirDocumento(documentoFile);
+        if (url) {
+          documentoUrlFinal = url;
+        }
+      }
       
       if (informeExistente) {
+        // Actualizar informe existente
         await supabase
           .from("informes_semestrales")
           .update({
             sede_convenio: sedeConvenio,
-            observaciones_generales: observacionesGenerales,
+            observaciones: observaciones,
             updated_at: new Date().toISOString()
           })
           .eq("id", informeExistente.id);
+        
+        // Actualizar detalle
+        await supabase
+          .from("informes_semestrales_detalle")
+          .update({
+            alumnos_internos: alumnosInternos,
+            alumnos_cursos: alumnosCursos,
+            total_alumnos: total,
+            documento_verificacion_url: documentoUrlFinal,
+            documento_verificacion_nombre: documentoFile?.name || documentoNombre
+          })
+          .eq("informe_id", informeExistente.id);
       } else {
-        const { data, error } = await supabase
+        // Crear nuevo informe
+        const { data: informeData, error: informeError } = await supabase
           .from("informes_semestrales")
           .insert({
             convenio_id: convenioId,
             anio,
             semestre,
             subtipo_id: subtipoSeleccionado,
+            area_vinculada_id: areaSeleccionada,
             sede_convenio: sedeConvenio,
-            observaciones_generales: observacionesGenerales
+            observaciones: observaciones
           })
           .select()
           .single();
         
-        if (error) throw error;
-        informeId = data.id;
-      }
-      
-      if (informeExistente) {
-        await supabase
-          .from("informes_semestrales_detalle")
-          .delete()
-          .eq("informe_id", informeId);
-      }
-      
-      for (const detalle of detalles) {
-        let docUrl = detalle.documento_url;
-        let docNombre = detalle.documento_nombre;
+        if (informeError) throw informeError;
+        informeId = informeData.id;
         
-        if (detalle.documento_file) {
-          docUrl = await subirDocumento(detalle.documento_file, detalle.area_vinculada_id);
-          docNombre = detalle.documento_file.name;
-        }
-        
-        const { error } = await supabase
+        // Crear detalle
+        const { error: detalleError } = await supabase
           .from("informes_semestrales_detalle")
           .insert({
             informe_id: informeId,
-            area_vinculada_id: detalle.area_vinculada_id,
-            alumnos_internos: detalle.alumnos_internos,
-            alumnos_cursos: detalle.alumnos_cursos,
-            documento_verificacion_url: docUrl,
-            documento_verificacion_nombre: docNombre,
-            observaciones: detalle.observaciones
+            area_vinculada_id: areaSeleccionada,
+            alumnos_internos: alumnosInternos,
+            alumnos_cursos: alumnosCursos,
+            total_alumnos: total,
+            documento_verificacion_url: documentoUrlFinal,
+            documento_verificacion_nombre: documentoFile?.name || ""
           });
         
-        if (error) throw error;
+        if (detalleError) throw detalleError;
       }
       
-      await supabase.rpc("refresh_vistas_informes");
-      
-      alert(`✅ Informe ${informeExistente ? 'actualizado' : 'creado'} exitosamente`);
+      alert(`✅ Informe ${informeExistente ? 'actualizado' : 'creado'} correctamente`);
       onSaved();
-      
     } catch (error: any) {
-      console.error("Error guardando informe:", error);
-      alert("❌ Error: " + error.message);
+      console.error("Error guardando:", error);
+      alert("❌ Error: " + (error?.message || String(error)));
     } finally {
       setSaving(false);
     }
   };
   
-  const totalGeneral = detalles.reduce((sum, d) => sum + d.alumnos_internos + d.alumnos_cursos, 0);
-  const totalInternos = detalles.reduce((sum, d) => sum + d.alumnos_internos, 0);
-  const totalCursos = detalles.reduce((sum, d) => sum + d.alumnos_cursos, 0);
-  
-  // 🆕 Labels dinámicos según tipo de convenio
+  // Labels dinámicos
   const labelTipo1 = esPregrado ? "N° de Internos" : "N° de Residentes";
   const labelTipo2 = esPregrado ? "N° de alumnos no internos" : "N° de rotaciones de residentes";
-  const labelTotalTipo1 = esPregrado ? "N° de Internos" : "Residentes";
-  const labelTotalTipo2 = esPregrado ? "Alumnos no internos" : "Rotaciones";
   const textoVerificacion = esPregrado 
     ? "Subir en PDF relación de internos y de alumnos no internos que coincida con el número declarado"
     : "Subir en PDF relación de residentes y de rotaciones que coincida con el número declarado";
+  
+  const total = alumnosInternos + alumnosCursos;
   
   return (
     <div style={{
@@ -370,105 +297,89 @@ export default function InformeSemestralForm({
       bottom: 0,
       background: "rgba(0,0,0,0.5)",
       display: "flex",
-      justifyContent: "center",
       alignItems: "center",
-      zIndex: 1000,
-      padding: "1rem",
-      overflowY: "auto"
+      justifyContent: "center",
+      zIndex: 9999,
+      padding: "1rem"
     }}>
       <div style={{
         background: "white",
         borderRadius: "12px",
-        maxWidth: "900px",
+        maxWidth: "800px",
         width: "100%",
         maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.2)"
+        overflow: "auto",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.3)"
       }}>
+        {/* Header */}
         <div style={{
           background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
           color: "white",
           padding: "1.5rem",
-          borderRadius: "12px 12px 0 0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
+          borderRadius: "12px 12px 0 0"
         }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
-              {informeExistente ? "✏️ Editar" : "➕ Nuevo"} Informe Semestral
-            </h2>
-            <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9, fontSize: "0.95rem" }}>
-              {convenioNombre}
-            </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "1.5rem" }}>
+                {informeExistente ? "✏️ Editar Informe" : "➕ Nuevo Informe Semestral"}
+              </h2>
+              <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9 }}>
+                {convenioNombre}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              style={{
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                color: "white",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                borderRadius: "8px",
+                width: "40px",
+                height: "40px"
+              }}
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.2)",
-              border: "none",
-              color: "white",
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              cursor: "pointer",
-              fontSize: "1.5rem"
-            }}
-          >
-            ×
-          </button>
         </div>
         
+        {/* Form */}
         <form onSubmit={handleSubmit} style={{ padding: "1.5rem" }}>
-          <div style={{
-            background: "#F8F9FA",
-            padding: "1.5rem",
-            borderRadius: "8px",
-            marginBottom: "1.5rem"
-          }}>
-            <h3 style={{ margin: "0 0 1rem 0", color: "#3D1A4F", fontSize: "1.1rem" }}>
-              📅 Periodo
-            </h3>
+          {/* Periodo */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <h3 style={{ margin: "0 0 1rem 0", color: "#3D1A4F" }}>📅 Periodo</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
-                  Año
-                </label>
-                <select
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>Año</label>
+                <input
+                  type="number"
                   value={anio}
                   onChange={(e) => setAnio(Number(e.target.value))}
-                  disabled={!!informeExistente}
                   required
+                  min="2020"
+                  max="2030"
                   style={{
                     width: "100%",
                     padding: "0.75rem",
                     border: "2px solid #E9ECEF",
-                    borderRadius: "8px",
-                    fontSize: "1rem"
+                    borderRadius: "8px"
                   }}
-                >
-                  {[...Array(10)].map((_, i) => {
-                    const year = new Date().getFullYear() - 2 + i;
-                    return <option key={year} value={year}>{year}</option>;
-                  })}
-                </select>
+                />
               </div>
-              
               <div>
-                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
-                  Semestre
-                </label>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>Semestre</label>
                 <select
                   value={semestre}
                   onChange={(e) => setSemestre(Number(e.target.value))}
-                  disabled={!!informeExistente}
                   required
                   style={{
                     width: "100%",
                     padding: "0.75rem",
                     border: "2px solid #E9ECEF",
-                    borderRadius: "8px",
-                    fontSize: "1rem"
+                    borderRadius: "8px"
                   }}
                 >
                   <option value={1}>Semestre I</option>
@@ -478,7 +389,7 @@ export default function InformeSemestralForm({
             </div>
           </div>
           
-          {/* 🆕 Selector de Subtipo Docente Asistencial */}
+          {/* Subtipo */}
           <div style={{ marginBottom: "1.5rem" }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
               📋 Subtipo Docente Asistencial <span style={{ color: "#DC3545" }}>*</span>
@@ -493,7 +404,6 @@ export default function InformeSemestralForm({
                 padding: "0.75rem",
                 border: "2px solid #E9ECEF",
                 borderRadius: "8px",
-                fontSize: "1rem",
                 backgroundColor: informeExistente ? "#F8F9FA" : "white",
                 cursor: informeExistente ? "not-allowed" : "pointer"
               }}
@@ -506,19 +416,48 @@ export default function InformeSemestralForm({
               ))}
             </select>
             {informeExistente && (
-              <small style={{ display: "block", marginTop: "0.5rem", color: "#6C757D", fontSize: "0.85rem" }}>
-                ℹ️ El subtipo no puede cambiar al editar un informe
-              </small>
-            )}
-            {!subtipoSeleccionado && (
-              <small style={{ display: "block", marginTop: "0.5rem", color: "#856404", fontSize: "0.85rem" }}>
-                ⚠️ Los labels de los campos cambiarán según el subtipo seleccionado
+              <small style={{ display: "block", marginTop: "0.5rem", color: "#6C757D" }}>
+                ℹ️ El subtipo no puede cambiar al editar
               </small>
             )}
           </div>
           
+          {/* Área Vinculada */}
           <div style={{ marginBottom: "1.5rem" }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
+              📚 Área Vinculada (Escuela Profesional) <span style={{ color: "#DC3545" }}>*</span>
+            </label>
+            <select
+              value={areaSeleccionada}
+              onChange={(e) => setAreaSeleccionada(e.target.value)}
+              required
+              disabled={!!informeExistente}
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                border: "2px solid #E9ECEF",
+                borderRadius: "8px",
+                backgroundColor: informeExistente ? "#F8F9FA" : "white",
+                cursor: informeExistente ? "not-allowed" : "pointer"
+              }}
+            >
+              <option value="">Selecciona un área...</option>
+              {areasDisponibles.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.nombre}
+                </option>
+              ))}
+            </select>
+            {informeExistente && (
+              <small style={{ display: "block", marginTop: "0.5rem", color: "#6C757D" }}>
+                ℹ️ El área no puede cambiar al editar
+              </small>
+            )}
+          </div>
+          
+          {/* Sede */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
               🏥 Sede del Convenio
             </label>
             <input
@@ -531,250 +470,94 @@ export default function InformeSemestralForm({
                 width: "100%",
                 padding: "0.75rem",
                 border: "2px solid #E9ECEF",
-                borderRadius: "8px",
-                fontSize: "1rem"
+                borderRadius: "8px"
               }}
             />
           </div>
           
+          {/* Datos de Alumnos */}
           <div style={{ marginBottom: "1.5rem" }}>
-          <div>
-            <h3 style={{ margin: "0 0 1rem 0", color: "#3D1A4F", fontSize: "1.1rem" }}>
-              📚 Detalle por Área Vinculada
-            </h3>
-            
-            <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
-              <div style={{ flex: 1 }}>
-                <select
-                  value={areaSeleccionada}
-                  onChange={(e) => setAreaSeleccionada(e.target.value)}
+            <h3 style={{ margin: "0 0 1rem 0", color: "#3D1A4F" }}>👥 Datos de Alumnos</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+                  {labelTipo1}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={alumnosInternos}
+                  onChange={(e) => setAlumnosInternos(Number(e.target.value))}
                   style={{
                     width: "100%",
                     padding: "0.75rem",
-                    borderRadius: "8px",
-                    border: "2px solid #DEE2E6",
-                    fontSize: "1rem"
+                    border: "2px solid #E9ECEF",
+                    borderRadius: "8px"
                   }}
-                >
-                  <option value="">Selecciona un área...</option>
-                  {areasDisponibles
-                    .filter(area => !detalles.some(d => d.area_vinculada_id === area.id))
-                    .map(area => (
-                      <option key={area.id} value={area.id}>
-                        {area.nombre}
-                      </option>
-                    ))
-                  }
-                </select>
+                />
               </div>
-              <button
-                type="button"
-                onClick={agregarArea}
-                disabled={!areaSeleccionada}
-                style={{
-                  background: areaSeleccionada ? "#FDB913" : "#CCC",
-                  color: "#3D1A4F",
-                  border: "none",
-                  padding: "0.75rem 1.5rem",
+              
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+                  {labelTipo2}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={alumnosCursos}
+                  onChange={(e) => setAlumnosCursos(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    padding: "0.75rem",
+                    border: "2px solid #E9ECEF",
+                    borderRadius: "8px"
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+                  Total
+                </label>
+                <div style={{
+                  padding: "0.75rem",
+                  background: "#5B2C6F",
+                  color: "white",
                   borderRadius: "8px",
-                  cursor: areaSeleccionada ? "pointer" : "not-allowed",
                   fontWeight: 600,
-                  fontSize: "0.9rem",
-                  whiteSpace: "nowrap"
-                }}
-              >
-                ➕ Agregar
-              </button>
-            </div>
-          </div>
-            
-            {detalles.length === 0 ? (
-              <div style={{
-                background: "#F8F9FA",
-                padding: "2rem",
-                borderRadius: "8px",
-                textAlign: "center",
-                color: "#6C757D"
-              }}>
-                <p>No hay áreas agregadas. Haz clic en "Agregar Área".</p>
-              </div>
-            ) : (
-              detalles.map((detalle, index) => (
-                <div key={index} style={{
-                  background: "#F8F9FA",
-                  padding: "1.5rem",
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  border: "2px solid #E9ECEF"
+                  textAlign: "center"
                 }}>
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "1rem"
-                  }}>
-                    <h4 style={{ margin: 0, color: "#3D1A4F" }}>
-                      📚 {detalle.area_nombre}
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => eliminarArea(index)}
-                      style={{
-                        background: "#DC3545",
-                        color: "white",
-                        border: "none",
-                        padding: "0.5rem 1rem",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        fontSize: "0.9rem"
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                  
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                    <div>
-                      <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                        {labelTipo1}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={detalle.alumnos_internos}
-                        onChange={(e) => actualizarDetalle(index, "alumnos_internos", Number(e.target.value))}
-                        style={{
-                          width: "100%",
-                          padding: "0.75rem",
-                          border: "2px solid #E9ECEF",
-                          borderRadius: "8px"
-                        }}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                        {labelTipo2}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={detalle.alumnos_cursos}
-                        onChange={(e) => actualizarDetalle(index, "alumnos_cursos", Number(e.target.value))}
-                        style={{
-                          width: "100%",
-                          padding: "0.75rem",
-                          border: "2px solid #E9ECEF",
-                          borderRadius: "8px"
-                        }}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                        Total
-                      </label>
-                      <div style={{
-                        padding: "0.75rem",
-                        background: "#5B2C6F",
-                        color: "white",
-                        borderRadius: "8px",
-                        fontWeight: 600,
-                        textAlign: "center"
-                      }}>
-                        {detalle.alumnos_internos + detalle.alumnos_cursos}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ marginBottom: "1rem" }}>
-                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                      📎 Documento de Verificación (PDF)
-                    </label>
-                    <div style={{
-                      background: "#E7F3FF",
-                      border: "1px solid #90CAF9",
-                      borderRadius: "8px",
-                      padding: "0.75rem",
-                      marginBottom: "0.75rem",
-                      fontSize: "0.85rem",
-                      color: "#1565C0"
-                    }}>
-                      <strong>ℹ️ Importante:</strong> {textoVerificacion}
-                    </div>
-                    {detalle.documento_url && !detalle.documento_file && (
-                      <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#28A745" }}>
-                        ✅ {detalle.documento_nombre}
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => handleFileChange(index, e.target.files?.[0] || null)}
-                      style={{
-                        width: "100%",
-                        padding: "0.75rem",
-                        border: "2px solid #E9ECEF",
-                        borderRadius: "8px"
-                      }}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.9rem", fontWeight: 600 }}>
-                      Observaciones
-                    </label>
-                    <textarea
-                      value={detalle.observaciones}
-                      onChange={(e) => actualizarDetalle(index, "observaciones", e.target.value)}
-                      rows={2}
-                      style={{
-                        width: "100%",
-                        padding: "0.75rem",
-                        border: "2px solid #E9ECEF",
-                        borderRadius: "8px"
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          
-          {detalles.length > 0 && (
-            <div style={{
-              background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
-              color: "white",
-              padding: "1.5rem",
-              borderRadius: "8px",
-              marginBottom: "1.5rem"
-            }}>
-              <h3 style={{ margin: "0 0 1rem 0" }}>📊 Totales</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem", textAlign: "center" }}>
-                <div>
-                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>{labelTotalTipo1}</div>
-                  <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalInternos}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>{labelTotalTipo2}</div>
-                  <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalCursos}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>Total</div>
-                  <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalGeneral}</div>
+                  {total}
                 </div>
               </div>
             </div>
-          )}
+          </div>
           
+          {/* Documento */}
           <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600, color: "#3D1A4F" }}>
-              📝 Observaciones Generales
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+              📎 Documento de Verificación (PDF)
             </label>
-            <textarea
-              value={observacionesGenerales}
-              onChange={(e) => setObservacionesGenerales(e.target.value)}
-              rows={3}
+            <div style={{
+              background: "#E7F3FF",
+              border: "1px solid #90CAF9",
+              borderRadius: "8px",
+              padding: "0.75rem",
+              marginBottom: "0.75rem",
+              fontSize: "0.85rem",
+              color: "#1565C0"
+            }}>
+              <strong>ℹ️ Importante:</strong> {textoVerificacion}
+            </div>
+            {documentoUrl && !documentoFile && (
+              <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#28A745" }}>
+                ✅ {documentoNombre}
+              </div>
+            )}
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => setDocumentoFile(e.target.files?.[0] || null)}
               style={{
                 width: "100%",
                 padding: "0.75rem",
@@ -784,6 +567,26 @@ export default function InformeSemestralForm({
             />
           </div>
           
+          {/* Observaciones */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+              📝 Observaciones
+            </label>
+            <textarea
+              value={observaciones}
+              onChange={(e) => setObservaciones(e.target.value)}
+              rows={3}
+              placeholder="Observaciones específicas para esta área..."
+              style={{
+                width: "100%",
+                padding: "0.75rem",
+                border: "2px solid #E9ECEF",
+                borderRadius: "8px"
+              }}
+            />
+          </div>
+          
+          {/* Botones */}
           <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -803,14 +606,14 @@ export default function InformeSemestralForm({
             </button>
             <button
               type="submit"
-              disabled={saving || detalles.length === 0}
+              disabled={saving || !subtipoSeleccionado || !areaSeleccionada}
               style={{
                 background: saving ? "#CCC" : "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
                 color: "white",
                 border: "none",
                 padding: "0.75rem 1.5rem",
                 borderRadius: "8px",
-                cursor: saving || detalles.length === 0 ? "not-allowed" : "pointer",
+                cursor: saving || !subtipoSeleccionado || !areaSeleccionada ? "not-allowed" : "pointer",
                 fontWeight: 600
               }}
             >

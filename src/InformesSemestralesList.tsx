@@ -1,4 +1,6 @@
 // src/InformesSemestralesList.tsx
+// NUEVA ARQUITECTURA: 1 Informe = 1 Área
+
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import InformeSemestralForm from "./InformeSemestralForm";
@@ -33,7 +35,8 @@ export default function InformesSemestralesList({
         .from("informes_semestrales")
         .select(`
           *,
-          agreement_subtypes(id, subtipo_nombre)
+          agreement_subtypes(id, subtipo_nombre),
+          areas_vinculadas(id, nombre)
         `)
         .eq("convenio_id", convenioId)
         .order("anio", { ascending: false })
@@ -43,22 +46,22 @@ export default function InformesSemestralesList({
       
       const informesConDetalle = await Promise.all(
         (informesData || []).map(async (informe) => {
-          const { data: detalles } = await supabase
+          const { data: detalle } = await supabase
             .from("informes_semestrales_detalle")
-            .select("*, areas_vinculadas(id, nombre)")
-            .eq("informe_id", informe.id);
+            .select("*")
+            .eq("informe_id", informe.id)
+            .single();
           
-          const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
-          
-          // Detectar tipo basado en el subtipo
           const subtipoNombre = informe.agreement_subtypes?.subtipo_nombre || "";
           const esPregrado = subtipoNombre.toUpperCase().includes("PREGRADO");
+          const areaNombre = informe.areas_vinculadas?.nombre || "Área sin nombre";
           
           return { 
             ...informe, 
-            detalles: detalles || [], 
-            total_alumnos: totalAlumnos,
+            detalle: detalle || {},
+            total_alumnos: detalle?.total_alumnos || 0,
             subtipo_nombre: subtipoNombre,
+            area_nombre: areaNombre,
             es_pregrado: esPregrado
           };
         })
@@ -84,6 +87,25 @@ export default function InformesSemestralesList({
       alert("❌ Error: " + error.message);
     }
   };
+  
+  // Agrupar informes por año y semestre
+  const informesAgrupados = informes.reduce((acc: any, informe) => {
+    const key = `${informe.anio}-${informe.semestre}`;
+    if (!acc[key]) {
+      acc[key] = {
+        anio: informe.anio,
+        semestre: informe.semestre,
+        informes: []
+      };
+    }
+    acc[key].informes.push(informe);
+    return acc;
+  }, {});
+  
+  const grupos = Object.values(informesAgrupados).sort((a: any, b: any) => {
+    if (a.anio !== b.anio) return b.anio - a.anio;
+    return b.semestre - a.semestre;
+  });
   
   if (mostrarForm) {
     return (
@@ -137,7 +159,7 @@ export default function InformesSemestralesList({
         </div>
       </div>
       
-      {/* Botón Nuevo - Solo para usuarios NO admin */}
+      {/* Botón Nuevo */}
       {!isAdmin && (
         <div style={{ marginBottom: "2rem" }}>
           <button 
@@ -160,7 +182,7 @@ export default function InformesSemestralesList({
             onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
             onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
           >
-            ➕ Nuevo Informe Semestral
+            ➕ Nuevo Informe por Área
           </button>
         </div>
       )}
@@ -186,7 +208,7 @@ export default function InformesSemestralesList({
           <p style={{ color: "#6C757D", marginBottom: "1.5rem" }}>
             {isAdmin 
               ? "No hay informes disponibles para visualizar" 
-              : "Crea el primer informe semestral para este convenio"
+              : "Crea el primer informe por área para este convenio"
             }
           </p>
           {!isAdmin && (
@@ -208,195 +230,200 @@ export default function InformesSemestralesList({
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {informes.map((informe) => (
-            <div 
-              key={informe.id} 
-              style={{ 
-                background: "white", 
-                borderRadius: "12px", 
-                padding: "1.5rem", 
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                border: "1px solid #E9ECEF"
-              }}
-            >
-              {/* Header del Informe */}
-              <div style={{ 
-                display: "flex", 
-                justifyContent: "space-between", 
-                alignItems: "center", 
-                marginBottom: "1rem", 
-                paddingBottom: "1rem", 
-                borderBottom: "2px solid #E9ECEF",
-                flexWrap: "wrap",
-                gap: "1rem"
+        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+          {grupos.map((grupo: any) => (
+            <div key={`${grupo.anio}-${grupo.semestre}`}>
+              {/* Header del grupo */}
+              <div style={{
+                background: "#F8F9FA",
+                padding: "1rem 1.5rem",
+                borderRadius: "8px",
+                marginBottom: "1rem",
+                border: "2px solid #DEE2E6"
               }}>
-                <div>
-                  <h3 style={{ margin: 0, color: "#3D1A4F", fontSize: "1.5rem", fontWeight: 700 }}>
-                    📅 {informe.anio} - Semestre {informe.semestre === 1 ? "I" : "II"}
-                  </h3>
-                  {informe.subtipo_nombre && (
-                    <p style={{ 
-                      margin: "0.5rem 0 0 0", 
-                      color: "#5B2C6F",
-                      fontWeight: 600,
-                      fontSize: "1rem"
-                    }}>
-                      📋 {informe.subtipo_nombre}
-                    </p>
-                  )}
-                  {informe.sede_convenio && (
-                    <p style={{ margin: "0.5rem 0 0 0", color: "#6C757D" }}>
-                      🏥 {informe.sede_convenio}
-                    </p>
-                  )}
-                </div>
-                <div style={{ 
-                  background: "#5B2C6F", 
-                  color: "white", 
-                  padding: "1rem 1.5rem", 
-                  borderRadius: "8px", 
-                  textAlign: "center",
-                  minWidth: "120px"
-                }}>
-                  <div style={{ fontSize: "2rem", fontWeight: 700 }}>{informe.total_alumnos}</div>
-                  <div style={{ fontSize: "0.9rem" }}>alumnos</div>
-                </div>
+                <h2 style={{ margin: 0, color: "#3D1A4F", fontSize: "1.5rem" }}>
+                  📅 {grupo.anio} - Semestre {grupo.semestre === 1 ? "I" : "II"}
+                </h2>
+                <p style={{ margin: "0.5rem 0 0 0", color: "#6C757D" }}>
+                  {grupo.informes.length} informe{grupo.informes.length !== 1 ? 's' : ''} registrado{grupo.informes.length !== 1 ? 's' : ''}
+                </p>
               </div>
               
-              {/* Detalles por Área */}
-              <div style={{ marginBottom: "1rem" }}>
-                <h4 style={{ 
-                  margin: "0 0 1rem 0", 
-                  color: "#3D1A4F", 
-                  fontSize: "1.1rem",
-                  fontWeight: 600 
-                }}>
-                  📚 Desglose por Área:
-                </h4>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", 
-                  gap: "1rem" 
-                }}>
-                  {informe.detalles.map((d: any) => {
-                    // Labels dinámicos según el tipo de este informe específico
-                    const labelTipo1Informe = informe.es_pregrado ? "Internos" : "Residentes";
-                    const labelTipo2Informe = informe.es_pregrado ? "Alumnos no internos" : "Rotaciones";
-                    
-                    return (
+              {/* Informes del grupo */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: "1rem" }}>
+                {grupo.informes.map((informe: any) => {
+                  const labelTipo1 = informe.es_pregrado ? "Internos" : "Residentes";
+                  const labelTipo2 = informe.es_pregrado ? "Alumnos no internos" : "Rotaciones";
+                  
+                  return (
                     <div 
-                      key={d.id} 
+                      key={informe.id} 
                       style={{ 
-                        background: "#F8F9FA", 
-                        padding: "1rem", 
-                        borderRadius: "8px",
-                        border: "1px solid #DEE2E6"
+                        background: "white", 
+                        borderRadius: "12px", 
+                        padding: "1.5rem", 
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        border: "2px solid #E9ECEF"
                       }}
                     >
-                      <div style={{ 
-                        fontWeight: 600, 
-                        color: "#3D1A4F", 
-                        marginBottom: "0.5rem",
-                        fontSize: "1rem"
-                      }}>
-                        {d.areas_vinculadas?.nombre || "Área sin nombre"}
-                      </div>
-                      <div style={{ fontSize: "0.9rem", color: "#6C757D", marginBottom: "0.5rem" }}>
-                        👨‍🎓 {labelTipo1Informe}: {d.alumnos_internos} | 📚 {labelTipo2Informe}: {d.alumnos_cursos}
-                      </div>
-                      <div style={{ 
-                        fontSize: "1.1rem", 
-                        fontWeight: 600, 
-                        color: "#5B2C6F", 
-                        marginTop: "0.5rem",
-                        paddingTop: "0.5rem",
-                        borderTop: "1px solid #DEE2E6"
-                      }}>
-                        Total: {d.total_alumnos} alumnos
-                      </div>
-                      {d.documento_verificacion_url && (
-                        <a 
-                          href={d.documento_verificacion_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          style={{ 
-                            display: "inline-block", 
-                            marginTop: "0.5rem", 
-                            color: "#007BFF", 
+                      {/* Subtipo y Área */}
+                      <div style={{ marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "2px solid #F8F9FA" }}>
+                        <div style={{ 
+                          color: "#5B2C6F", 
+                          fontWeight: 700, 
+                          fontSize: "0.9rem",
+                          marginBottom: "0.5rem"
+                        }}>
+                          📋 {informe.subtipo_nombre}
+                        </div>
+                        <div style={{ 
+                          color: "#3D1A4F", 
+                          fontWeight: 600, 
+                          fontSize: "1.2rem"
+                        }}>
+                          📚 {informe.area_nombre}
+                        </div>
+                        {informe.sede_convenio && (
+                          <div style={{ 
+                            color: "#6C757D", 
                             fontSize: "0.9rem",
-                            textDecoration: "none"
-                          }}
-                        >
-                          📎 Ver documento de verificación
-                        </a>
+                            marginTop: "0.5rem"
+                          }}>
+                            🏥 {informe.sede_convenio}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Datos */}
+                      <div style={{ marginBottom: "1rem" }}>
+                        <div style={{ 
+                          display: "grid", 
+                          gridTemplateColumns: "1fr 1fr", 
+                          gap: "0.75rem",
+                          marginBottom: "0.75rem"
+                        }}>
+                          <div style={{ 
+                            background: "#F8F9FA", 
+                            padding: "0.75rem", 
+                            borderRadius: "8px",
+                            textAlign: "center"
+                          }}>
+                            <div style={{ fontSize: "0.8rem", color: "#6C757D" }}>👨‍🎓 {labelTipo1}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#3D1A4F" }}>
+                              {informe.detalle.alumnos_internos || 0}
+                            </div>
+                          </div>
+                          <div style={{ 
+                            background: "#F8F9FA", 
+                            padding: "0.75rem", 
+                            borderRadius: "8px",
+                            textAlign: "center"
+                          }}>
+                            <div style={{ fontSize: "0.8rem", color: "#6C757D" }}>📚 {labelTipo2}</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#3D1A4F" }}>
+                              {informe.detalle.alumnos_cursos || 0}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div style={{ 
+                          background: "#5B2C6F", 
+                          color: "white", 
+                          padding: "0.75rem", 
+                          borderRadius: "8px",
+                          textAlign: "center"
+                        }}>
+                          <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>Total</div>
+                          <div style={{ fontSize: "1.8rem", fontWeight: 700 }}>
+                            {informe.total_alumnos}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Documento */}
+                      {informe.detalle.documento_verificacion_url && (
+                        <div style={{ marginBottom: "1rem" }}>
+                          <a 
+                            href={informe.detalle.documento_verificacion_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ 
+                              display: "inline-block",
+                              color: "#007BFF", 
+                              fontSize: "0.9rem",
+                              textDecoration: "none"
+                            }}
+                          >
+                            📎 Ver documento de verificación
+                          </a>
+                        </div>
+                      )}
+                      
+                      {/* Observaciones */}
+                      {informe.observaciones && (
+                        <div style={{ 
+                          background: "#FFF3CD", 
+                          padding: "0.75rem", 
+                          borderRadius: "8px",
+                          marginBottom: "1rem",
+                          border: "1px solid #FFC107",
+                          fontSize: "0.9rem"
+                        }}>
+                          <strong style={{ color: "#856404" }}>📝 Observaciones:</strong>
+                          <div style={{ marginTop: "0.25rem", color: "#856404" }}>
+                            {informe.observaciones}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Botones de Acción */}
+                      {!isAdmin && (
+                        <div style={{ 
+                          display: "flex", 
+                          gap: "0.5rem", 
+                          justifyContent: "flex-end",
+                          paddingTop: "1rem",
+                          borderTop: "1px solid #E9ECEF"
+                        }}>
+                          <button 
+                            onClick={() => { 
+                              setInformeAEditar(informe); 
+                              setMostrarForm(true); 
+                            }} 
+                            style={{ 
+                              background: "#007BFF", 
+                              color: "white", 
+                              border: "none", 
+                              padding: "0.5rem 1rem", 
+                              borderRadius: "6px", 
+                              cursor: "pointer", 
+                              fontWeight: 600,
+                              fontSize: "0.9rem"
+                            }}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button 
+                            onClick={() => handleEliminarInforme(informe.id)} 
+                            style={{ 
+                              background: "#DC3545", 
+                              color: "white", 
+                              border: "none", 
+                              padding: "0.5rem 1rem", 
+                              borderRadius: "6px", 
+                              cursor: "pointer", 
+                              fontWeight: 600,
+                              fontSize: "0.9rem"
+                            }}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
                       )}
                     </div>
-                    );
-                  })}
-                </div>
+                  );
+                })}
               </div>
-              
-              {/* Observaciones */}
-              {informe.observaciones_generales && (
-                <div style={{ 
-                  background: "#FFF3CD", 
-                  padding: "1rem", 
-                  borderRadius: "8px",
-                  marginBottom: "1rem",
-                  border: "1px solid #FFC107"
-                }}>
-                  <strong style={{ color: "#856404" }}>📝 Observaciones:</strong>
-                  <div style={{ marginTop: "0.5rem", color: "#856404" }}>
-                    {informe.observaciones_generales}
-                  </div>
-                </div>
-              )}
-              
-              {/* Botones de Acción - Solo para usuarios NO admin */}
-              {!isAdmin && (
-                <div style={{ 
-                  display: "flex", 
-                  gap: "1rem", 
-                  justifyContent: "flex-end",
-                  paddingTop: "1rem",
-                  borderTop: "1px solid #E9ECEF"
-                }}>
-                  <button 
-                    onClick={() => { 
-                      setInformeAEditar(informe); 
-                      setMostrarForm(true); 
-                    }} 
-                    style={{ 
-                      background: "#007BFF", 
-                      color: "white", 
-                      border: "none", 
-                      padding: "0.75rem 1.5rem", 
-                      borderRadius: "8px", 
-                      cursor: "pointer", 
-                      fontWeight: 600,
-                      fontSize: "0.95rem"
-                    }}
-                  >
-                    ✏️ Editar
-                  </button>
-                  <button 
-                    onClick={() => handleEliminarInforme(informe.id)} 
-                    style={{ 
-                      background: "#DC3545", 
-                      color: "white", 
-                      border: "none", 
-                      padding: "0.75rem 1.5rem", 
-                      borderRadius: "8px", 
-                      cursor: "pointer", 
-                      fontWeight: 600,
-                      fontSize: "0.95rem"
-                    }}
-                  >
-                    🗑️ Eliminar
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>
