@@ -23,6 +23,11 @@ export default function InformesSemestralesList({
   const [mostrarForm, setMostrarForm] = useState(false);
   const [informeAEditar, setInformeAEditar] = useState<any>(null);
   const [totalHistorico, setTotalHistorico] = useState(0);
+  const [totalesDesglosados, setTotalesDesglosados] = useState<{
+    internos: number;
+    cursos: number;
+    total: number;
+  }>({ internos: 0, cursos: 0, total: 0 });
   
   useEffect(() => {
     cargarInformes();
@@ -60,6 +65,8 @@ export default function InformesSemestralesList({
             ...informe, 
             detalle: detalle || {},
             total_alumnos: detalle?.total_alumnos || 0,
+            alumnos_internos: detalle?.alumnos_internos || 0,
+            alumnos_cursos: detalle?.alumnos_cursos || 0,
             subtipo_nombre: subtipoNombre,
             area_nombre: areaNombre,
             es_pregrado: esPregrado
@@ -68,7 +75,17 @@ export default function InformesSemestralesList({
       );
       
       setInformes(informesConDetalle);
-      setTotalHistorico(informesConDetalle.reduce((sum, inf) => sum + inf.total_alumnos, 0));
+      
+      // Calcular totales desglosados
+      const totales = informesConDetalle.reduce((acc, inf) => ({
+        total: acc.total + inf.total_alumnos,
+        internos: acc.internos + inf.alumnos_internos,
+        cursos: acc.cursos + inf.alumnos_cursos
+      }), { total: 0, internos: 0, cursos: 0 });
+      
+      setTotalHistorico(totales.total);
+      setTotalesDesglosados(totales);
+      
     } catch (error) {
       console.error("Error:", error);
       alert("Error cargando informes");
@@ -147,14 +164,38 @@ export default function InformesSemestralesList({
             </p>
           </div>
           <div style={{ 
-            textAlign: "right",
+            textAlign: "center",
             background: "rgba(255,255,255,0.15)",
             padding: "1rem 1.5rem",
-            borderRadius: "12px"
+            borderRadius: "12px",
+            minWidth: "280px"
           }}>
-            <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>Total Histórico</div>
-            <div style={{ fontSize: "2.5rem", fontWeight: 700 }}>{totalHistorico}</div>
-            <div style={{ fontSize: "0.9rem", opacity: 0.8 }}>alumnos</div>
+            <div style={{ fontSize: "0.9rem", opacity: 0.8, marginBottom: "0.5rem" }}>
+              Total Histórico
+            </div>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: "1fr 1fr 1fr", 
+              gap: "1rem",
+              marginBottom: "0.5rem"
+            }}>
+              <div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Internos/Residentes</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{totalesDesglosados.internos}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Alumnos/Rotaciones</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{totalesDesglosados.cursos}</div>
+              </div>
+              <div style={{ 
+                borderLeft: "2px solid rgba(255,255,255,0.3)", 
+                paddingLeft: "0.5rem" 
+              }}>
+                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Total</div>
+                <div style={{ fontSize: "2rem", fontWeight: 700 }}>{totalHistorico}</div>
+              </div>
+            </div>
+            <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>alumnos en total</div>
           </div>
         </div>
       </div>
@@ -377,14 +418,15 @@ export default function InformesSemestralesList({
                       )}
                       
                       {/* Botones de Acción */}
-                      {!isAdmin && (
-                        <div style={{ 
-                          display: "flex", 
-                          gap: "0.5rem", 
-                          justifyContent: "flex-end",
-                          paddingTop: "1rem",
-                          borderTop: "1px solid #E9ECEF"
-                        }}>
+                      <div style={{ 
+                        display: "flex", 
+                        gap: "0.5rem", 
+                        justifyContent: "flex-end",
+                        paddingTop: "1rem",
+                        borderTop: "1px solid #E9ECEF"
+                      }}>
+                        {/* Botón Editar: disponible para todos */}
+                        {!isAdmin && (
                           <button 
                             onClick={() => { 
                               setInformeAEditar(informe); 
@@ -403,6 +445,10 @@ export default function InformesSemestralesList({
                           >
                             ✏️ Editar
                           </button>
+                        )}
+                        
+                        {/* Botón Eliminar: SOLO para admins */}
+                        {isAdmin && (
                           <button 
                             onClick={() => handleEliminarInforme(informe.id)} 
                             style={{ 
@@ -418,8 +464,8 @@ export default function InformesSemestralesList({
                           >
                             🗑️ Eliminar
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}

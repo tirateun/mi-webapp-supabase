@@ -198,6 +198,12 @@ export default function InformeSemestralForm({
       return;
     }
     
+    // 🆕 VALIDAR PDF OBLIGATORIO
+    if (!documentoFile && !documentoUrl) {
+      alert("❌ Debes subir un documento PDF de verificación. Este documento es OBLIGATORIO.");
+      return;
+    }
+    
     setSaving(true);
     
     try {
@@ -536,35 +542,47 @@ export default function InformeSemestralForm({
           {/* Documento */}
           <div style={{ marginBottom: "1.5rem" }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
-              📎 Documento de Verificación (PDF)
+              📎 Documento de Verificación (PDF) <span style={{ color: "#DC3545" }}>* OBLIGATORIO</span>
             </label>
             <div style={{
-              background: "#E7F3FF",
-              border: "1px solid #90CAF9",
+              background: "#FFE5E5",
+              border: "2px solid #DC3545",
               borderRadius: "8px",
               padding: "0.75rem",
               marginBottom: "0.75rem",
               fontSize: "0.85rem",
-              color: "#1565C0"
+              color: "#721C24"
             }}>
-              <strong>ℹ️ Importante:</strong> {textoVerificacion}
+              <strong>⚠️ OBLIGATORIO:</strong> {textoVerificacion}
             </div>
             {documentoUrl && !documentoFile && (
-              <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#28A745" }}>
-                ✅ {documentoNombre}
+              <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#28A745", fontWeight: 600 }}>
+                ✅ Documento actual: {documentoNombre}
+              </div>
+            )}
+            {!documentoUrl && !documentoFile && (
+              <div style={{ marginBottom: "0.5rem", fontSize: "0.9rem", color: "#DC3545", fontWeight: 600 }}>
+                ❌ No hay documento. Debes subir un PDF.
               </div>
             )}
             <input
               type="file"
               accept=".pdf"
               onChange={(e) => setDocumentoFile(e.target.files?.[0] || null)}
+              required={!documentoUrl && !informeExistente}
               style={{
                 width: "100%",
                 padding: "0.75rem",
-                border: "2px solid #E9ECEF",
-                borderRadius: "8px"
+                border: documentoUrl || documentoFile ? "2px solid #28A745" : "2px solid #DC3545",
+                borderRadius: "8px",
+                background: documentoUrl || documentoFile ? "#E8F5E9" : "white"
               }}
             />
+            {documentoFile && (
+              <div style={{ marginTop: "0.5rem", fontSize: "0.9rem", color: "#28A745", fontWeight: 600 }}>
+                ✅ Nuevo archivo seleccionado: {documentoFile.name}
+              </div>
+            )}
           </div>
           
           {/* Observaciones */}
