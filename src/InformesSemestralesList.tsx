@@ -59,7 +59,24 @@ export default function InformesSemestralesList({
           
           const subtipoNombre = informe.agreement_subtypes?.subtipo_nombre || "";
           const esPregrado = subtipoNombre.toUpperCase().includes("PREGRADO");
-          const areaNombre = informe.areas_vinculadas?.nombre || "Área sin nombre";
+          
+          // Obtener nombre del área (con fallback al detalle si no está en el informe)
+          let areaNombre = informe.areas_vinculadas?.nombre;
+          
+          if (!areaNombre && detalle?.area_vinculada_id) {
+            // Fallback: buscar área desde el detalle
+            const { data: areaData } = await supabase
+              .from("areas_vinculadas")
+              .select("nombre")
+              .eq("id", detalle.area_vinculada_id)
+              .single();
+            
+            areaNombre = areaData?.nombre || "Área sin nombre";
+          }
+          
+          if (!areaNombre) {
+            areaNombre = "Área sin nombre";
+          }
           
           return { 
             ...informe, 
