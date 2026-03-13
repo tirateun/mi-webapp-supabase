@@ -726,7 +726,11 @@ export default function AgreementsList({
             </thead>
 
             <tbody>
-              {paged.map((a) => (
+              {paged.map((a) => {
+                // Calcular estado del convenio
+                const st = getStatus(a);
+                
+                return (
                 <tr key={a.id}>
                   <td style={{ textAlign: "left", verticalAlign: "middle" }}>
                     <div style={{ fontWeight: 600 }}>{a.name || "-"}</div>
@@ -881,7 +885,8 @@ export default function AgreementsList({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
