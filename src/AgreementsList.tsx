@@ -110,7 +110,7 @@ export default function AgreementsList({
 
   // filtros UI
   const [search, setSearch] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido">("all");
+  const [estadoFilter, setEstadoFilter] = useState<"all" | "vigente" | "por_vencer" | "vencido" | "finalizado">("all");
 
   // filtro avanzado
   const [showFiltroAvanzado, setShowFiltroAvanzado] = useState(false);
@@ -168,7 +168,6 @@ export default function AgreementsList({
               subtipo_nombre
             )
           `)
-          .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
           .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
@@ -221,7 +220,6 @@ export default function AgreementsList({
               )
             `)
             .in("id", allIds)
-            .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
             .order("created_at", { ascending: false });
           if (error) throw error;
           visible = data || [];
@@ -239,7 +237,6 @@ export default function AgreementsList({
             )
           `)
           .eq("external_responsible", user.id)
-          .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
           .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
@@ -379,6 +376,19 @@ export default function AgreementsList({
   }, [getEndDate]);
 
   const renderStatusBadge = useCallback((a: any) => {
+    // Si está finalizado, mostrar badge especial
+    if (a.finalizado) {
+      return (
+        <span 
+          className="badge bg-dark text-white" 
+          title={`Finalizado el ${a.fecha_finalizacion ? new Date(a.fecha_finalizacion).toLocaleDateString('es-PE') : ''}`}
+          style={{ fontSize: "0.85rem" }}
+        >
+          ⏹️ Finalizado
+        </span>
+      );
+    }
+    
     const st = getStatus(a);
     const colorClass =
       st.color === "success"
@@ -447,8 +457,18 @@ export default function AgreementsList({
       });
     }
 
-    if (estadoFilter !== "all") {
+    // Filtrar por estado (finalizado vs activos)
+    if (estadoFilter === "all") {
+      // "Todos" muestra solo convenios NO finalizados
+      result = result.filter((a) => !a.finalizado);
+    } else if (estadoFilter === "finalizado") {
+      // Mostrar solo finalizados
+      result = result.filter((a) => a.finalizado === true);
+    } else {
+      // Otros estados (vigente, por vencer, vencido) - solo NO finalizados
       result = result.filter((a) => {
+        if (a.finalizado) return false; // Excluir finalizados
+        
         const st = getStatus(a);
         if (estadoFilter === "vigente") return st.key === "vigente";
         if (estadoFilter === "por_vencer") return st.key === "por_vencer";
@@ -654,6 +674,7 @@ export default function AgreementsList({
               <option value="vigente">Vigente</option>
               <option value="por_vencer">Por vencer (&lt;= 90 días)</option>
               <option value="vencido">Vencido</option>
+              <option value="finalizado">Finalizado</option>
             </select>
           </div>
 
