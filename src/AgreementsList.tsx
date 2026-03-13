@@ -135,6 +135,11 @@ export default function AgreementsList({
     name: string;
   } | null>(null);
 
+  // 🆕 Estados para finalización de convenios
+  const [showFinalizarModal, setShowFinalizarModal] = useState(false);
+  const [convenioAFinalizar, setConvenioAFinalizar] = useState<any>(null);
+  const [motivoFinalizacion, setMotivoFinalizacion] = useState("");
+
   /* ------------------ Fetch Áreas ------------------ */
   const fetchAreas = useCallback(async () => {
     try {
@@ -163,77 +168,65 @@ export default function AgreementsList({
               subtipo_nombre
             )
           `)
+          .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
           .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
       } else if (["internal", "interno"].includes(role)) {
-        // ✅ PANEL DE GESTIÓN: Los usuarios internos solo ven convenios donde son responsables
+        // 🆕 Buscar convenios donde el usuario es responsable:
+        // 1. Responsable general (agreement_internal_responsibles)
+        // 2. Responsable de algún subtipo (subtype_internal_responsibles)
         
-        // PASO 0: Obtener el profiles.id del usuario logueado
-        // (user.id viene de auth.users.id, pero internal_responsible_id apunta a profiles.id)
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
+        // Opción 1: Responsable general
+        const { data: vinculos, error: err1 } = await supabase
+          .from("agreement_internal_responsibles")
+          .select("agreement_id")
+          .eq("internal_responsible_id", user.id);
+        if (err1) throw err1;
         
-        if (profileError || !profileData) {
-          console.error('Error obteniendo perfil:', profileError);
-          visible = [];
-        } else {
-          const profileId = profileData.id;  // Este es el profiles.id correcto
+        const idsGeneral = (vinculos || []).map((v: any) => v.agreement_id);
+        
+        // Opción 2: Responsable de subtipo
+        const { data: subtypeResponsibles, error: err2 } = await supabase
+          .from("subtype_internal_responsibles")
+          .select("subtype_id, internal_responsible_id")
+          .eq("internal_responsible_id", user.id);
           
-          // PASO 1: Buscar convenios donde el usuario es responsable general
-          const { data: vinculos, error: err1 } = await supabase
-            .from("agreement_internal_responsibles")
+        if (err2) throw err2;
+        
+        // Obtener agreement_ids desde los subtipos
+        const subtypeIds = (subtypeResponsibles || []).map((s: any) => s.subtype_id);
+        
+        let idsSubtipos: string[] = [];
+        if (subtypeIds.length > 0) {
+          const { data: subtypes } = await supabase
+            .from("agreement_subtypes")
             .select("agreement_id")
-            .eq("internal_responsible_id", profileId);  // ✅ Usar profileId
-          if (err1) throw err1;
+            .in("id", subtypeIds);
           
-          const idsGeneral = (vinculos || []).map((v: any) => v.agreement_id);
-          
-          // PASO 2: Buscar convenios donde el usuario es responsable de subtipo
-          const { data: subtypeResponsibles, error: err2 } = await supabase
-            .from("subtype_internal_responsibles")
-            .select("subtype_id, internal_responsible_id")
-            .eq("internal_responsible_id", profileId);  // ✅ Usar profileId
-            
-          if (err2) throw err2;
-          
-          // Obtener agreement_ids desde los subtipos
-          const subtypeIds = (subtypeResponsibles || []).map((s: any) => s.subtype_id);
-          
-          let idsSubtipos: string[] = [];
-          if (subtypeIds.length > 0) {
-            const { data: subtypes } = await supabase
-              .from("agreement_subtypes")
-              .select("agreement_id")
-              .in("id", subtypeIds);
-            
-            idsSubtipos = (subtypes || []).map((s: any) => s.agreement_id);
-          }
-          
-          // PASO 3: Combinar ambos (sin duplicados)
-          const allIds = [...new Set([...idsGeneral, ...idsSubtipos])];
-          
-          // PASO 4: Traer convenios
-          if (allIds.length > 0) {
-            const { data, error } = await supabase
-              .from("agreements")
-              .select(`
-                *,
-                agreement_subtypes (
-                  id,
-                  subtipo_nombre
-                )
-              `)
-              .in("id", allIds)
-              .order("created_at", { ascending: false });
-            if (error) throw error;
-            visible = data || [];
-          } else {
-            visible = [];
-          }
+          idsSubtipos = (subtypes || []).map((s: any) => s.agreement_id);
+        }
+        
+        // Combinar ambos (sin duplicados)
+        const allIds = [...new Set([...idsGeneral, ...idsSubtipos])];
+        
+        if (allIds.length > 0) {
+          const { data, error } = await supabase
+            .from("agreements")
+            .select(`
+              *,
+              agreement_subtypes (
+                id,
+                subtipo_nombre
+              )
+            `)
+            .in("id", allIds)
+            .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
+            .order("created_at", { ascending: false });
+          if (error) throw error;
+          visible = data || [];
+        } else {
+          visible = [];
         }
       } else {
         const { data, error } = await supabase
@@ -246,6 +239,7 @@ export default function AgreementsList({
             )
           `)
           .eq("external_responsible", user.id)
+          .eq("finalizado", false)  // 🆕 Excluir convenios finalizados
           .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
@@ -261,27 +255,19 @@ export default function AgreementsList({
         return;
       }
 
-      // 2) traer renovaciones
       const { data: renewalsData, error: rError } = await supabase
         .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, renewal_signature_date, changed_at")
-        .order("changed_at", { ascending: false });
+        .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
+        .in("agreement_id", agreementIds)
+        .order("changed_at", { ascending: false }); // más recientes primero
 
-      if (rError) {
-        console.error("Error cargando renovaciones:", rError);
-        throw rError;
-      }
+      if (rError) throw rError;
 
-      // Filtrar solo las renovaciones de los convenios visibles
-      const renewalsFiltered = (renewalsData || []).filter((r: any) => 
-        agreementIds.includes(r.agreement_id)
-      );
-
-      setRenewalsDataState(renewalsFiltered);
+      setRenewalsDataState(renewalsData || []);
 
       // agrupar por agreement_id
       const map: Record<string, { count: number; latest_new_expiration_date: string | null }> = {};
-      renewalsFiltered.forEach((r: any) => {
+      (renewalsData || []).forEach((r: any) => {
         const aid = r.agreement_id;
         if (!map[aid]) {
           map[aid] = { count: 0, latest_new_expiration_date: null };
@@ -311,89 +297,25 @@ export default function AgreementsList({
 
   /* ------------------ Helpers vigencia ------------------ */
   const getEndDate = useCallback((a: any): Date | null => {
-    // Si hay renovaciones, usar la fecha de la renovación más reciente
-    const activeRenewal = getActiveRenewalFor(a.id);
-    
-    if (activeRenewal && activeRenewal.new_expiration_date) {
-      return parseLocalDate(activeRenewal.new_expiration_date);
-    }
-    
-    // Sino, usar fecha de expiración directa del convenio
+    // 🔧 CORRECCIÓN: Usar parseLocalDate para evitar problemas de zona horaria
     if (a?.expiration_date) {
       return parseLocalDate(a.expiration_date);
     }
-    
-    // Calcular desde signature_date + duration_years
     if (!a?.signature_date || !a?.duration_years) return null;
     const sig = parseLocalDate(a.signature_date);
     if (!sig) return null;
     return computeEndDate(sig, Number(a.duration_years));
-  }, [renewalsDataState]);
+  }, []);
 
   const getActiveRenewalFor = (agreementId: string) => {
     if (!renewalsDataState || renewalsDataState.length === 0) return null;
   
     // Buscamos la renovación más reciente de ese convenio
     const r = renewalsDataState
-      .filter((x: any) => x.agreement_id === agreementId)
-      .sort((a: any, b: any) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
+      .filter((x) => x.agreement_id === agreementId)
+      .sort((a, b) => new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime());
   
     return r.length > 0 ? r[0] : null; // la más reciente
-  };
-
-  // Nueva función: Obtener fecha de firma efectiva (renovación o inicial)
-  const getEffectiveSignatureDate = (a: any): Date | null => {
-    const activeRenewal = getActiveRenewalFor(a.id);
-    
-    if (activeRenewal) {
-      // PRIORIDAD 1: Si hay fecha de firma de renovación registrada, usarla
-      if (activeRenewal.renewal_signature_date) {
-        return parseLocalDate(activeRenewal.renewal_signature_date);
-      }
-      
-      // PRIORIDAD 2: Si no, calcular como día después de expiración anterior
-      if (activeRenewal.old_expiration_date) {
-        const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
-        if (oldEnd) {
-          const renewalStart = new Date(oldEnd);
-          renewalStart.setDate(renewalStart.getDate() + 1);
-          return renewalStart;
-        }
-      }
-    }
-    
-    // PRIORIDAD 3: Fecha original del convenio
-    return parseLocalDate(a.signature_date);
-  };
-
-  // Nueva función: Obtener duración efectiva (renovación o inicial)
-  const getEffectiveDuration = (a: any): number | null => {
-    const activeRenewal = getActiveRenewalFor(a.id);
-    
-    // Si hay renovación, calcular duración desde fechas
-    if (activeRenewal && activeRenewal.old_expiration_date && activeRenewal.new_expiration_date) {
-      const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
-      const newEnd = parseLocalDate(activeRenewal.new_expiration_date);
-      
-      if (oldEnd && newEnd) {
-        const startDate = new Date(oldEnd);
-        startDate.setDate(startDate.getDate() + 1);
-        
-        // Calcular años de diferencia
-        const years = newEnd.getFullYear() - startDate.getFullYear();
-        const monthDiff = newEnd.getMonth() - startDate.getMonth();
-        const dayDiff = newEnd.getDate() - startDate.getDate();
-        
-        // Si la diferencia de meses/días es negativa, restar un año
-        if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
-          return years - 1;
-        }
-        
-        return years;
-      }
-    }
-    
-    return a.duration_years ? Number(a.duration_years) : null;
   };
   
   /* ------------------ Helpers renovaciones (vigencia + renovación activa) ------------------ */
@@ -477,36 +399,8 @@ export default function AgreementsList({
     (a: any) => {
       const end = getEndDate(a);
       if (!end) return <small className="text-muted">Sin vigencia</small>;
-      
       const today = new Date();
-      const activeRenewal = getActiveRenewalFor(a.id);
-      
-      // Determinar qué periodo mostrar
-      let startDate = today;
-      let endDate = end;
-      let showingCurrentPeriod = false;
-      let renewalStartDate: Date | null = null;
-      
-      if (activeRenewal && activeRenewal.old_expiration_date) {
-        const oldEnd = parseLocalDate(activeRenewal.old_expiration_date);
-        if (oldEnd) {
-          renewalStartDate = new Date(oldEnd);
-          renewalStartDate.setDate(renewalStartDate.getDate() + 1);
-          
-          // Si la renovación aún no ha iniciado
-          if (today < renewalStartDate) {
-            // Mostrar vigencia del periodo ACTUAL (hasta old_expiration_date)
-            endDate = oldEnd;
-            showingCurrentPeriod = true;
-          } else {
-            // La renovación ya inició, calcular desde su inicio
-            startDate = renewalStartDate;
-            endDate = end; // new_expiration_date
-          }
-        }
-      }
-      
-      const diff = diffDates(startDate, endDate);
+      const diff = diffDates(today, end);
       const text = diff.invert ? `Vencido hace ${formatDiffString(diff)}` : `${formatDiffString(diff)} restante`;
       const styleColor = diff.invert
         ? { color: "#6c757d" }
@@ -518,29 +412,24 @@ export default function AgreementsList({
 
       return (
         <div style={{ textAlign: "left" }}>
-          <div style={styleColor} title={a.signature_date ? `Termina: ${endDate.toLocaleDateString("es-PE")}` : undefined}>
+          <div style={styleColor} title={a.signature_date ? `Termina: ${end.toLocaleDateString("es-PE")}` : undefined}>
             {text}
           </div>
-          <small className="text-muted">
-            {showingCurrentPeriod ? "Termina: " : "Termina: "}
-            {endDate.toLocaleDateString("es-PE")}
-          </small>
+          <small className="text-muted">Termina: {end.toLocaleDateString("es-PE")}</small>
 
           {/* mostrar renovaciones */}
           {renewalsMap[a.id] && (
             <div style={{ fontSize: "0.85rem", marginTop: 6 }}>
               Renovado {renewalsMap[a.id].count} {renewalsMap[a.id].count === 1 ? "vez" : "veces"}
-              {showingCurrentPeriod && renewalStartDate ? (
-                ` — inicia: ${renewalStartDate.toLocaleDateString("es-PE")}`
-              ) : renewalsMap[a.id].latest_new_expiration_date ? (
-                ` — último: ${parseLocalDate(renewalsMap[a.id].latest_new_expiration_date)?.toLocaleDateString("es-PE")}`
-              ) : ""}
+              {renewalsMap[a.id].latest_new_expiration_date
+                ? ` — último: ${parseLocalDate(renewalsMap[a.id].latest_new_expiration_date)?.toLocaleDateString("es-PE")}`
+                : ""}
             </div>
           )}
         </div>
       );
     },
-    [getEndDate, renewalsMap, renewalsDataState]
+    [getEndDate, renewalsMap]
   );
 
   /* ------------------ Filtros (simple + advanced) ------------------ */
@@ -607,11 +496,11 @@ export default function AgreementsList({
         }
 
         if (anioInicio !== null) {
-          const sig = getEffectiveSignatureDate(item);
+          const sig = parseLocalDate(item.signature_date);
           checks.push(sig ? sig.getFullYear() >= anioInicio : false);
         }
         if (anioFin !== null) {
-          const sig = getEffectiveSignatureDate(item);
+          const sig = parseLocalDate(item.signature_date);
           checks.push(sig ? sig.getFullYear() <= anioFin : false);
         }
 
@@ -682,6 +571,40 @@ export default function AgreementsList({
   const handleCloseDetails = () => {
     setShowDetailsModal(false);
     setSelectedAgreementForDetails(null);
+  };
+
+  // 🆕 Función para finalizar convenio
+  const handleFinalizarConvenio = async () => {
+    if (!convenioAFinalizar) return;
+    
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from("agreements")
+        .update({
+          finalizado: true,
+          fecha_finalizacion: new Date().toISOString(),
+          finalizado_por: userData?.user?.id,
+          motivo_finalizacion: motivoFinalizacion || null
+        })
+        .eq("id", convenioAFinalizar.id);
+      
+      if (error) {
+        alert("❌ Error al finalizar convenio: " + error.message);
+        return;
+      }
+      
+      // Remover de la lista
+      setAgreements(prev => prev.filter(a => a.id !== convenioAFinalizar.id));
+      
+      alert("✅ Convenio finalizado correctamente");
+      setShowFinalizarModal(false);
+      setConvenioAFinalizar(null);
+      setMotivoFinalizacion("");
+    } catch (error: any) {
+      alert("❌ Error: " + error.message);
+    }
   };
 
   /* ------------------ Navegación para renovaciones (abre nueva página) ------------------ */
@@ -843,23 +766,9 @@ export default function AgreementsList({
 
                   <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>
 
-                  <td style={{ verticalAlign: "middle" }}>
-                    {(() => {
-                      const effectiveDuration = getEffectiveDuration(a);
-                      return effectiveDuration 
-                        ? `${effectiveDuration} ${effectiveDuration === 1 ? "año" : "años"}` 
-                        : "Sin dato";
-                    })()}
-                  </td>
+                  <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
 
-                  <td style={{ verticalAlign: "middle" }}>
-                    {(() => {
-                      const effectiveSignature = getEffectiveSignatureDate(a);
-                      return effectiveSignature 
-                        ? effectiveSignature.toLocaleDateString("es-PE") 
-                        : "-";
-                    })()}
-                  </td>
+                  <td style={{ verticalAlign: "middle" }}>{a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}</td>
 
                   <td style={{ verticalAlign: "middle", textAlign: "left" }}>{renderCountdown(a)}</td>
 
@@ -869,18 +778,18 @@ export default function AgreementsList({
                     <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '350px' }}>
                       
                       {/* 🆕 BOTÓN VER - AL PRINCIPIO */}
-                      {/* Solo Admin puede ver, editar y eliminar */}
+                      <button 
+                        className="btn btn-sm btn-outline-info" 
+                        onClick={() => handleOpenDetails(a)} 
+                        title="Ver detalles completos"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        👁️ Ver
+                      </button>
+
+                      {/* Solo Admin puede editar y eliminar */}
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
-                          <button 
-                            className="btn btn-sm btn-outline-info" 
-                            onClick={() => handleOpenDetails(a)} 
-                            title="Ver detalles completos"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            👁️ Ver
-                          </button>
-                      
                           <button 
                             className="btn btn-sm btn-outline-secondary" 
                             onClick={() => onEdit(a)} 
@@ -906,51 +815,43 @@ export default function AgreementsList({
                           >
                             🗑️ Eliminar
                           </button>
+                          
+                          {/* 🆕 Botón Finalizar - Solo para convenios vencidos */}
+                          {st.key === "vencido" && (
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={() => {
+                                setConvenioAFinalizar(a);
+                                setShowFinalizarModal(true);
+                              }}
+                              title="Finalizar convenio (no se renovará)"
+                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                            >
+                              ⏹️ Finalizar
+                            </button>
+                          )}
                         </>
                       )}
 
-                      {/* Solo Admin: Programar, Cumplimiento, Renovar, Historial */}
-                      {["admin", "Admin", "Administrador"].includes(role) && (
-                        <>
-                          <button 
-                            className="btn btn-sm btn-outline-success"
-                            onClick={() => onOpenContraprestaciones(a.id)}
-                            title="Programar contraprestaciones"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            📋 Programar
-                          </button>
+                      {/* Botones disponibles para todos */}
+                      <button 
+                        className="btn btn-sm btn-outline-success"
+                        onClick={() => onOpenContraprestaciones(a.id)}
+                        title="Programar contraprestaciones"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        📋 Programar
+                      </button>
 
-                          <button 
-                            className="btn btn-sm btn-outline-warning"
-                            onClick={() => onOpenEvidencias(a.id)}
-                            title="Cumplimiento / Evidencias"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            📂 Cumplimiento
-                          </button>
+                      <button 
+                        className="btn btn-sm btn-outline-warning"
+                        onClick={() => onOpenEvidencias(a.id)}
+                        title="Cumplimiento / Evidencias"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        📂 Cumplimiento
+                      </button>
 
-                          <button 
-                            className="btn btn-sm btn-outline-dark" 
-                            onClick={() => navigateToRenewalPage(a.id)} 
-                            title="Renovar convenio"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            🔄 Renovar
-                          </button>
-
-                          <button 
-                            className="btn btn-sm btn-outline-info" 
-                            onClick={() => handleOpenHistory(a)} 
-                            title="Ver historial de renovaciones"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            📜 Historial
-                          </button>
-                        </>
-                      )}
-
-                      {/* Todos pueden ver Informes */}
                       <button 
                         className="btn btn-sm btn-outline-primary"
                         onClick={() => onOpenInforme(a.id)}
@@ -958,6 +859,24 @@ export default function AgreementsList({
                         style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
                       >
                         📝 Informes
+                      </button>
+                              
+                      <button 
+                        className="btn btn-sm btn-outline-dark" 
+                        onClick={() => navigateToRenewalPage(a.id)} 
+                        title="Renovar convenio"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        🔄 Renovar
+                      </button>
+
+                      <button 
+                        className="btn btn-sm btn-outline-info" 
+                        onClick={() => handleOpenHistory(a)} 
+                        title="Ver historial de renovaciones"
+                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                      >
+                        📜 Historial
                       </button>
                     </div>
                   </td>
@@ -1089,6 +1008,118 @@ export default function AgreementsList({
           onClose={handleCloseDetails}
           agreementId={selectedAgreementForDetails.id}
         />
+      )}
+
+      {/* 🆕 Modal de Finalización de Convenio */}
+      {showFinalizarModal && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+          }}
+          onClick={() => {
+            setShowFinalizarModal(false);
+            setConvenioAFinalizar(null);
+            setMotivoFinalizacion("");
+          }}
+        >
+          <div 
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "2rem",
+              maxWidth: "500px",
+              width: "90%"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginBottom: "1rem", color: "#DC3545" }}>
+              ⚠️ Finalizar Convenio
+            </h3>
+            
+            <p style={{ marginBottom: "1rem" }}>
+              ¿Estás seguro de que deseas finalizar el convenio <strong>"{convenioAFinalizar?.name}"</strong>?
+            </p>
+            
+            <div style={{
+              background: "#FFF3CD",
+              border: "1px solid #FFC107",
+              borderRadius: "8px",
+              padding: "1rem",
+              marginBottom: "1rem"
+            }}>
+              <strong>⚠️ Importante:</strong>
+              <ul style={{ marginBottom: 0, marginTop: "0.5rem", paddingLeft: "1.5rem" }}>
+                <li>El convenio <strong>NO aparecerá</strong> en el conteo de convenios activos</li>
+                <li>Se mantendrá el registro histórico completo</li>
+                <li>Esta acción es <strong>reversible</strong> (puedes reactivarlo después)</li>
+                <li>Solo convenios finalizados no cuentan en estadísticas</li>
+              </ul>
+            </div>
+            
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: 600 }}>
+                Motivo de finalización (opcional)
+              </label>
+              <textarea
+                value={motivoFinalizacion}
+                onChange={(e) => setMotivoFinalizacion(e.target.value)}
+                placeholder="Ej: No se renovará por decisión institucional..."
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "2px solid #E9ECEF",
+                  borderRadius: "8px",
+                  resize: "vertical"
+                }}
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowFinalizarModal(false);
+                  setConvenioAFinalizar(null);
+                  setMotivoFinalizacion("");
+                }}
+                style={{
+                  background: "#6C757D",
+                  color: "white",
+                  border: "none",
+                  padding: "0.75rem 1.5rem",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: 600
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleFinalizarConvenio}
+                style={{
+                  background: "#DC3545",
+                  color: "white",
+                  border: "none",
+                  padding: "0.75rem 1.5rem",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: 600
+                }}
+              >
+                ⏹️ Finalizar Convenio
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
