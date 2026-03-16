@@ -256,15 +256,27 @@ export default function AgreementsList({
         return;
       }
 
-      const { data: renewalsData, error: rError } = await supabase
-        .from("agreement_renewals")
-        .select("id, agreement_id, old_expiration_date, new_expiration_date, new_start_date, changed_at")
-        .in("agreement_id", agreementIds)
-        .order("changed_at", { ascending: false }); // más recientes primero
+      // Dividir en lotes de 50 para evitar URLs muy largas
+      const batchSize = 50;
+      const batches: string[][] = [];
+      for (let i = 0; i < agreementIds.length; i += batchSize) {
+        batches.push(agreementIds.slice(i, i + batchSize));
+      }
 
-      if (rError) throw rError;
+      // Consultar cada lote y combinar resultados
+      let allRenewalsData: any[] = [];
+      for (const batch of batches) {
+        const { data, error: rError } = await supabase
+          .from("agreement_renewals")
+          .select("id, agreement_id, old_expiration_date, new_expiration_date, new_start_date, changed_at")
+          .in("agreement_id", batch)
+          .order("changed_at", { ascending: false });
+        
+        if (rError) throw rError;
+        allRenewalsData = [...allRenewalsData, ...(data || [])];
+      }
 
-      setRenewalsDataState(renewalsData || []);
+      setRenewalsDataState(allRenewalsData);
 
       // agrupar por agreement_id
       const map: Record<string, { 
@@ -272,7 +284,7 @@ export default function AgreementsList({
         latest_new_expiration_date: string | null;
         latest_new_start_date: string | null;
       }> = {};
-      (renewalsData || []).forEach((r: any) => {
+      allRenewalsData.forEach((r: any) => {
         const aid = r.agreement_id;
         if (!map[aid]) {
           map[aid] = { 
