@@ -256,8 +256,8 @@ export default function AgreementsList({
         return;
       }
 
-      // Dividir en lotes de 50 para evitar URLs muy largas
-      const batchSize = 50;
+      // Dividir en lotes de 30 para evitar URLs muy largas
+      const batchSize = 30;
       const batches: string[][] = [];
       for (let i = 0; i < agreementIds.length; i += batchSize) {
         batches.push(agreementIds.slice(i, i + batchSize));
