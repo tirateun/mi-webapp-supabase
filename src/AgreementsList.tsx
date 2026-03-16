@@ -105,7 +105,6 @@ export default function AgreementsList({
   const [renewalsMap, setRenewalsMap] = useState<Record<string, { 
     count: number; 
     latest_new_expiration_date: string | null;
-    latest_new_start_date: string | null;
   }>>({});
   const [loading, setLoading] = useState(true);
 
@@ -268,7 +267,7 @@ export default function AgreementsList({
       for (const batch of batches) {
         const { data, error: rError } = await supabase
           .from("agreement_renewals")
-          .select("id, agreement_id, old_expiration_date, new_expiration_date, new_start_date, changed_at")
+          .select("id, agreement_id, old_expiration_date, new_expiration_date, changed_at")
           .in("agreement_id", batch)
           .order("changed_at", { ascending: false });
         
@@ -282,24 +281,19 @@ export default function AgreementsList({
       const map: Record<string, { 
         count: number; 
         latest_new_expiration_date: string | null;
-        latest_new_start_date: string | null;
       }> = {};
       allRenewalsData.forEach((r: any) => {
         const aid = r.agreement_id;
         if (!map[aid]) {
           map[aid] = { 
             count: 0, 
-            latest_new_expiration_date: null,
-            latest_new_start_date: null
+            latest_new_expiration_date: null
           };
         }
         map[aid].count += 1;
         // guardamos la más reciente (renewalsData ya está ordenado desc por changed_at)
         if (r.new_expiration_date && !map[aid].latest_new_expiration_date) {
           map[aid].latest_new_expiration_date = r.new_expiration_date;
-        }
-        if (r.new_start_date && !map[aid].latest_new_start_date) {
-          map[aid].latest_new_start_date = r.new_start_date;
         }
       });
 
@@ -821,14 +815,7 @@ export default function AgreementsList({
                   <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
 
                   <td style={{ verticalAlign: "middle" }}>
-                    {(() => {
-                      // Si hay renovación, usar la fecha de inicio más reciente
-                      if (renewalsMap[a.id]?.latest_new_start_date) {
-                        return parseLocalDate(renewalsMap[a.id].latest_new_start_date)?.toLocaleDateString("es-PE") || "-";
-                      }
-                      // Si no, usar fecha de firma original
-                      return a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-";
-                    })()}
+                    {a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}
                   </td>
 
                   <td style={{ verticalAlign: "middle", textAlign: "left" }}>{renderCountdown(a)}</td>
