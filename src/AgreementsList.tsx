@@ -474,15 +474,15 @@ export default function AgreementsList({
 
     // Filtrar por estado (finalizado vs activos)
     if (estadoFilter === "all") {
-      // "Todos" muestra solo convenios NO finalizados
-      result = result.filter((a) => !a.finalizado);
+      // "Todos" muestra solo convenios NO finalizados (incluye null/undefined)
+      result = result.filter((a) => a.finalizado !== true);
     } else if (estadoFilter === "finalizado") {
       // Mostrar solo finalizados
       result = result.filter((a) => a.finalizado === true);
     } else {
       // Otros estados (vigente, por vencer, vencido) - solo NO finalizados
       result = result.filter((a) => {
-        if (a.finalizado) return false; // Excluir finalizados
+        if (a.finalizado === true) return false; // Excluir solo si está explícitamente finalizado
         
         const st = getStatus(a);
         if (estadoFilter === "vigente") return st.key === "vigente";
