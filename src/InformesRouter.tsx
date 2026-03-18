@@ -1,8 +1,10 @@
 // src/InformesRouter.tsx
+// VERSIÓN ACTUALIZADA: Usa InformesAnualesList en lugar de InformesSemestralesList
+
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import InformesAnualesPage from "./InformesAnualesPage";
-import InformesSemestralesList from "./InformesSemestralesList";
+import InformesAnualesList from "./InformesAnualesList"; // ← CAMBIO: Antes era InformesSemestralesList
 
 interface Props {
   convenioId: string;
@@ -69,11 +71,11 @@ export default function InformesRouter({
 
   // ============================================
   // CONVENIOS DOCENTE ASISTENCIAL
-  // Sistema NUEVO: Informes Semestrales Cuantitativos
+  // Sistema NUEVO: Informes Anuales Cuantitativos (N° Internos, Alumnos, Cursos)
   // ============================================
   if (esDocenteAsistencial) {
     return (
-      <InformesSemestralesList
+      <InformesAnualesList // ← CAMBIO: Antes era InformesSemestralesList
         convenioId={convenioId}
         convenioNombre={convenioNombre}
         esResponsable={esResponsable}
