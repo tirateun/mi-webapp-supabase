@@ -175,60 +175,71 @@ export default function AgreementsList({
         if (error) throw error;
         visible = data || [];
       } else if (["internal", "interno"].includes(role)) {
-        // 🆕 Buscar convenios donde el usuario es responsable:
-        // 1. Responsable general (agreement_internal_responsibles)
-        // 2. Responsable de algún subtipo (subtype_internal_responsibles)
+        // 🔧 CORRECCIÓN: Obtener profile_id del usuario
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
         
-        // Opción 1: Responsable general
-        const { data: vinculos, error: err1 } = await supabase
-          .from("agreement_internal_responsibles")
-          .select("agreement_id")
-          .eq("internal_responsible_id", user.id);
-        if (err1) throw err1;
+        const profileId = profileData?.id;
         
-        const idsGeneral = (vinculos || []).map((v: any) => v.agreement_id);
-        
-        // Opción 2: Responsable de subtipo
-        const { data: subtypeResponsibles, error: err2 } = await supabase
-          .from("subtype_internal_responsibles")
-          .select("subtype_id, internal_responsible_id")
-          .eq("internal_responsible_id", user.id);
-          
-        if (err2) throw err2;
-        
-        // Obtener agreement_ids desde los subtipos
-        const subtypeIds = (subtypeResponsibles || []).map((s: any) => s.subtype_id);
-        
-        let idsSubtipos: string[] = [];
-        if (subtypeIds.length > 0) {
-          const { data: subtypes } = await supabase
-            .from("agreement_subtypes")
-            .select("agreement_id")
-            .in("id", subtypeIds);
-          
-          idsSubtipos = (subtypes || []).map((s: any) => s.agreement_id);
-        }
-        
-        // Combinar ambos (sin duplicados)
-        const allIds = [...new Set([...idsGeneral, ...idsSubtipos])];
-        
-        if (allIds.length > 0) {
-          const { data, error } = await supabase
-            .from("agreements")
-            .select(`
-              *,
-              agreement_subtypes (
-                id,
-                subtipo_nombre
-              )
-            `)
-            .in("id", allIds)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          visible = data || [];
-        } else {
+        if (!profileId) {
           visible = [];
+        } else {
+          // Buscar convenios donde el usuario es responsable
+          
+          const { data: vinculos, error: err1 } = await supabase
+            .from("agreement_internal_responsibles")
+            .select("agreement_id")
+            .eq("internal_responsible_id", profileId);  // ✅ CORRECCIÓN: usar profileId
+          
+          if (err1) throw err1;
+          
+          const idsGeneral = (vinculos || []).map((v: any) => v.agreement_id);
+          
+          // Opción 2: Responsable de subtipo
+          const { data: subtypeResponsibles, error: err2 } = await supabase
+            .from("subtype_internal_responsibles")
+            .select("subtype_id, internal_responsible_id")
+            .eq("internal_responsible_id", profileId);  // ✅ CORRECCIÓN: usar profileId
+            
+          if (err2) throw err2;
+          
+          // Obtener agreement_ids desde los subtipos
+          const subtypeIds = (subtypeResponsibles || []).map((s: any) => s.subtype_id);
+          
+          let idsSubtipos: string[] = [];
+          if (subtypeIds.length > 0) {
+            const { data: subtypes } = await supabase
+              .from("agreement_subtypes")
+              .select("agreement_id")
+              .in("id", subtypeIds);
+            
+            idsSubtipos = (subtypes || []).map((s: any) => s.agreement_id);
+          }
+          
+          // Combinar ambos (sin duplicados)
+          const allIds = [...new Set([...idsGeneral, ...idsSubtipos])];
+          
+          if (allIds.length > 0) {
+            const { data, error } = await supabase
+              .from("agreements")
+              .select(`
+                *,
+                agreement_subtypes (
+                  id,
+                  subtipo_nombre
+                )
+              `)
+              .in("id", allIds)
+              .order("created_at", { ascending: false });
+            if (error) throw error;
+            visible = data || [];
+          } else {
+            visible = [];
         }
+      }
       } else {
         const { data, error } = await supabase
           .from("agreements")
