@@ -504,11 +504,12 @@ export default function Reportes() {
   .from("movilidades")
   .select(`
     *,
-    agreement:agreements(
+    agreement:agreements!movilidades_agreement_id_fkey(
       id,
       name,
       pais,
-      instituciones(id, nombre)
+      institucion_id,
+      instituciones!agreements_institucion_id_fkey(id, nombre)
     )
   `);
       if (movilidadFechaInicio) query = query.gte("start_date", movilidadFechaInicio);
@@ -538,6 +539,12 @@ export default function Reportes() {
       // Por institución (de convenios)
 const conteoInstituciones: Record<string, number> = {};
 movilidades.forEach((m: any) => {
+  // Debug
+  if (m.agreement) {
+    console.log("Agreement:", m.agreement.name);
+    console.log("Institución:", m.agreement.instituciones);
+  }
+  
   const institucion = m.agreement?.instituciones?.nombre;
   if (institucion) {
     conteoInstituciones[institucion] = (conteoInstituciones[institucion] || 0) + 1;
