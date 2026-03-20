@@ -22,7 +22,7 @@ const ESCUELAS_PREGRADO = [
   "Escuela Profesional de Medicina Humana",
   "Escuela Profesional de Nutrición",
   "Escuela Profesional de Obstetricia",
-  "Escuela de Tecnología Médica",
+  "Escuela Profesional de Enfermería",
   "Escuela Profesional de Tecnología Médica",
 ];
 
@@ -42,7 +42,7 @@ const ESCUELA_MAP: Record<string, string> = {
   "Escuela Profesional de Medicina Humana": "Medicina",
   "Escuela Profesional de Nutrición": "Nutrición",
   "Escuela Profesional de Obstetricia": "Obstetricia",
-  "Escuela de Tecnología Médica": "Tecnología Médica",
+  "Escuela Profesional de Enfermería": "Enfermería",
   "Escuela Profesional de Tecnología Médica": "Tecnología Médica",
   "Programa de Segunda Especialización en Medicina Humana": "Medicina",
   "Programa de Segunda Especialización en Enfermería": "Enfermería",
