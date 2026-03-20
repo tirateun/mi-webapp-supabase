@@ -545,7 +545,7 @@ movilidades.forEach((m: any) => {
     console.log("Institución:", m.agreement.instituciones);
   }
   
-  const institucion = m.agreement?.instituciones?.nombre;
+  const institucion = m.agreement?.instituciones?.[0]?.nombre || m.agreement?.instituciones?.nombre;
   if (institucion) {
     conteoInstituciones[institucion] = (conteoInstituciones[institucion] || 0) + 1;
   }
