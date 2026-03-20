@@ -491,7 +491,7 @@ export default function Reportes() {
   const cargarReportesMovilidades = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("movilidades").select("*, agreement:agreements(id, name, pais)");
+      let query = supabase.from("movilidades").select("*, agreement:agreements(id, name, pais, institucion:instituciones(id, nombre))");
       if (movilidadFechaInicio) query = query.gte("start_date", movilidadFechaInicio);
       if (movilidadFechaFin) query = query.lte("start_date", movilidadFechaFin);
       if (movilidadCategoria !== "all") query = query.or("categoria.ilike.%" + movilidadCategoria + "%");
@@ -530,7 +530,7 @@ export default function Reportes() {
       // Por convenio
       const conteoConvenios: Record<string, number> = {};
       movilidades.forEach((m: any) => {
-        if (m.agreement?.name) conteoConvenios[m.agreement.name] = (conteoConvenios[m.agreement.name] || 0) + 1;
+        if (m.agreement?.institucion?.nombre) conteoConvenios[m.agreement.name] = (conteoConvenios[m.agreement.name] || 0) + 1;
       });
       setMovilidadesPorConvenio(Object.entries(conteoConvenios)
         .map(([convenio, cantidad]) => ({ convenio: convenio.length > 35 ? convenio.substring(0, 35) + "..." : convenio, cantidad }))
@@ -579,7 +579,7 @@ export default function Reportes() {
       "Dirección": m.direccion || "-",
       "Tipo Programa": m.tipo_programa || "-",
       "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreement?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
-      "Institución": m.agreement?.name || m.institucion_origen || m.institucion_destino || "-",
+      "Institución": m.agreement?.institucion?.nombre || m.institucion_origen || m.institucion_destino || "-",
       "Escuela/Programa": m.programa_especifico || m.escuela || "-",
       "Fecha Inicio": m.start_date || "-",
       "Fecha Fin": m.end_date || "-",
@@ -1318,7 +1318,7 @@ export default function Reportes() {
           {/* Movilidades por Convenio */}
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-header bg-white border-0 p-4">
-              <h5 className="mb-0 fw-bold">📄 Movilidades por Convenio (Top 10)</h5>
+              <h5 className="mb-0 fw-bold">📄 Movilidades por Institución (Top 10)</h5>
               <small className="text-muted">Solo movilidades de intercambio vinculadas a convenios</small>
             </div>
             <div className="card-body p-4">
@@ -1327,7 +1327,7 @@ export default function Reportes() {
                   <BarChart data={movilidadesPorConvenio} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis type="number" tick={{ fontSize: 12 }} />
-                    <YAxis dataKey="convenio" type="category" width={250} tick={{ fontSize: 11 }} />
+                    <YAxis dataKey="convenio" type="category" width={350} tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 8, 8, 0]} />
                   </BarChart>
