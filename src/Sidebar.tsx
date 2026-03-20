@@ -50,76 +50,91 @@ export default function Sidebar({
     >
       <div style={{ flex: 1, padding: "1.5rem 0" }}>
         <nav style={{ display: "flex", flexDirection: "column" }}>
-          {/* 📜 Convenios */}
-          <SidebarItem
-            icon="📜"
-            label="Convenios"
-            active={activePage === "agreementsList"}
-            onClick={() => handlePageChange("agreementsList")}
-          />
-          {/* 🔍 Consultar Convenios - Para todos los usuarios */}
-          <SidebarItem
-            icon="🔍"
-            label="Consultar Convenios"
-            active={activePage === "consultaConvenios"}
-            onClick={() => handlePageChange("consultaConvenios")}
-          />
-          {/* 🏢 Instituciones */}
-          <SidebarItem
-            icon="🏢"
-            label="Instituciones"
-            active={activePage === "instituciones"}
-            onClick={() => handlePageChange("instituciones")}
-          />
+          {/* 🔍 ROL CONSULTA - Solo Consultar Convenios */}
+          {["consulta", "Consulta"].includes(role) && (
+            <SidebarItem
+              icon="🔍"
+              label="Consultar Convenios"
+              active={activePage === "consultaConvenios"}
+              onClick={() => handlePageChange("consultaConvenios")}
+            />
+          )}
 
-          {/* 🔗 Áreas Vinculadas */}
-          <SidebarItem
-            icon="🔗"
-            label="Áreas Vinculadas"
-            active={activePage === "areasVinculadas"}
-            onClick={() => handlePageChange("areasVinculadas")}
-          />
-
-          {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
-          <SidebarItem
-            icon="🌍"
-            label="Movilidades"
-            active={activePage === "movilidades"}
-            onClick={() => handlePageChange("movilidades")}
-          />
-
-          {/* Sección Admin */}
-          {role === "admin" && (
+          {/* ROLES ADMIN E INTERNO - Menú completo */}
+          {["admin", "Admin", "Administrador", "internal", "interno", "Interno"].includes(role) && (
             <>
-              <div
-                style={{
-                  margin: "1rem 0 0.5rem 1.5rem",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "1px",
-                  color: "#FDB913",
-                  opacity: 0.9,
-                }}
-              >
-                Administración
-              </div>
-
-              {/* 👥 Usuarios */}
+              {/* 📜 Convenios */}
               <SidebarItem
-                icon="👥"
-                label="Usuarios"
-                active={activePage === "users"}
-                onClick={() => handlePageChange("users")}
+                icon="📜"
+                label="Convenios"
+                active={activePage === "agreementsList"}
+                onClick={() => handlePageChange("agreementsList")}
+              />
+              {/* 🔍 Consultar Convenios */}
+              <SidebarItem
+                icon="🔍"
+                label="Consultar Convenios"
+                active={activePage === "consultaConvenios"}
+                onClick={() => handlePageChange("consultaConvenios")}
+              />
+              {/* 🏢 Instituciones */}
+              <SidebarItem
+                icon="🏢"
+                label="Instituciones"
+                active={activePage === "instituciones"}
+                onClick={() => handlePageChange("instituciones")}
               />
 
-              {/* 📊 Reportes */}
+              {/* 🔗 Áreas Vinculadas */}
               <SidebarItem
-                icon="📊"
-                label="Reportes"
-                active={activePage === "reportes"}
-                onClick={() => handlePageChange("reportes")}
+                icon="🔗"
+                label="Áreas Vinculadas"
+                active={activePage === "areasVinculadas"}
+                onClick={() => handlePageChange("areasVinculadas")}
               />
+
+              {/* 🌍 Movilidades Académicas */}
+              <SidebarItem
+                icon="🌍"
+                label="Movilidades"
+                active={activePage === "movilidades"}
+                onClick={() => handlePageChange("movilidades")}
+              />
+
+              {/* Sección Admin */}
+              {role === "admin" && (
+                <>
+                  <div
+                    style={{
+                      margin: "1rem 0 0.5rem 1.5rem",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      color: "#FDB913",
+                      opacity: 0.9,
+                    }}
+                  >
+                    Administración
+                  </div>
+
+                  {/* 👥 Usuarios */}
+                  <SidebarItem
+                    icon="👥"
+                    label="Usuarios"
+                    active={activePage === "users"}
+                    onClick={() => handlePageChange("users")}
+                  />
+
+                  {/* 📊 Reportes */}
+                  <SidebarItem
+                    icon="📊"
+                    label="Reportes"
+                    active={activePage === "reportes"}
+                    onClick={() => handlePageChange("reportes")}
+                  />
+                </>
+              )}
             </>
           )}
         </nav>
@@ -179,7 +194,11 @@ export default function Sidebar({
                 textTransform: "capitalize",
               }}
             >
-              {role === "admin" ? "Administrador" : "Usuario Interno"}
+              {role === "admin" 
+                ? "Administrador" 
+                : ["consulta", "Consulta"].includes(role)
+                ? "Consulta"
+                : "Usuario Interno"}
             </p>
           </div>
         </div>

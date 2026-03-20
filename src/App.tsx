@@ -44,8 +44,8 @@ function MainLayout({
     | "contraprestacionesEvidencias"
     | "areasVinculadas"
     | "consultaConvenios"
-    | "movilidades"  // 🆕 NUEVO
-  >("agreementsList");
+    | "movilidades"
+  >(["consulta", "Consulta"].includes(role) ? "consultaConvenios" : "agreementsList");
   console.log("🏠 App - activePage actual:", activePage);
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(null);
@@ -116,6 +116,8 @@ function MainLayout({
             }}>
               {role === "admin"
                 ? "Administrador"
+                : ["consulta", "Consulta"].includes(role)
+                ? "Consulta"
                 : role === "internal"
                 ? "Usuario Interno"
                 : "Usuario Externo"}
