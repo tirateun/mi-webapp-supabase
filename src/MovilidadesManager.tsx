@@ -226,11 +226,18 @@ export default function MovilidadesManager() {
         
       if (error) throw error;
       
+      // 🔧 CORRECCIÓN: Eliminar del estado inmediatamente
+      setMovilidades(prev => prev.filter(m => m.id !== movilidad.id));
+      
       alert("✅ Movilidad eliminada correctamente");
-      fetchMovilidades();
+      
+      // Recargar para asegurar sincronización
+      await fetchMovilidades();
     } catch (err: any) {
       console.error("Error deleting movilidad:", err);
       alert("❌ Error al eliminar: " + err.message);
+      // Recargar en caso de error para mantener consistencia
+      fetchMovilidades();
     }
   };
 
