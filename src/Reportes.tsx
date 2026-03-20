@@ -542,7 +542,7 @@ movilidades.forEach((m: any) => {
   // Debug
   if (m.agreement) {
     console.log("Agreement:", m.agreement.name);
-    console.log("Institución:", m.agreement.instituciones);
+    console.log("Institución completa:", JSON.stringify(m.agreement.instituciones));
   }
   
   const institucion = m.agreement?.instituciones?.[0]?.nombre || m.agreement?.instituciones?.nombre;
