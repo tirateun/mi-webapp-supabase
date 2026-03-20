@@ -504,11 +504,12 @@ export default function Reportes() {
   .from("movilidades")
   .select(`
     *,
-    agreement:agreements(
+    agreements!movilidades_agreement_id_fkey(
       id,
       name,
       pais,
-      instituciones(id, nombre)
+      institucion_id,
+      instituciones!agreements_institucion_id_fkey(id, nombre)
     )
   `);
       if (movilidadFechaInicio) query = query.gte("start_date", movilidadFechaInicio);
@@ -538,18 +539,18 @@ export default function Reportes() {
       // Por institución (de convenios)
       const conteoInstituciones: Record<string, number> = {};
       movilidades.forEach((m: any) => {
-        if (!m.agreement) return;
+        if (!m.agreements) return;
         
         // Manejar múltiples formatos posibles
         let institucion = null;
         
-        // Formato 1: agreement.instituciones.nombre (objeto)
-        if (m.agreement.instituciones?.nombre) {
-          institucion = m.agreement.instituciones.nombre;
+        // Formato 1: agreements.instituciones.nombre (objeto)
+        if (m.agreements.instituciones?.nombre) {
+          institucion = m.agreements.instituciones.nombre;
         }
-        // Formato 2: agreement.instituciones[0].nombre (array)
-        else if (Array.isArray(m.agreement.instituciones) && m.agreement.instituciones.length > 0 && m.agreement.instituciones[0]?.nombre) {
-          institucion = m.agreement.instituciones[0].nombre;
+        // Formato 2: agreements.instituciones[0].nombre (array)
+        else if (Array.isArray(m.agreements.instituciones) && m.agreements.instituciones.length > 0 && m.agreements.instituciones[0]?.nombre) {
+          institucion = m.agreements.instituciones[0].nombre;
         }
         
         if (institucion) {
@@ -573,21 +574,12 @@ export default function Reportes() {
         .map(([escuela, cantidad]) => ({ escuela: escuela.length > 30 ? escuela.substring(0, 30) + "..." : escuela, cantidad }))
         .sort((a, b) => b.cantidad - a.cantidad).slice(0, 8));
 
-      // Por convenio
-      const conteoConvenios: Record<string, number> = {};
-      movilidades.forEach((m: any) => {
-        if (m.agreement?.institucion?.nombre) conteoConvenios[m.agreement.name] = (conteoConvenios[m.agreement.name] || 0) + 1;
-      });
-      setMovilidadesPorConvenio(Object.entries(conteoConvenios)
-        .map(([convenio, cantidad]) => ({ convenio: convenio.length > 35 ? convenio.substring(0, 35) + "..." : convenio, cantidad }))
-        .sort((a, b) => b.cantidad - a.cantidad).slice(0, 10));
-
       // Por país
       const conteoPaises: Record<string, { entrantes: number; salientes: number }> = {};
       movilidades.forEach((m: any) => {
         let pais = m.direccion?.toLowerCase() === "entrante" 
-          ? (m.pais_origen || m.agreement?.pais || "No especificado")
-          : (m.pais_destino || m.destination_country || m.agreement?.pais || "No especificado");
+          ? (m.pais_origen || m.agreements?.pais || "No especificado")
+          : (m.pais_destino || m.destination_country || m.agreements?.pais || "No especificado");
         if (!conteoPaises[pais]) conteoPaises[pais] = { entrantes: 0, salientes: 0 };
         if (m.direccion?.toLowerCase() === "entrante") conteoPaises[pais].entrantes++;
         else conteoPaises[pais].salientes++;
@@ -623,10 +615,10 @@ export default function Reportes() {
     const data = movilidadesDetalle.map((m: any) => {
       // Extraer institución del convenio con múltiples formatos
       let institucion = "-";
-      if (m.agreement?.instituciones?.nombre) {
-        institucion = m.agreement.instituciones.nombre;
-      } else if (Array.isArray(m.agreement?.instituciones) && m.agreement.instituciones.length > 0 && m.agreement.instituciones[0]?.nombre) {
-        institucion = m.agreement.instituciones[0].nombre;
+      if (m.agreements?.instituciones?.nombre) {
+        institucion = m.agreements.instituciones.nombre;
+      } else if (Array.isArray(m.agreements?.instituciones) && m.agreements.instituciones.length > 0 && m.agreements.instituciones[0]?.nombre) {
+        institucion = m.agreements.instituciones[0].nombre;
       } else if (m.institucion_origen) {
         institucion = m.institucion_origen;
       } else if (m.institucion_destino) {
@@ -638,7 +630,7 @@ export default function Reportes() {
         "Categoría": m.categoria || "-",
         "Dirección": m.direccion || "-",
         "Tipo Programa": m.tipo_programa || "-",
-        "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreement?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
+        "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreements?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
         "Institución": institucion,
         "Escuela/Programa": m.programa_especifico || m.escuela || "-",
         "Fecha Inicio": m.start_date || "-",
