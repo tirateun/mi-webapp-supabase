@@ -24,6 +24,10 @@ interface Convenio {
   duration_years: number;
   signature_date: string;
   tipo_convenio: string[];
+  institucion?: {
+    id: string;
+    nombre: string;
+  };
 }
 
 interface ConvenioPorTipo {
@@ -371,7 +375,12 @@ export default function Reportes() {
   const cargarReportes = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("agreements").select("*");
+      let query = supabase
+  .from("agreements")
+  .select(`
+    *,
+    institucion:instituciones(id, nombre)
+  `);
       if (fechaInicio) query = query.gte("signature_date", fechaInicio);
       if (fechaFin) query = query.lte("signature_date", fechaFin);
       if (responsableSeleccionado) query = query.eq("internal_responsible", responsableSeleccionado);
@@ -491,7 +500,17 @@ export default function Reportes() {
   const cargarReportesMovilidades = async () => {
     setLoading(true);
     try {
-      let query = supabase.from("movilidades").select("*, agreement:agreements(id, name, pais, institucion:instituciones(id, nombre))");
+      let query = supabase
+  .from("movilidades")
+  .select(`
+    *,
+    agreement:agreements(
+      id,
+      name,
+      pais,
+      instituciones(id, nombre)
+    )
+  `);
       if (movilidadFechaInicio) query = query.gte("start_date", movilidadFechaInicio);
       if (movilidadFechaFin) query = query.lte("start_date", movilidadFechaFin);
       if (movilidadCategoria !== "all") query = query.or("categoria.ilike.%" + movilidadCategoria + "%");
@@ -516,7 +535,18 @@ export default function Reportes() {
         salientes: movilidades.filter(m => m.direccion?.toLowerCase() === "saliente").length,
       };
       setMovilidadStats(stats);
-
+      // Por institución (de convenios)
+const conteoInstituciones: Record<string, number> = {};
+movilidades.forEach((m: any) => {
+  const institucion = m.agreement?.instituciones?.nombre;
+  if (institucion) {
+    conteoInstituciones[institucion] = (conteoInstituciones[institucion] || 0) + 1;
+  }
+});
+setMovilidadesPorConvenio(Object.entries(conteoInstituciones)
+  .map(([convenio, cantidad]) => ({ convenio, cantidad }))
+  .sort((a, b) => b.cantidad - a.cantidad)
+  .slice(0, 10));
       // Por escuela
       const conteoEscuelas: Record<string, number> = {};
       movilidades.forEach((m: any) => {
@@ -559,6 +589,7 @@ export default function Reportes() {
 
   const exportarConveniosExcel = () => {
     const data = convenios.map(c => ({
+      "Institución": c.institucion?.nombre || "-",
       "Nombre": c.name,
       "Tipo(s)": Array.isArray(c.tipo_convenio) ? c.tipo_convenio.join(", ") : "-",
       "País": c.pais || "-",
