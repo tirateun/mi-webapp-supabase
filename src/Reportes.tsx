@@ -376,11 +376,11 @@ export default function Reportes() {
     setLoading(true);
     try {
       let query = supabase
-  .from("agreements")
-  .select(`
-    *,
-    institucion:instituciones(id, nombre)
-  `);
+        .from("agreements")
+        .select(`
+          *,
+          institucion:instituciones(id, nombre)
+        `);
       if (fechaInicio) query = query.gte("signature_date", fechaInicio);
       if (fechaFin) query = query.lte("signature_date", fechaFin);
       if (responsableSeleccionado) query = query.eq("internal_responsible", responsableSeleccionado);
@@ -504,12 +504,11 @@ export default function Reportes() {
   .from("movilidades")
   .select(`
     *,
-    agreement:agreements!movilidades_agreement_id_fkey(
+    agreement:agreements(
       id,
       name,
       pais,
-      institucion_id,
-      instituciones!agreements_institucion_id_fkey(id, nombre)
+      instituciones(id, nombre)
     )
   `);
       if (movilidadFechaInicio) query = query.gte("start_date", movilidadFechaInicio);
@@ -537,23 +536,33 @@ export default function Reportes() {
       };
       setMovilidadStats(stats);
       // Por institución (de convenios)
-const conteoInstituciones: Record<string, number> = {};
-movilidades.forEach((m: any) => {
-  // Debug
-  if (m.agreement) {
-    console.log("Agreement:", m.agreement.name);
-    console.log("Institución completa:", JSON.stringify(m.agreement.instituciones));
-  }
-  
-  const institucion = m.agreement?.instituciones?.[0]?.nombre || m.agreement?.instituciones?.nombre;
-  if (institucion) {
-    conteoInstituciones[institucion] = (conteoInstituciones[institucion] || 0) + 1;
-  }
-});
-setMovilidadesPorConvenio(Object.entries(conteoInstituciones)
-  .map(([convenio, cantidad]) => ({ convenio, cantidad }))
-  .sort((a, b) => b.cantidad - a.cantidad)
-  .slice(0, 10));
+      const conteoInstituciones: Record<string, number> = {};
+      movilidades.forEach((m: any) => {
+        if (!m.agreement) return;
+        
+        // Manejar múltiples formatos posibles
+        let institucion = null;
+        
+        // Formato 1: agreement.instituciones.nombre (objeto)
+        if (m.agreement.instituciones?.nombre) {
+          institucion = m.agreement.instituciones.nombre;
+        }
+        // Formato 2: agreement.instituciones[0].nombre (array)
+        else if (Array.isArray(m.agreement.instituciones) && m.agreement.instituciones.length > 0 && m.agreement.instituciones[0]?.nombre) {
+          institucion = m.agreement.instituciones[0].nombre;
+        }
+        
+        if (institucion) {
+          conteoInstituciones[institucion] = (conteoInstituciones[institucion] || 0) + 1;
+        }
+      });
+      
+      setMovilidadesPorConvenio(
+        Object.entries(conteoInstituciones)
+          .map(([convenio, cantidad]) => ({ convenio, cantidad }))
+          .sort((a, b) => b.cantidad - a.cantidad)
+          .slice(0, 10)
+      );
       // Por escuela
       const conteoEscuelas: Record<string, number> = {};
       movilidades.forEach((m: any) => {
@@ -611,19 +620,33 @@ setMovilidadesPorConvenio(Object.entries(conteoInstituciones)
   };
 
   const exportarMovilidadesExcel = () => {
-    const data = movilidadesDetalle.map((m: any) => ({
-      "Participante": m.nombre_completo || "-",
-      "Categoría": m.categoria || "-",
-      "Dirección": m.direccion || "-",
-      "Tipo Programa": m.tipo_programa || "-",
-      "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreement?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
-      "Institución": m.agreement?.institucion?.nombre || m.institucion_origen || m.institucion_destino || "-",
-      "Escuela/Programa": m.programa_especifico || m.escuela || "-",
-      "Fecha Inicio": m.start_date || "-",
-      "Fecha Fin": m.end_date || "-",
-      "Estado": m.status || "-",
-      "Informe Enviado": m.informe_enviado ? "Sí" : "No"
-    }));
+    const data = movilidadesDetalle.map((m: any) => {
+      // Extraer institución del convenio con múltiples formatos
+      let institucion = "-";
+      if (m.agreement?.instituciones?.nombre) {
+        institucion = m.agreement.instituciones.nombre;
+      } else if (Array.isArray(m.agreement?.instituciones) && m.agreement.instituciones.length > 0 && m.agreement.instituciones[0]?.nombre) {
+        institucion = m.agreement.instituciones[0].nombre;
+      } else if (m.institucion_origen) {
+        institucion = m.institucion_origen;
+      } else if (m.institucion_destino) {
+        institucion = m.institucion_destino;
+      }
+      
+      return {
+        "Participante": m.nombre_completo || "-",
+        "Categoría": m.categoria || "-",
+        "Dirección": m.direccion || "-",
+        "Tipo Programa": m.tipo_programa || "-",
+        "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreement?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
+        "Institución": institucion,
+        "Escuela/Programa": m.programa_especifico || m.escuela || "-",
+        "Fecha Inicio": m.start_date || "-",
+        "Fecha Fin": m.end_date || "-",
+        "Estado": m.status || "-",
+        "Informe Enviado": m.informe_enviado ? "Sí" : "No"
+      };
+    });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, "Movilidades");
