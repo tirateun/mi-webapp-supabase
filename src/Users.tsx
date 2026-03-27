@@ -227,6 +227,7 @@ export default function Users() {
         >
           <option value="internal">Interno</option>
           <option value="admin">Administrador</option>
+          <option value="consulta">Consulta</option>
         </select>
         
         {/* 🆕 NUEVO CAMPO: CARGO */}
@@ -304,7 +305,11 @@ export default function Users() {
                   {u.email}
                 </td>
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {u.role === 'admin' ? 'Administrador' : 'Interno'}
+                  {u.role === 'admin' 
+                    ? 'Administrador' 
+                    : u.role === 'consulta' || u.role === 'Consulta'
+                    ? 'Consulta'
+                    : 'Interno'}
                 </td>
                 {/* 🆕 NUEVA COLUMNA: MOSTRAR CARGO */}
                 <td style={{ border: "1px solid #ccc", padding: "8px" }}>
