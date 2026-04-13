@@ -268,19 +268,28 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           const renovacionesCount = historial?.length || 0;
           const ultimoCambio = historial?.[0]?.changed_at;
 
-          // Calcular estado
+          // Calcular estado (🔧 CORRECCIÓN: parseo manual para evitar problemas de zona horaria)
           const hoy = new Date();
-          const expiracion = conv.expiration_date ? new Date(conv.expiration_date) : null;
+          hoy.setHours(0, 0, 0, 0); // Normalizar a medianoche para comparación justa
+          
           let estado = "Sin fecha";
           
-          if (expiracion) {
-            const diasRestantes = Math.ceil((expiracion.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-            if (diasRestantes < 0) {
-              estado = "Vencido";
-            } else if (diasRestantes <= 30) {
-              estado = "Por Vencer";
-            } else {
-              estado = "Vigente";
+          if (conv.expiration_date) {
+            // Parsear manualmente la fecha para evitar problemas de UTC
+            const [year, month, day] = conv.expiration_date.split("-").map(Number);
+            if (year && month && day) {
+              const expiracion = new Date(year, month - 1, day); // mes es 0-indexed
+              expiracion.setHours(0, 0, 0, 0); // Normalizar a medianoche
+              
+              const diasRestantes = Math.ceil((expiracion.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+              
+              if (diasRestantes < 0) {
+                estado = "Vencido";
+              } else if (diasRestantes <= 30) {
+                estado = "Por Vencer";
+              } else {
+                estado = "Vigente";
+              }
             }
           }
   
