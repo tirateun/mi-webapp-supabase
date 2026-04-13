@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import * as XLSX from "xlsx";
 
 // ✅ Función para formatear fechas sin problemas de zona horaria
 const formatDateLocal = (dateString: string | null | undefined, formato: "corto" | "largo" = "corto"): string => {
@@ -106,6 +107,43 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [convenioSeleccionado, setConvenioSeleccionado] = useState<Convenio | null>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
+
+  // 📥 Función para exportar a Excel
+  const exportarAExcel = () => {
+    const data = conveniosFiltrados.map(c => ({
+      "Convenio": c.name,
+      "Institución": c.institucion_nombre || "-",
+      "País": c.pais || "-",
+      "Tipo": c.agreement_type || "-",
+      "Sub Tipo Docente": getSubtiposDocentes(c),
+      "Áreas Vinculadas": c.areas_vinculadas?.join(", ") || "-",
+      "Fecha Firma": formatDateLocal(c.signature_date),
+      "Fecha Vencimiento": formatDateLocal(c.expiration_date),
+      "Duración (años)": c.duration_years || 0,
+      "Estado": c.estado === "vigente" ? "Vigente" : c.estado === "por_vencer" ? "Por Vencer" : "Vencido"
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    
+    // Ajustar ancho de columnas
+    const wscols = [
+      { wch: 50 }, // Convenio
+      { wch: 30 }, // Institución
+      { wch: 15 }, // País
+      { wch: 20 }, // Tipo
+      { wch: 25 }, // Sub Tipo
+      { wch: 30 }, // Áreas
+      { wch: 12 }, // Fecha Firma
+      { wch: 12 }, // Fecha Venc
+      { wch: 10 }, // Duración
+      { wch: 12 }  // Estado
+    ];
+    ws['!cols'] = wscols;
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Convenios");
+    XLSX.writeFile(wb, `convenios_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   // Cargar catálogos
   useEffect(() => {
@@ -785,16 +823,42 @@ const verDetalleConvenio = (convenio: Convenio) => {
           <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>
             📊 Resultados
           </h3>
-          <span style={{ 
-            background: "#FDB913", 
-            color: "#3D1A4F", 
-            padding: "0.25rem 0.75rem", 
-            borderRadius: "20px",
-            fontSize: "0.9rem",
-            fontWeight: 600
-          }}>
-            {conveniosFiltrados.length} convenio{conveniosFiltrados.length !== 1 ? 's' : ''}
-          </span>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <span style={{ 
+              background: "#FDB913", 
+              color: "#3D1A4F", 
+              padding: "0.25rem 0.75rem", 
+              borderRadius: "20px",
+              fontSize: "0.9rem",
+              fontWeight: 600
+            }}>
+              {conveniosFiltrados.length} convenio{conveniosFiltrados.length !== 1 ? 's' : ''}
+            </span>
+            {conveniosFiltrados.length > 0 && (
+              <button
+                onClick={exportarAExcel}
+                style={{
+                  background: "#10B981",
+                  color: "white",
+                  border: "none",
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  transition: "all 0.3s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "#059669"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "#10B981"}
+                title="Descargar convenios filtrados en Excel"
+              >
+                📥 Descargar Excel
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
