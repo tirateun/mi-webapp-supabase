@@ -120,7 +120,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "Fecha Firma": formatDateLocal(c.signature_date),
       "Fecha Vencimiento": formatDateLocal(c.expiration_date),
       "Duración (años)": c.duration_years || 0,
-      "Estado": c.estado === "vigente" ? "Vigente" : c.estado === "por_vencer" ? "Por Vencer" : "Vencido"
+      "Estado": c.estado // ✅ CORRECCIÓN: usar directamente el estado calculado
     }));
 
     const wb = XLSX.utils.book_new();
