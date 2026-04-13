@@ -75,6 +75,7 @@ interface Convenio {
     id: string;
     subtipo_nombre: string;
   }>;
+  finalizado?: boolean; // 🆕 Campo para convenios finalizados
 }
 
 interface ConsultaConveniosProps {
@@ -96,6 +97,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
   const [filtroSubTipo, setFiltroSubTipo] = useState<string>("");  // 🆕 Filtro Sub Tipo Docente
   const [busquedaTexto, setBusquedaTexto] = useState<string>("");
+  const [mostrarFinalizados, setMostrarFinalizados] = useState<boolean>(false); // 🆕 Mostrar convenios finalizados
 
   // Catálogos para dropdowns
   const [areas, setAreas] = useState<any[]>([]);
@@ -158,7 +160,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Aplicar filtros cuando cambian
   useEffect(() => {
     aplicarFiltros();
-  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, filtroSubTipo, busquedaTexto]);
+  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, filtroSubTipo, busquedaTexto, mostrarFinalizados]);
 
   const cargarCatalogos = async () => {
     // Cargar áreas vinculadas
@@ -274,7 +276,10 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           
           let estado = "Sin fecha";
           
-          if (conv.expiration_date) {
+          // 🆕 PRIORIDAD 1: Si está marcado como finalizado, ese es el estado
+          if (conv.finalizado === true) {
+            estado = "Finalizado";
+          } else if (conv.expiration_date) {
             // Parsear manualmente la fecha para evitar problemas de UTC
             const [year, month, day] = conv.expiration_date.split("-").map(Number);
             if (year && month && day) {
@@ -384,6 +389,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const aplicarFiltros = () => {
     let resultado = [...convenios];
     
+    // 🆕 FILTRO PRINCIPAL: Excluir finalizados por defecto (a menos que mostrarFinalizados = true)
+    if (!mostrarFinalizados) {
+      resultado = resultado.filter(c => c.finalizado !== true);
+    }
+    
     // Filtro por estado
     if (filtroEstado !== "todos") {
       if (filtroEstado === "vigentes") {
@@ -392,6 +402,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
         resultado = resultado.filter(c => c.estado === "Por Vencer");
       } else if (filtroEstado === "vencidos") {
         resultado = resultado.filter(c => c.estado === "Vencido");
+      } else if (filtroEstado === "finalizados") { // 🆕 Nueva opción
+        resultado = resultado.filter(c => c.estado === "Finalizado");
       }
     }
 
@@ -450,6 +462,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroInstitucion("");
     setFiltroSubTipo("");  // 🆕 Limpiar filtro de subtipo
     setBusquedaTexto("");
+    setMostrarFinalizados(false); // 🆕 Ocultar finalizados al limpiar
   };
 // 🆕 AGREGAR AQUÍ:
 const verDetalleConvenio = (convenio: Convenio) => {
@@ -464,6 +477,8 @@ const verDetalleConvenio = (convenio: Convenio) => {
         return { bg: "#fff3cd", color: "#856404", border: "#ffeaa7" };
       case "Vencido":
         return { bg: "#f8d7da", color: "#721c24", border: "#f5c6cb" };
+      case "Finalizado":
+        return { bg: "#e2e3e5", color: "#383d41", border: "#d6d8db" };
       default:
         return { bg: "#e9ecef", color: "#6c757d", border: "#dee2e6" };
     }
@@ -608,10 +623,16 @@ const verDetalleConvenio = (convenio: Convenio) => {
                 <i className="bi bi-check-circle"></i> Estado
               </label>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                {["todos", "vigentes", "por_vencer", "vencidos"].map((estado) => (
+                {["todos", "vigentes", "por_vencer", "vencidos", "finalizados"].map((estado) => (
                   <button
                     key={estado}
-                    onClick={() => setFiltroEstado(estado)}
+                    onClick={() => {
+                      setFiltroEstado(estado);
+                      // Si selecciona "finalizados", automáticamente mostrar finalizados
+                      if (estado === "finalizados") {
+                        setMostrarFinalizados(true);
+                      }
+                    }}
                     style={{
                       padding: "0.5rem 1rem",
                       border: filtroEstado === estado ? "2px solid #5B2C6F" : "2px solid #E9ECEF",
@@ -628,6 +649,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
                     {estado === "vigentes" && "✅ Vigentes"}
                     {estado === "por_vencer" && "⚠️ Por Vencer"}
                     {estado === "vencidos" && "❌ Vencidos"}
+                    {estado === "finalizados" && "🔒 Finalizados"}
                   </button>
                 ))}
               </div>
@@ -788,8 +810,38 @@ const verDetalleConvenio = (convenio: Convenio) => {
             </div>
           </div>
 
-          {/* Botón Limpiar Filtros */}
-          <div style={{ marginTop: "1.5rem", textAlign: "right" }}>
+          {/* Checkbox Mostrar Finalizados + Botón Limpiar Filtros */}
+          <div style={{ 
+            marginTop: "1.5rem", 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center" 
+          }}>
+            {/* Checkbox Mostrar Finalizados */}
+            <label style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              cursor: "pointer",
+              fontSize: "0.95rem",
+              color: "#3D1A4F",
+              fontWeight: 500
+            }}>
+              <input
+                type="checkbox"
+                checked={mostrarFinalizados}
+                onChange={(e) => setMostrarFinalizados(e.target.checked)}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                  accentColor: "#5B2C6F"
+                }}
+              />
+              <span>Mostrar convenios finalizados</span>
+            </label>
+
+            {/* Botón Limpiar Filtros */}
             <button
               onClick={limpiarFiltros}
               style={{
