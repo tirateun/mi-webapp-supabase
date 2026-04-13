@@ -205,6 +205,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           convenio_maestro_id,
           created_at,
           updated_at,
+          finalizado,
           agreement_subtypes (
             id,
             subtipo_nombre
@@ -329,6 +330,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             agreement_subtypes: conv.agreement_subtypes, // 🆕 Subtipos desde tabla relacionada
             version: conv.version,
             estado_db: conv.estado,
+            finalizado: conv.finalizado ?? false,
             document_url: conv.document_url,
             external_responsible: conv.external_responsible,
             convenio_maestro_id: conv.convenio_maestro_id,
