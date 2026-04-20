@@ -401,14 +401,21 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         }
       }
 
-      // ✅ ACTUALIZADO: Sincronizar áreas vinculadas usando el nuevo formato Option[]
-      await supabase.from("agreement_areas_vinculadas").delete().eq("agreement_id", agreementId);
+      // ✅ Sincronizar áreas vinculadas: DELETE con control de error + upsert defensivo
+      const { error: deleteAreasError } = await supabase
+        .from("agreement_areas_vinculadas")
+        .delete()
+        .eq("agreement_id", agreementId);
+      if (deleteAreasError) throw deleteAreasError;
+
       if (areasSeleccionadas && areasSeleccionadas.length > 0) {
         const areaPayload = areasSeleccionadas.map((a: Option) => ({ 
           agreement_id: agreementId, 
           area_vinculada_id: a.value 
         }));
-        const { error } = await supabase.from("agreement_areas_vinculadas").insert(areaPayload);
+        const { error } = await supabase
+          .from("agreement_areas_vinculadas")
+          .upsert(areaPayload, { onConflict: "agreement_id,area_vinculada_id", ignoreDuplicates: true });
         if (error) throw error;
       }
 
