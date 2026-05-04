@@ -3,6 +3,7 @@ import { supabase } from "./supabaseClient";
 import * as XLSX from 'xlsx';
 import {
   BarChart,
+  LabelList,
   Bar,
   XAxis,
   YAxis,
@@ -340,6 +341,16 @@ export default function Reportes() {
   const [contraPorArea, setContraPorArea] = useState<ContraprestacionPorArea[]>([]);
   const [contraLoading, setContraLoading] = useState(false);
 
+  // Toggle etiquetas en gráficos
+  const [showLabelsTipo, setShowLabelsTipo] = useState(false);
+  const [showLabelsPais, setShowLabelsPais] = useState(false);
+  const [showLabelsEjecucion, setShowLabelsEjecucion] = useState(false);
+  const [showLabelsEscuela, setShowLabelsEscuela] = useState(false);
+  const [showLabelsPaisMovilidad, setShowLabelsPaisMovilidad] = useState(false);
+  const [showLabelsInstitucion, setShowLabelsInstitucion] = useState(false);
+  const [showLabelsTopTipos, setShowLabelsTopTipos] = useState(false);
+
+
 
   useEffect(() => {
     cargarReportes();
@@ -421,7 +432,6 @@ export default function Reportes() {
       });
       const paisesProcesados = Object.entries(conteoPais)
         .map(([pais, cantidad]) => ({ pais, cantidad }))
-        .filter(({ pais }) => !["Perú", "Peru", "PERÚ", "PERU"].includes(pais))
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 10);
       setConveniosPorPais(paisesProcesados);
@@ -1135,7 +1145,7 @@ export default function Reportes() {
           <div className="row mb-4 g-4">
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4"><h5 className="mb-0 fw-bold">📊 Convenios por Tipo</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">📊 Convenios por Tipo</h5><button onClick={() => setShowLabelsTipo(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsTipo ? "#3b82f6" : "#fff", color: showLabelsTipo ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsTipo ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {conveniosPorTipo.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
@@ -1144,7 +1154,7 @@ export default function Reportes() {
                         <XAxis dataKey="tipo" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 12 }} />
                         <YAxis tick={{ fontSize: 12 }} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                        <Bar dataKey="cantidad" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="cantidad" fill="#3b82f6" radius={[8, 8, 0, 0]}>{showLabelsTipo && <LabelList dataKey="cantidad" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : <div className="text-center text-muted py-5">No hay datos</div>}
@@ -1153,7 +1163,7 @@ export default function Reportes() {
             </div>
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4"><h5 className="mb-0 fw-bold">🌍 Top Convenios Internacionales</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top 10 Países</h5></div>
                 <div className="card-body p-4">
                   {conveniosPorPais.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
@@ -1162,7 +1172,7 @@ export default function Reportes() {
                         <XAxis dataKey="pais" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 12 }} />
                         <YAxis tick={{ fontSize: 12 }} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                        <Bar dataKey="cantidad" fill="#10b981" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="cantidad" fill="#10b981" radius={[8, 8, 0, 0]}>{showLabelsPais && <LabelList dataKey="cantidad" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : <div className="text-center text-muted py-5">No hay datos</div>}
@@ -1180,6 +1190,7 @@ export default function Reportes() {
                     {porcentajeCumplimiento}% Cumplimiento
                   </span>
                 )}
+                <button onClick={() => setShowLabelsEjecucion(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsEjecucion ? "#3b82f6" : "#fff", color: showLabelsEjecucion ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsEjecucion ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button>
               </div>
               <p className="mb-0 mt-2 text-muted small">
                 📊 Solo convenios con contraprestaciones programadas • {contraprestacionesCumplidas} cumplidas de {totalContraprestaciones} programadas
@@ -1197,6 +1208,7 @@ export default function Reportes() {
                       {ejecucionContraprestaciones.map((entry, index) => (
                         <Cell key={"cell-" + index} fill={entry.estado === 'Cumplido' ? '#10b981' : '#f59e0b'} />
                       ))}
+                      {showLabelsEjecucion && <LabelList dataKey="cantidad" position="top" style={{fontSize:12,fill:"#374151"}} />}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -1331,7 +1343,7 @@ export default function Reportes() {
           <div className="row mb-4 g-4">
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4"><h5 className="mb-0 fw-bold">🏫 Por Escuela/Programa</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🏫 Por Escuela/Programa</h5><button onClick={() => setShowLabelsEscuela(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsEscuela ? "#3b82f6" : "#fff", color: showLabelsEscuela ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsEscuela ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {movilidadesPorEscuela.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
@@ -1340,7 +1352,7 @@ export default function Reportes() {
                         <XAxis type="number" tick={{ fontSize: 12 }} />
                         <YAxis dataKey="escuela" type="category" width={150} tick={{ fontSize: 11 }} />
                         <Tooltip />
-                        <Bar dataKey="cantidad" fill="#8b5cf6" radius={[0, 8, 8, 0]} />
+                        <Bar dataKey="cantidad" fill="#8b5cf6" radius={[0, 8, 8, 0]}>{showLabelsEscuela && <LabelList dataKey="cantidad" position="right" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : <div className="text-center text-muted py-5">No hay datos</div>}
@@ -1349,7 +1361,7 @@ export default function Reportes() {
             </div>
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4"><h5 className="mb-0 fw-bold">🌍 Por País (Entrantes vs Salientes)</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Por País (Entrantes vs Salientes)</h5><button onClick={() => setShowLabelsPaisMovilidad(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsPaisMovilidad ? "#3b82f6" : "#fff", color: showLabelsPaisMovilidad ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsPaisMovilidad ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {movilidadesPorPais.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
@@ -1359,8 +1371,8 @@ export default function Reportes() {
                         <YAxis tick={{ fontSize: 12 }} />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="entrantes" name="📥 Entrantes" fill="#10b981" radius={[8, 8, 0, 0]} />
-                        <Bar dataKey="salientes" name="📤 Salientes" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                        <Bar dataKey="entrantes" name="📥 Entrantes" fill="#10b981" radius={[8, 8, 0, 0]}>{showLabelsPaisMovilidad && <LabelList dataKey="entrantes" position="top" style={{fontSize:11,fill:"#374151"}} />}</Bar>
+                        <Bar dataKey="salientes" name="📤 Salientes" fill="#f59e0b" radius={[8, 8, 0, 0]}>{showLabelsPaisMovilidad && <LabelList dataKey="salientes" position="top" style={{fontSize:11,fill:"#374151"}} />}</Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   ) : <div className="text-center text-muted py-5">No hay datos</div>}
@@ -1372,7 +1384,7 @@ export default function Reportes() {
           {/* Movilidades por Convenio */}
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-header bg-white border-0 p-4">
-              <h5 className="mb-0 fw-bold">📄 Movilidades por Institución (Top 10)</h5>
+              <div className="d-flex justify-content-between align-items-center w-100"><h5 className="mb-0 fw-bold">📄 Movilidades por Institución (Top 10)</h5><button onClick={() => setShowLabelsInstitucion(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsInstitucion ? "#3b82f6" : "#fff", color: showLabelsInstitucion ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsInstitucion ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
               <small className="text-muted">Solo movilidades de intercambio vinculadas a convenios</small>
             </div>
             <div className="card-body p-4">
@@ -1383,7 +1395,7 @@ export default function Reportes() {
                     <XAxis type="number" tick={{ fontSize: 12 }} />
                     <YAxis dataKey="convenio" type="category" width={350} tick={{ fontSize: 11 }} />
                     <Tooltip />
-                    <Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 8, 8, 0]} />
+                    <Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 8, 8, 0]}>{showLabelsInstitucion && <LabelList dataKey="cantidad" position="right" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : <div className="text-center text-muted py-5">No hay movilidades vinculadas a convenios</div>}
@@ -1723,7 +1735,7 @@ export default function Reportes() {
                   <div className="col-md-8">
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white border-0 p-4">
-                        <h5 className="mb-0 fw-bold">📊 Top de Tipos de Contraprestaciones</h5>
+                        <div className="d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">📊 Top de Tipos de Contraprestaciones</h5><button onClick={() => setShowLabelsTopTipos(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsTopTipos ? "#3b82f6" : "#fff", color: showLabelsTopTipos ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsTopTipos ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                       </div>
                       <div className="card-body">
                         <ResponsiveContainer width="100%" height={400}>
@@ -1738,8 +1750,8 @@ export default function Reportes() {
                             <YAxis />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="total_contraprestaciones" fill="#3b82f6" name="Total" />
-                            <Bar dataKey="total_unidades_comprometidas" fill="#10b981" name="Unidades" />
+                            <Bar dataKey="total_contraprestaciones" fill="#3b82f6" name="Total">{showLabelsTopTipos && <LabelList dataKey="total_contraprestaciones" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
+                            <Bar dataKey="total_unidades_comprometidas" fill="#10b981" name="Unidades">{showLabelsTopTipos && <LabelList dataKey="total_unidades_comprometidas" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
