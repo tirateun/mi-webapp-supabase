@@ -432,6 +432,7 @@ export default function Reportes() {
       });
       const paisesProcesados = Object.entries(conteoPais)
         .map(([pais, cantidad]) => ({ pais, cantidad }))
+        .filter(({ pais }) => !["Perú", "Peru", "PERÚ", "PERU"].includes(pais))
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 10);
       setConveniosPorPais(paisesProcesados);
@@ -1163,7 +1164,7 @@ export default function Reportes() {
             </div>
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top 10 Países</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top Convenios Internacionales</h5></div>
                 <div className="card-body p-4">
                   {conveniosPorPais.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
