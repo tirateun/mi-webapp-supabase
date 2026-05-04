@@ -1164,7 +1164,7 @@ export default function Reportes() {
             </div>
             <div className="col-lg-6">
               <div className="card border-0 shadow-sm h-100">
-                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top Convenios Internacionales</h5></div>
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top Convenios Internacionales</h5><button onClick={() => setShowLabelsPais(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsPais ? "#3b82f6" : "#fff", color: showLabelsPais ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsPais ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {conveniosPorPais.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
