@@ -291,7 +291,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
               
               if (diasRestantes < 0) {
                 estado = "Vencido";
-              } else if (diasRestantes <= 30) {
+              } else if (diasRestantes <= 90) {
                 estado = "Por Vencer";
               } else {
                 estado = "Vigente";
