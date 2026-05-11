@@ -336,7 +336,7 @@ export default function Reportes() {
   const [informesInstitucionesDisponibles, setInformesInstitucionesDisponibles] = useState<any[]>([]);
 
   // Estados para Contraprestaciones
-  const [vistaContraprestaciones, setVistaContraprestaciones] = useState<"tipos" | "instituciones" | "areas">("tipos");
+  const [vistaContraprestaciones, setVistaContraprestaciones] = useState<"tipos" | "instituciones">("tipos");
   const [dashboardContra, setDashboardContra] = useState<ContraprestacionDashboard | null>(null);
   const [topTipos, setTopTipos] = useState<TopTipoContraprestacion[]>([]);
   const [contraPorInstitucion, setContraPorInstitucion] = useState<ContraprestacionPorInstitucion[]>([]);
@@ -979,14 +979,7 @@ export default function Reportes() {
       }));
       nombreHoja = 'Por Institución';
     } else {
-      datos = contraPorArea.map((a: ContraprestacionPorArea) => ({
-        'Área Vinculada': a.area_vinculada,
-        'Total Contraprestaciones': a.total_contraprestaciones,
-        'Convenios': a.total_convenios,
-        'Cumplidas': a.cumplidas,
-        'Pendientes': a.pendientes
-      }));
-      nombreHoja = 'Por Área';
+
     }
 
     const ws = XLSX.utils.json_to_sheet(datos);
@@ -1707,14 +1700,7 @@ export default function Reportes() {
               <i className="bi bi-building me-2"></i>
               Por Institución
             </button>
-            <button
-              type="button"
-              className={`btn ${vistaContraprestaciones === "areas" ? "btn-primary" : "btn-outline-primary"}`}
-              onClick={() => setVistaContraprestaciones("areas")}
-            >
-              <i className="bi bi-diagram-3 me-2"></i>
-              Por Área Vinculada
-            </button>
+
           </div>
 
           {/* Botón exportar */}
@@ -1922,60 +1908,7 @@ export default function Reportes() {
                 </div>
               )}
 
-              {/* Vista: Por Área Vinculada */}
-              {vistaContraprestaciones === "areas" && (
-                <div className="card border-0 shadow-sm">
-                  <div className="card-header bg-white border-0 p-4">
-                    <h5 className="mb-0 fw-bold">🎓 Contraprestaciones por Área Vinculada</h5>
-                  </div>
-                  <div className="card-body p-0">
-                    <div className="table-responsive">
-                      <table className="table table-hover align-middle mb-0">
-                        <thead style={{ backgroundColor: '#f8f9fa' }}>
-                          <tr>
-                            <th className="px-4 py-3">Escuela Profesional</th>
-                            <th className="px-4 py-3 text-end">Total</th>
-                            <th className="px-4 py-3 text-end">Convenios</th>
-                            <th className="px-4 py-3 text-end">Unidades</th>
-                            <th className="px-4 py-3 text-end">Cumplidas</th>
-                            <th className="px-4 py-3 text-end">Pendientes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {contraPorArea.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="text-center py-5 text-muted">
-                                No hay datos disponibles
-                              </td>
-                            </tr>
-                          ) : (
-                            contraPorArea.map((area: ContraprestacionPorArea) => (
-                              <tr key={area.area_id}>
-                                <td className="px-4 py-3 fw-bold">{area.area_vinculada}</td>
-                                <td className="px-4 py-3 text-end">
-                                  <span className="badge bg-primary">{area.total_contraprestaciones}</span>
-                                </td>
-                                <td className="px-4 py-3 text-end">{area.total_convenios}</td>
-                                <td className="px-4 py-3 text-end">{area.total_unidades_comprometidas}</td>
-                                <td className="px-4 py-3 text-end">
-                                  <span className="badge bg-success">{area.cumplidas}</span>
-                                </td>
-                                <td className="px-4 py-3 text-end">
-                                  {area.pendientes > 0 ? (
-                                    <span className="badge bg-warning">{area.pendientes}</span>
-                                  ) : (
-                                    <span className="text-muted">0</span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
+
             </>
           )}
         </div>
