@@ -100,6 +100,8 @@ interface TopTipoContraprestacion {
   unidad: string;
   total_contraprestaciones: number;
   total_unidades_comprometidas: number;
+  cumplidas: number;
+  pendientes: number;
   porcentaje: number;
 }
 
@@ -958,8 +960,9 @@ export default function Reportes() {
       datos = topTipos.map((t: TopTipoContraprestacion) => ({
         'Tipo de Contraprestación': t.tipo_contraprestacion,
         'Unidad': t.unidad,
-        'Total': t.total_contraprestaciones,
-        'Unidades Comprometidas': t.total_unidades_comprometidas,
+        'Programadas': t.total_contraprestaciones,
+        'Cumplidas': t.cumplidas,
+        'Pendientes': t.pendientes,
         'Porcentaje': `${t.porcentaje}%`
       }));
       nombreHoja = 'Top de Tipos';
@@ -1751,8 +1754,8 @@ export default function Reportes() {
                             <YAxis />
                             <Tooltip />
                             <Legend />
-                            <Bar dataKey="total_contraprestaciones" fill="#3b82f6" name="Total">{showLabelsTopTipos && <LabelList dataKey="total_contraprestaciones" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
-                            <Bar dataKey="total_unidades_comprometidas" fill="#10b981" name="Unidades">{showLabelsTopTipos && <LabelList dataKey="total_unidades_comprometidas" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
+                            <Bar dataKey="total_contraprestaciones" fill="#3b82f6" name="Programadas">{showLabelsTopTipos && <LabelList dataKey="total_contraprestaciones" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
+                            <Bar dataKey="cumplidas" fill="#10b981" name="Cumplidas">{showLabelsTopTipos && <LabelList dataKey="cumplidas" position="top" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -1802,9 +1805,10 @@ export default function Reportes() {
                               <tr>
                                 <th className="px-4 py-3">Tipo de Contraprestación</th>
                                 <th className="px-4 py-3">Unidad</th>
-                                <th className="px-4 py-3 text-end">Total</th>
-                                <th className="px-4 py-3 text-end">Unidades Comprometidas</th>
-                                <th className="px-4 py-3 text-end">Porcentaje</th>
+                                <th className="px-4 py-3 text-end">Programadas</th>
+                                <th className="px-4 py-3 text-end">Cumplidas</th>
+                                <th className="px-4 py-3 text-end">Pendientes</th>
+                                <th className="px-4 py-3 text-end">% Cumpl.</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1824,7 +1828,12 @@ export default function Reportes() {
                                     <td className="px-4 py-3 text-end">
                                       <span className="badge bg-primary">{tipo.total_contraprestaciones}</span>
                                     </td>
-                                    <td className="px-4 py-3 text-end">{tipo.total_unidades_comprometidas}</td>
+                                    <td className="px-4 py-3 text-end">
+                                      <span className="badge bg-success">{tipo.cumplidas}</span>
+                                    </td>
+                                    <td className="px-4 py-3 text-end">
+                                      {tipo.pendientes > 0 ? <span className="badge bg-warning">{tipo.pendientes}</span> : <span className="text-muted">0</span>}
+                                    </td>
                                     <td className="px-4 py-3 text-end">
                                       <strong className="text-primary">{tipo.porcentaje}%</strong>
                                     </td>
