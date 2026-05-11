@@ -1038,7 +1038,7 @@ export default function Reportes() {
             onClick={() => setActiveTab("convenios")} 
             style={activeTab === "convenios" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
-            📄 Convenios y Contraprestaciones
+            📄 Convenios
           </button>
         </li>
         <li className="nav-item">
@@ -1178,40 +1178,6 @@ export default function Reportes() {
             </div>
           </div>
 
-          <div className="card border-0 shadow-sm mb-4">
-            <div className="card-header bg-white border-0 p-4">
-              <div className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0 fw-bold">⚙️ Estado de Contraprestaciones</h5>
-                {totalContraprestaciones > 0 && (
-                  <span className={"badge " + (porcentajeCumplimiento >= 80 ? 'bg-success' : porcentajeCumplimiento >= 50 ? 'bg-warning' : 'bg-danger')}>
-                    {porcentajeCumplimiento}% Cumplimiento
-                  </span>
-                )}
-                <button onClick={() => setShowLabelsEjecucion(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsEjecucion ? "#3b82f6" : "#fff", color: showLabelsEjecucion ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsEjecucion ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button>
-              </div>
-              <p className="mb-0 mt-2 text-muted small">
-                📊 Solo convenios con contraprestaciones programadas • {contraprestacionesCumplidas} cumplidas de {totalContraprestaciones} programadas
-              </p>
-            </div>
-            <div className="card-body p-4">
-              {ejecucionContraprestaciones.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={ejecucionContraprestaciones}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="estado" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="cantidad" radius={[8, 8, 0, 0]}>
-                      {ejecucionContraprestaciones.map((entry, index) => (
-                        <Cell key={"cell-" + index} fill={entry.estado === 'Cumplido' ? '#10b981' : '#f59e0b'} />
-                      ))}
-                      {showLabelsEjecucion && <LabelList dataKey="cantidad" position="top" style={{fontSize:12,fill:"#374151"}} />}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <div className="text-center text-muted py-5">No hay convenios con contraprestaciones programadas</div>}
-            </div>
-          </div>
         </>
       )}
 
