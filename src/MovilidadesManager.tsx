@@ -96,7 +96,7 @@ export default function MovilidadesManager() {
     if (currentUser) {
       fetchMovilidades();
     }
-  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterYear]);
+  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterYear, searchText]);
 
   // ==========================================
   // FUNCIONES DE CARGA
