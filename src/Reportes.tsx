@@ -1748,32 +1748,34 @@ export default function Reportes() {
                     </div>
                   </div>
 
-                  {/* Gráfico de pie */}
+                  {/* Gráfico % Cumplimiento por tipo */}
                   <div className="col-md-4">
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white border-0 p-4">
-                        <h5 className="mb-0 fw-bold">📈 Distribución %</h5>
+                        <h5 className="mb-0 fw-bold">📈 % Cumplimiento por Tipo</h5>
                       </div>
                       <div className="card-body">
-                        <ResponsiveContainer width="100%" height={400}>
-                          <PieChart>
-                            <Pie
-                              data={topTipos as any[]}
-                              dataKey="total_contraprestaciones"
-                              nameKey="tipo_contraprestacion"
-                              cx="50%"
-                              cy="50%"
-                              outerRadius={100}
-                              label={(entry: any) => `${entry.porcentaje}%`}
-                            >
-                              {topTipos.map((_: any, index: number) => (
-                                <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5]} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        {topTipos.map((tipo: TopTipoContraprestacion, index: number) => (
+                          <div key={tipo.catalogo_id} className="mb-4">
+                            <div className="d-flex justify-content-between mb-1">
+                              <span className="fw-bold" style={{fontSize:14}}>{tipo.tipo_contraprestacion}</span>
+                              <span className="fw-bold text-primary">{tipo.porcentaje}%</span>
+                            </div>
+                            <div style={{background:'#e9ecef', borderRadius:8, height:18, overflow:'hidden'}}>
+                              <div style={{
+                                width: `${Math.min(Number(tipo.porcentaje), 100)}%`,
+                                height:'100%',
+                                background: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6'][index % 5],
+                                borderRadius:8,
+                                transition:'width 0.5s'
+                              }} />
+                            </div>
+                            <div className="d-flex justify-content-between mt-1" style={{fontSize:12, color:'#6b7280'}}>
+                              <span>{tipo.cumplidas} cumplidas</span>
+                              <span>{tipo.total_contraprestaciones} programadas</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
