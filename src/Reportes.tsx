@@ -996,7 +996,6 @@ export default function Reportes() {
         contraprestaciones!inner(tipo, descripcion, agreement_id,
           agreements(name, instituciones(nombre)))
       `)
-      .eq('contraprestaciones.tipo', 'Curso de 1 crédito')
       .eq('estado', 'Cumplido');
 
     if (!cursos || cursos.length === 0) {
@@ -1006,6 +1005,7 @@ export default function Reportes() {
 
     const XLSX = await import('xlsx');
     const datos = cursos.map((cs: any) => ({
+      'Tipo': cs.contraprestaciones?.tipo || '',
       'Convenio': cs.contraprestaciones?.agreements?.name || '',
       'Institución': cs.contraprestaciones?.agreements?.instituciones?.nombre || '',
       'Descripción del Curso': cs.contraprestaciones?.descripcion || 'Sin descripción',
@@ -1022,7 +1022,7 @@ export default function Reportes() {
     // Agregar hipervínculos en la columna Ver Evidencia
     cursos.forEach((cs: any, i: number) => {
       if (cs.evidencia_url) {
-        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 8 });
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 9 });
         if (ws[cellRef]) {
           ws[cellRef].l = { Target: cs.evidencia_url, Tooltip: 'Abrir evidencia' };
           ws[cellRef].v = 'Ver PDF';
@@ -1032,13 +1032,13 @@ export default function Reportes() {
 
     // Ajustar anchos de columna
     ws['!cols'] = [
-      { wch: 60 }, { wch: 35 }, { wch: 40 }, { wch: 10 },
+      { wch: 25 }, { wch: 60 }, { wch: 35 }, { wch: 40 }, { wch: 10 },
       { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 15 }
     ];
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Cursos 1 Crédito');
-    XLSX.writeFile(wb, `Detalle_Cursos_1_Credito_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'Detalle Contraprestaciones');
+    XLSX.writeFile(wb, `Detalle_Contraprestaciones_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
   };
 
 
@@ -1728,8 +1728,8 @@ export default function Reportes() {
             <button className="btn btn-success" onClick={exportarContraprestacionesExcel}>
               📥 Exportar a Excel
             </button>
-            <button className="btn btn-outline-success" onClick={exportarCursosExcel} title="Exporta el detalle de cursos cumplidos con enlace a evidencias">
-              📋 Detalle Cursos de 1 Crédito
+            <button className="btn btn-outline-success" onClick={exportarCursosExcel} title="Exporta el detalle de todas las contraprestaciones cumplidas con enlace a evidencias">
+              📋 Detalle Contraprestaciones
             </button>
           </div>
 
