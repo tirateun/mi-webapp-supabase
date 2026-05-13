@@ -650,11 +650,29 @@ export default function Reportes() {
         "Fecha Inicio": m.start_date || "-",
         "Fecha Fin": m.end_date || "-",
         "Estado": m.status || "-",
-        "Informe Enviado": m.informe_enviado ? "Sí" : "No"
+        "Informe Enviado": m.informe_enviado ? "Sí" : "No",
+        "Ver Informe": m.informe_pdf_url ? "Ver PDF" : "Sin informe"
       };
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
+
+    // Agregar hipervínculos en columna Ver Informe (col 12)
+    movilidadesDetalle.forEach((m: any, i: number) => {
+      if (m.informe_pdf_url) {
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 12 });
+        if (ws[cellRef]) {
+          ws[cellRef].l = { Target: m.informe_pdf_url, Tooltip: "Abrir informe" };
+        }
+      }
+    });
+
+    ws["!cols"] = [
+      { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
+      { wch: 35 }, { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 15 }, { wch: 12 }
+    ];
+
     XLSX.utils.book_append_sheet(wb, ws, "Movilidades");
     XLSX.writeFile(wb, "reporte_movilidades_" + new Date().toISOString().split('T')[0] + ".xlsx");
   };
@@ -1492,6 +1510,7 @@ export default function Reportes() {
                         <th className="px-4 py-3">Escuela/Programa</th>
                         <th className="px-4 py-3">Periodo</th>
                         <th className="px-4 py-3 text-center">Estado</th>
+                        <th className="px-4 py-3 text-center">Informe</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1518,6 +1537,16 @@ export default function Reportes() {
                             <span className={"badge " + getEstadoBadgeClass(m)}>
                               {getEstadoLabel(m)}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {m.informe_pdf_url ? (
+                              <a href={m.informe_pdf_url} target="_blank" rel="noopener noreferrer"
+                                className="btn btn-sm btn-outline-primary" title="Ver informe PDF">
+                                📄 Ver
+                              </a>
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
