@@ -988,6 +988,60 @@ export default function Reportes() {
     XLSX.writeFile(wb, `Contraprestaciones_${nombreHoja.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const exportarCursosExcel = async () => {
+    const { data: cursos } = await supabase
+      .from('contraprestaciones_seguimiento')
+      .select(`
+        id, estado, evidencia_url, unidad_numero, fecha_verificacion, observaciones, responsable,
+        contraprestaciones!inner(tipo, descripcion, agreement_id,
+          agreements(name, instituciones(nombre)))
+      `)
+      .eq('contraprestaciones.tipo', 'Curso de 1 crédito')
+      .eq('estado', 'Cumplido');
+
+    if (!cursos || cursos.length === 0) {
+      alert('No hay cursos cumplidos para exportar');
+      return;
+    }
+
+    const XLSX = await import('xlsx');
+    const datos = cursos.map((cs: any) => ({
+      'Convenio': cs.contraprestaciones?.agreements?.name || '',
+      'Institución': cs.contraprestaciones?.agreements?.instituciones?.nombre || '',
+      'Descripción del Curso': cs.contraprestaciones?.descripcion || 'Sin descripción',
+      'Unidad N°': cs.unidad_numero || 1,
+      'Estado': cs.estado,
+      'Fecha Verificación': cs.fecha_verificacion ? new Date(cs.fecha_verificacion).toLocaleDateString('es-PE') : '',
+      'Responsable': cs.responsable || '',
+      'Observaciones': cs.observaciones || '',
+      'Ver Evidencia': cs.evidencia_url || '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(datos);
+
+    // Agregar hipervínculos en la columna Ver Evidencia
+    cursos.forEach((cs: any, i: number) => {
+      if (cs.evidencia_url) {
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 8 });
+        if (ws[cellRef]) {
+          ws[cellRef].l = { Target: cs.evidencia_url, Tooltip: 'Abrir evidencia' };
+          ws[cellRef].v = 'Ver PDF';
+        }
+      }
+    });
+
+    // Ajustar anchos de columna
+    ws['!cols'] = [
+      { wch: 60 }, { wch: 35 }, { wch: 40 }, { wch: 10 },
+      { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 15 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Cursos 1 Crédito');
+    XLSX.writeFile(wb, `Detalle_Cursos_1_Credito_${new Date().toLocaleDateString('es-PE').replace(/\//g, '-')}.xlsx`);
+  };
+
+
 
   const exportarInformesCSV = () => {
     const datos = vistaInformes === "convenios" ? reporteInformesConvenios : reporteInformesInstituciones;
@@ -1669,10 +1723,13 @@ export default function Reportes() {
 
           </div>
 
-          {/* Botón exportar */}
-          <div className="mb-4">
+          {/* Botones exportar */}
+          <div className="mb-4 d-flex gap-2">
             <button className="btn btn-success" onClick={exportarContraprestacionesExcel}>
               📥 Exportar a Excel
+            </button>
+            <button className="btn btn-outline-success" onClick={exportarCursosExcel} title="Exporta el detalle de cursos cumplidos con enlace a evidencias">
+              📋 Detalle Cursos de 1 Crédito
             </button>
           </div>
 
