@@ -410,20 +410,21 @@ export default function Reportes() {
       const promedio = conveniosData?.reduce((acc, c) => acc + (c.duration_years || 0), 0) / (conveniosData?.length || 1);
       setPromedioAnios(Math.round(promedio * 10) / 10);
 
-      // Por tipo
-      const tiposOficiales = ["Docente Asistencial", "Cooperación Técnica", "Movilidad Académica", "Investigación", "Colaboración Académica", "Consultoría", "Cotutela"];
+      // Por tipo — normalizado para evitar diferencias de mayúsculas/minúsculas
       const conteoTipos: Record<string, number> = {};
-      tiposOficiales.forEach((t) => (conteoTipos[t] = 0));
       conveniosData?.forEach((c: any) => {
         if (Array.isArray(c.tipo_convenio)) {
           c.tipo_convenio.forEach((t: string) => {
-            if (conteoTipos[t] !== undefined) conteoTipos[t]++;
+            if (t && t.trim()) {
+              const key = t.trim();
+              conteoTipos[key] = (conteoTipos[key] || 0) + 1;
+            }
           });
         }
       });
-      const tiposProcesados = tiposOficiales
-        .map((tipo) => ({ tipo: tipo.length > 20 ? tipo.substring(0, 20) + "..." : tipo, tipoCompleto: tipo, cantidad: conteoTipos[tipo] || 0 }))
-        .filter(t => t.cantidad > 0);
+      const tiposProcesados = Object.entries(conteoTipos)
+        .map(([tipo, cantidad]) => ({ tipo: tipo.length > 22 ? tipo.substring(0, 22) + "…" : tipo, tipoCompleto: tipo, cantidad }))
+        .sort((a, b) => b.cantidad - a.cantidad);
       setConveniosPorTipo(tiposProcesados);
 
       // Por país
