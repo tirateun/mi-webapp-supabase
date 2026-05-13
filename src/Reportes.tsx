@@ -651,16 +651,24 @@ export default function Reportes() {
         "Fecha Fin": m.end_date || "-",
         "Estado": m.status || "-",
         "Informe Enviado": m.informe_enviado ? "Sí" : "No",
-        "Ver Informe (URL)": m.informe_pdf_url || "Sin informe"
+        "Ver Informe": m.informe_pdf_url ? "Ver PDF" : "Sin informe"
       };
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
 
+    // Insertar fórmula HYPERLINK en columna Ver Informe (col 11, 0-based)
+    movilidadesDetalle.forEach((m: any, i: number) => {
+      if (m.informe_pdf_url) {
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 11 });
+        ws[cellRef] = { t: 'f', f: `HYPERLINK("${m.informe_pdf_url}","Ver PDF")` };
+      }
+    });
+
     ws["!cols"] = [
       { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
       { wch: 35 }, { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 15 }, { wch: 60 }
+      { wch: 15 }, { wch: 15 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, "Movilidades");
