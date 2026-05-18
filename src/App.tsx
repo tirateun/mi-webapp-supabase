@@ -278,30 +278,42 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 10000);
+    supabase.auth.getSession().then(async ({ data }) => {
+      const currentSession = data.session;
+      setSession(currentSession);
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (currentSession?.user) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("role, must_change_password, full_name")
+          .eq("user_id", currentSession.user.id)
+          .single();
+
+        if (error) {
+          console.error("Error cargando perfil:", error);
+        }
+
+        setRole(profile?.role || "");
+        setFullName(profile?.full_name || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
+      }
+      setLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-
       if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
           .eq("user_id", session.user.id)
           .single();
-        if (profile?.role) {
-          setRole(profile.role);
-          setFullName(profile.full_name || "");
-          if (profile.must_change_password) setMustChangePassword(true);
-        }
+        setRole(profile?.role || "");
+        setFullName(profile?.full_name || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
       } else {
         setRole("");
         setFullName("");
-      }
-
-      if (event === "INITIAL_SESSION") {
-        clearTimeout(timeout);
-        setLoading(false);
       }
     });
 
@@ -313,6 +325,25 @@ export default function App() {
       }
     };
   }, []);
+
+  // Safety net: si loading terminó pero role sigue vacío, reintenta
+  useEffect(() => {
+    if (!loading && session?.user && !role) {
+      const retry = setTimeout(async () => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, full_name, must_change_password")
+          .eq("user_id", session.user.id)
+          .single();
+        if (profile?.role) {
+          setRole(profile.role);
+          setFullName(profile.full_name || "");
+          if (profile.must_change_password) setMustChangePassword(true);
+        }
+      }, 600);
+      return () => clearTimeout(retry);
+    }
+  }, [loading, session, role]);
 
   const handleLogin = async (user: any) => {
     const { data: profile, error } = await supabase
