@@ -280,49 +280,28 @@ export default function App() {
   useEffect(() => {
     const timeout = setTimeout(() => setLoading(false), 10000);
 
-    const cargarPerfil = async (userId: string, intentos = 3): Promise<void> => {
-      for (let i = 0; i < intentos; i++) {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+
+      if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, must_change_password, full_name")
-          .eq("user_id", userId)
+          .eq("user_id", session.user.id)
           .single();
         if (profile?.role) {
           setRole(profile.role);
           setFullName(profile.full_name || "");
           if (profile.must_change_password) setMustChangePassword(true);
-          return;
         }
-        if (i < intentos - 1) await new Promise(r => setTimeout(r, 800));
-      }
-    };
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      try {
-        const currentSession = data.session;
-        setSession(currentSession);
-        if (currentSession?.user) {
-          await cargarPerfil(currentSession.user.id);
-        }
-      } catch (e) {
-        console.error("Error carga inicial:", e);
-      } finally {
-        clearTimeout(timeout);
-        setLoading(false);
-      }
-    }).catch(() => {
-      clearTimeout(timeout);
-      setLoading(false);
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (session?.user && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "USER_UPDATED")) {
-        await cargarPerfil(session.user.id);
-      }
-      if (!session) {
+      } else {
         setRole("");
         setFullName("");
+      }
+
+      if (event === "INITIAL_SESSION") {
+        clearTimeout(timeout);
+        setLoading(false);
       }
     });
 
