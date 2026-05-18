@@ -18,6 +18,7 @@ import AgreementRenewalsPage from "./AgreementRenewalsPage";
 import MovilidadesManager from "./MovilidadesManager"; // 🆕 NUEVO
 import InformesPage from "./InformesPage";
 import React from "react";
+import ChatBot from "./ChatBot";
 
 // ✅ Nuevo componente: Layout principal dentro del Router
 function MainLayout({
@@ -261,6 +262,9 @@ function MainLayout({
         {/* 🌍 Movilidades Académicas - 🆕 NUEVO */}
         {activePage === "movilidades" && <MovilidadesManager />}
         </div>
+
+      {/* 🤖 Asistente IA */}
+      <ChatBot />
     </div>
   );
 }  // ← Cierre de MainLayout
