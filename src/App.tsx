@@ -278,18 +278,22 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setLoading(false), 8000);
+    const timeout = setTimeout(() => setLoading(false), 10000);
 
-    const cargarPerfil = async (userId: string) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, must_change_password, full_name")
-        .eq("user_id", userId)
-        .single();
-      if (profile) {
-        setRole(profile.role || "");
-        setFullName(profile.full_name || "");
-        if (profile.must_change_password) setMustChangePassword(true);
+    const cargarPerfil = async (userId: string, intentos = 3): Promise<void> => {
+      for (let i = 0; i < intentos; i++) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, must_change_password, full_name")
+          .eq("user_id", userId)
+          .single();
+        if (profile?.role) {
+          setRole(profile.role);
+          setFullName(profile.full_name || "");
+          if (profile.must_change_password) setMustChangePassword(true);
+          return;
+        }
+        if (i < intentos - 1) await new Promise(r => setTimeout(r, 800));
       }
     };
 
