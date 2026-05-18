@@ -300,20 +300,21 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
-      if (session?.user && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY")) {
+      if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, full_name, must_change_password")
+          .select("role, must_change_password, full_name")
           .eq("user_id", session.user.id)
           .single();
-        if (profile?.role) {
-          setRole(profile.role);
-          setFullName(profile.full_name || "");
-        }
+        setRole(profile?.role || "");
+        setFullName(profile?.full_name || "");
+        if (profile?.must_change_password) setMustChangePassword(true);
+      } else {
+        setRole("");
+        setFullName("");
       }
-      if (!session) { setRole(""); setFullName(""); }
     });
 
     return () => {
