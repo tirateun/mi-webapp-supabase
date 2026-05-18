@@ -278,25 +278,38 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Timeout de seguridad: si en 8 segundos no carga, desbloquea la app
+    const timeout = setTimeout(() => setLoading(false), 8000);
+
     supabase.auth.getSession().then(async ({ data }) => {
-      const currentSession = data.session;
-      setSession(currentSession);
+      try {
+        const currentSession = data.session;
+        setSession(currentSession);
 
-      if (currentSession?.user) {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("role, must_change_password, full_name")
-          .eq("user_id", currentSession.user.id)
-          .single();
+        if (currentSession?.user) {
+          const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("role, must_change_password, full_name")
+            .eq("user_id", currentSession.user.id)
+            .single();
 
-        if (error) {
-          console.error("Error cargando perfil:", error);
+          if (error) {
+            console.error("Error cargando perfil:", error);
+          }
+
+          setRole(profile?.role || "");
+          setFullName(profile?.full_name || "");
+          if (profile?.must_change_password) setMustChangePassword(true);
         }
-
-        setRole(profile?.role || "");
-        setFullName(profile?.full_name || "");
-        if (profile?.must_change_password) setMustChangePassword(true);
+      } catch (e) {
+        console.error("Error en carga inicial:", e);
+      } finally {
+        clearTimeout(timeout);
+        setLoading(false);
       }
+    }).catch((e) => {
+      console.error("Error en getSession:", e);
+      clearTimeout(timeout);
       setLoading(false);
     });
 
