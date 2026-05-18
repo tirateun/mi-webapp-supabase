@@ -161,7 +161,8 @@ export default function AgreementsList({
     try {
       // 1) traer convenios según rol
       let visible: any[] = [];
-      if (["admin", "Admin", "Administrador"].includes(role)) {
+      const roleFinal = role || "internal";
+      if (["admin", "Admin", "Administrador"].includes(roleFinal)) {
         const { data, error } = await supabase
           .from("agreements")
           .select(`
@@ -174,7 +175,7 @@ export default function AgreementsList({
           .order("created_at", { ascending: false });
         if (error) throw error;
         visible = data || [];
-      } else if (["internal", "interno"].includes(role)) {
+      } else if (["internal", "interno"].includes(roleFinal)) {
         // 🔧 CORRECCIÓN: Obtener profile_id del usuario
         const { data: profileData } = await supabase
           .from("profiles")
@@ -319,7 +320,7 @@ export default function AgreementsList({
   }, [role, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || !role) return;
+    if (!user?.id) return;
     fetchAgreementsAndRenewals();
     fetchAreas();
   }, [user?.id, role, fetchAgreementsAndRenewals, fetchAreas]);
