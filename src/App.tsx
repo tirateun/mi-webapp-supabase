@@ -278,53 +278,45 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Timeout de seguridad: si en 8 segundos no carga, desbloquea la app
     const timeout = setTimeout(() => setLoading(false), 8000);
+
+    const cargarPerfil = async (userId: string) => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, must_change_password, full_name")
+        .eq("user_id", userId)
+        .single();
+      if (profile) {
+        setRole(profile.role || "");
+        setFullName(profile.full_name || "");
+        if (profile.must_change_password) setMustChangePassword(true);
+      }
+    };
 
     supabase.auth.getSession().then(async ({ data }) => {
       try {
         const currentSession = data.session;
         setSession(currentSession);
-
         if (currentSession?.user) {
-          const { data: profile, error } = await supabase
-            .from("profiles")
-            .select("role, must_change_password, full_name")
-            .eq("user_id", currentSession.user.id)
-            .single();
-
-          if (error) {
-            console.error("Error cargando perfil:", error);
-          }
-
-          setRole(profile?.role || "");
-          setFullName(profile?.full_name || "");
-          if (profile?.must_change_password) setMustChangePassword(true);
+          await cargarPerfil(currentSession.user.id);
         }
       } catch (e) {
-        console.error("Error en carga inicial:", e);
+        console.error("Error carga inicial:", e);
       } finally {
         clearTimeout(timeout);
         setLoading(false);
       }
-    }).catch((e) => {
-      console.error("Error en getSession:", e);
+    }).catch(() => {
       clearTimeout(timeout);
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role, must_change_password, full_name")
-          .eq("user_id", session.user.id)
-          .single();
-        setRole(profile?.role || "");
-        setFullName(profile?.full_name || "");
-        if (profile?.must_change_password) setMustChangePassword(true);
-      } else {
+      if (session?.user && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "USER_UPDATED")) {
+        await cargarPerfil(session.user.id);
+      }
+      if (!session) {
         setRole("");
         setFullName("");
       }
