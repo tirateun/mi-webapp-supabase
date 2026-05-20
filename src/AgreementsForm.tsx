@@ -442,23 +442,25 @@ export default function AgreementsForm({ existingAgreement, onSave, onCancel }: 
         await generateYearsIfNeeded(agreementId, signatureFinal, expirationFinal, durationFinal);
       }
 
-      // 📧 Notificar a admins y responsable sobre el convenio
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        await fetch(`${supabaseUrl}/functions/v1/notify-convenio`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({
-            convenio_id: agreementId,
-            es_renovacion: !!existingAgreement,
-          }),
-        });
-      } catch (notifyErr) {
-        console.warn("⚠️ No se pudo enviar notificación de convenio:", notifyErr);
+      // 📧 Notificar solo cuando se crea un convenio nuevo (no en ediciones)
+      if (!existingAgreement) {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/notify-convenio`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              convenio_id: agreementId,
+              es_renovacion: false,
+            }),
+          });
+        } catch (notifyErr) {
+          console.warn("⚠️ No se pudo enviar notificación de convenio:", notifyErr);
+        }
       }
 
       alert("✅ Convenio guardado correctamente");
