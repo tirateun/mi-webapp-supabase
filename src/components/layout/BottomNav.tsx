@@ -7,7 +7,7 @@
  *     deben coincidir exactamente con las rutas definidas en tu App.tsx.
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 type UserRole = 'admin' | 'interno' | 'consulta';
@@ -16,7 +16,7 @@ interface NavItem {
   id: string;
   label: string;
   path: string;
-  icon: (active: boolean) => JSX.Element;
+  icon: (active: boolean) => React.ReactElement;
   roles: UserRole[];
 }
 

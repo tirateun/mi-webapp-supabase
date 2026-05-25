@@ -133,9 +133,9 @@ function MobileBottomBar({
     { id: "users"   as ActivePage, label: "Usuarios",  emoji: "👥", show: isAdmin },
   ].filter(i => i.show);
 
-  const isActive = (item: typeof mainItems[0]) =>
+  const isActive = (item: typeof mainItems[0]): boolean =>
     activePage === item.id ||
-    (item.consultaId && activePage === item.consultaId);
+    !!(item.consultaId && activePage === item.consultaId);
 
   const go = (page: ActivePage) => {
     setActivePage(page);
