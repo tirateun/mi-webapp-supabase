@@ -329,7 +329,6 @@ function MainLayout({
         display: "flex", flexDirection: "column",
         minHeight: "100dvh",
         background: "#F0F6FC",
-        overflowX: "clip" as any,
       }}>
         {/* Cabecera móvil */}
         <MobileHeader
@@ -345,8 +344,7 @@ function MainLayout({
         <main style={{
           flex: 1,
           overflowY: "auto",
-          overflowX: "hidden",
-          // Espacio para la barra inferior + safe area del iPhone
+         // Espacio para la barra inferior + safe area del iPhone
           paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
           WebkitOverflowScrolling: "touch",
         }}>

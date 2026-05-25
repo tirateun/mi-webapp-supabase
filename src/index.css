@@ -89,7 +89,10 @@ button:focus-visible {
 .animate-fadeIn {
   animation: fadeIn 0.6s ease-out;
 }
-/* ── Tablas desplazables horizontalmente en móvil ── */
+/* Solo el body previene scroll horizontal del viewport */
+body { overflow-x: hidden; }
+
+/* Tablas desplazables dentro de su propio contenedor */
 @media (max-width: 767px) {
   table {
     display: block;
