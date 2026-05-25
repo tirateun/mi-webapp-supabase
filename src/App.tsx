@@ -329,7 +329,7 @@ function MainLayout({
         display: "flex", flexDirection: "column",
         minHeight: "100dvh",
         background: "#F0F6FC",
-        overflowX: "hidden",
+        overflowX: "clip" as any,
       }}>
         {/* Cabecera móvil */}
         <MobileHeader
