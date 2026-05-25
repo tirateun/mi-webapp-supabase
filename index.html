@@ -1,29 +1,113 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema de Convenios - UNMSM San Fernando</title>
 
-    <!-- PWA -->
+    <!-- ══════════════════════════════════════════════════════════
+         VIEWPORT
+         viewport-fit=cover: el contenido llega hasta los bordes
+         del dispositivo (bajo el notch y la home bar en iPhone).
+         Usarlo junto con env(safe-area-inset-*) en los componentes.
+    ══════════════════════════════════════════════════════════════ -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <!-- ══════════════════════════════════════════════════════════
+         MANIFEST PWA
+    ══════════════════════════════════════════════════════════════ -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#3D1A4F" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         TEMA Y COLOR DE BARRA (Android Chrome + navegadores)
+    ══════════════════════════════════════════════════════════════ -->
+    <meta name="theme-color" content="#0B1F4B" />
+    <meta name="background-color" content="#0B1F4B" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         iOS / SAFARI — modo app instalada
+         apple-mobile-web-app-capable:    habilita modo standalone
+         apple-mobile-web-app-status-bar: black-translucent extiende
+           el contenido por debajo del notch; combinarlo con
+           padding-top: env(safe-area-inset-top) en el header.
+         apple-mobile-web-app-title:      nombre bajo el ícono
+    ══════════════════════════════════════════════════════════════ -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Convenios FM" />
-    <link rel="apple-touch-icon" href="/icon-192.png" />
 
-    <!-- Bootstrap Icons desde CDN -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Íconos para iOS (Safari ignora el manifest para esto) -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167x167.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         ANDROID / CHROME LEGACY
+    ══════════════════════════════════════════════════════════════ -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Convenios FM" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         ÍCONOS GENERALES (favicon)
+    ══════════════════════════════════════════════════════════════ -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16x16.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         SEO / DESCRIPCIÓN
+    ══════════════════════════════════════════════════════════════ -->
+    <meta
+      name="description"
+      content="Sistema de Gestión de Convenios — Facultad de Medicina San Fernando, UNMSM"
+    />
+    <!-- noindex porque es una app institucional de acceso restringido -->
+    <meta name="robots" content="noindex, nofollow" />
+
+    <!-- ══════════════════════════════════════════════════════════
+         TÍTULO DE LA PESTAÑA / PANTALLA DE CARGA
+    ══════════════════════════════════════════════════════════════ -->
+    <title>Convenios FM — San Fernando UNMSM</title>
+
+    <!-- ══════════════════════════════════════════════════════════
+         REGISTRO DEL SERVICE WORKER
+         Se coloca en el <head> (antes del bundle) para que el SW
+         quede activo lo antes posible y pueda interceptar el fetch
+         del propio bundle en cargas subsiguientes.
+         IMPORTANTE: si en el futuro agregas vite-plugin-pwa,
+         elimina este bloque y deja que el plugin lo maneje.
+    ══════════════════════════════════════════════════════════════ -->
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
+        window.addEventListener('load', function () {
+          navigator.serviceWorker
+            .register('/sw.js', { scope: '/' })
+            .then(function (reg) {
+              console.log('[PWA] Service Worker registrado. Scope:', reg.scope);
+            })
+            .catch(function (err) {
+              console.error('[PWA] Error al registrar Service Worker:', err);
+            });
+        });
       }
     </script>
+  </head>
+
+  <body>
+    <!-- Fondo oscuro mientras carga React (evita flash blanco) -->
+    <style>
+      body {
+        margin: 0;
+        background-color: #0b1f4b;
+      }
+    </style>
+
+    <div id="root"></div>
+
+    <!-- Entry point de Vite + React + TypeScript -->
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

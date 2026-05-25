@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 interface Mensaje {
   rol: "user" | "assistant";
@@ -18,6 +19,14 @@ export default function ChatBot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  // En móvil el botón sube para no quedar detrás de la barra de navegación inferior
+  const isMobile = useIsMobile();
+  const BOTTOM_NAV_H = 72;
+  const btnBottom  = isMobile ? BOTTOM_NAV_H + 16 : 28;
+  const chatBottom = isMobile ? BOTTOM_NAV_H + 84 : 100;
+  const chatWidth  = isMobile ? "calc(100vw - 24px)" : "380px";
+  const chatRight  = isMobile ? "12px" : "28px";
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -79,10 +88,11 @@ export default function ChatBot() {
     <>
       {/* Botón flotante */}
       <button
+        data-chatbot-trigger
         onClick={() => setAbierto(v => !v)}
         style={{
           position: "fixed",
-          bottom: 28,
+          bottom: btnBottom,
           right: 28,
           width: 60,
           height: 60,
@@ -109,9 +119,9 @@ export default function ChatBot() {
       {abierto && (
         <div style={{
           position: "fixed",
-          bottom: 100,
+          bottom: chatBottom,
           right: 28,
-          width: 380,
+          width: chatWidth,
           height: 520,
           background: "white",
           borderRadius: 16,

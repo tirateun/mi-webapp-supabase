@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sin conexión — Convenios FM</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0B1F4B;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100dvh;
+      padding: 2rem;
+      text-align: center;
+    }
+    .icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      opacity: 0.7;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    p {
+      font-size: 1rem;
+      color: #8BA4C0;
+      max-width: 280px;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+    button {
+      background: #00B4D8;
+      color: #0B1F4B;
+      border: none;
+      padding: 0.75rem 2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="icon">📡</div>
+  <h1>Sin conexión</h1>
+  <p>
+    Verifica tu conexión a internet para acceder al Sistema de Gestión de Convenios.
+  </p>
+  <button onclick="window.location.reload()">Reintentar</button>
+</body>
+</html>
