@@ -65,10 +65,12 @@ function MobileBottomBar({
   activePage,
   setActivePage,
   role,
+  onLogout,
 }: {
   activePage: ActivePage;
   setActivePage: (p: ActivePage) => void;
   role: string;
+  onLogout: () => void;
 }) {
   const [showMore, setShowMore] = useState(false);
   const isConsulta = ["consulta", "Consulta"].includes(role);
@@ -204,6 +206,24 @@ function MobileBottomBar({
               </span>
             </button>
           ))}
+
+          {/* Cerrar sesión */}
+          <button
+            onClick={onLogout}
+            style={{
+              display: "flex", alignItems: "center", gap: 14,
+              padding: "14px 24px", marginTop: 8, width: "100%",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              cursor: "pointer", border: "none",
+              background: "none",
+              WebkitTapHighlightColor: "transparent",
+            }}>
+            <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>🚪</span>
+            <span style={{ fontSize: 15, color: "#EF4444", fontWeight: 600,
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+              Cerrar sesión
+            </span>
+          </button>
         </div>
       )}
 
@@ -344,7 +364,7 @@ function MainLayout({
         <main style={{
           flex: 1,
           overflowY: "auto",
-         // Espacio para la barra inferior + safe area del iPhone
+          overflowX: "auto",
           paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))",
           WebkitOverflowScrolling: "touch",
         }}>
@@ -356,6 +376,7 @@ function MainLayout({
           activePage={activePage}
           setActivePage={setActivePage}
           role={role}
+          onLogout={onLogout}
         />
 
         {/* ChatBot flotante (ya se posiciona solo) */}
