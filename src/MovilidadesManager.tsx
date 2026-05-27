@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import MovilidadForm from "./MovilidadForm";
 import MovilidadCumplimiento from "./Movilidadcumplimiento";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 interface Movilidad {
   id: string;
@@ -316,6 +317,8 @@ export default function MovilidadesManager() {
     completadas: movilidades.filter(m => m.status?.toLowerCase().includes("complet")).length,
     pendientes: movilidades.filter(m => m.status?.toLowerCase().includes("pendiente")).length,
   };
+
+  const isMobile = useIsMobile();
 
   // ==========================================
   // RENDER: Página de Cumplimiento
@@ -719,7 +722,7 @@ export default function MovilidadesManager() {
         </div>
       </div>
 
-      {/* Tabla de movilidades */}
+      {/* Tabla / Tarjetas de movilidades */}
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-primary" role="status" />
@@ -729,7 +732,119 @@ export default function MovilidadesManager() {
         <div className="alert alert-info text-center">
           📭 No hay movilidades registradas con los filtros seleccionados
         </div>
+      ) : isMobile ? (
+
+        /* ═══════════════════════════════════════════════════
+           VISTA MÓVIL — tarjetas
+        ═══════════════════════════════════════════════════ */
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {movilidades.map((m) => {
+            const cat  = getCategoriaBadge(m.categoria);
+            const dir  = getDireccionBadge(m.direccion);
+            const tipo = getTipoProgramaBadge(m.tipo_programa);
+            const st   = getStatusBadge(m.status);
+            const canEdit   = userRole === "admin" && !m.informe_enviado;
+            const canDelete = userRole === "admin" && !m.informe_enviado;
+            const canCumpl  = userRole === "admin" || currentUser?.id === m.responsible_id;
+
+            return (
+              <div key={m.id} style={{
+                background: "#fff", borderRadius: 14,
+                padding: "14px 16px",
+                boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+                border: "1px solid #E2EAF4",
+              }}>
+                {/* Cabecera: badges + estado */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <span className={`badge ${cat.bg}`} style={{ fontSize: 11 }}>
+                      {cat.icon} {cat.label}
+                    </span>
+                    <span className={`badge ${dir.bg}`} style={{ fontSize: 11 }}>
+                      {dir.icon} {dir.label}
+                    </span>
+                  </div>
+                  <span className={`badge ${st.bg}`} style={{ fontSize: 11, flexShrink: 0 }}>
+                    {st.icon} {m.status}
+                  </span>
+                </div>
+
+                {/* Nombre e institución */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#0B1F4B", lineHeight: 1.3 }}>
+                    {m.nombre_completo}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#8BA4C0", marginTop: 2 }}>
+                    {getInstitucion(m)?.substring(0, 50)}{(getInstitucion(m)?.length || 0) > 50 ? "…" : ""}
+                  </div>
+                </div>
+
+                {/* Grid de campos */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 10 }}>
+                  {[
+                    { label: "Tipo",    value: tipo.label },
+                    { label: "País",    value: getPais(m) },
+                    { label: "Inicio",  value: formatDateLocal(m.start_date) },
+                    { label: "Término", value: formatDateLocal(m.end_date) },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 10, color: "#8BA4C0", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: "#1A3773", fontWeight: 500 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Informe enviado */}
+                {m.informe_enviado && (
+                  <div style={{ marginBottom: 8, padding: "4px 10px", background: "#DCFCE7", borderRadius: 8, fontSize: 12, color: "#166534", fontWeight: 600 }}>
+                    📄 Informe enviado — {formatDateLocal(m.informe_fecha)}
+                  </div>
+                )}
+
+                {/* Acciones */}
+                <div style={{ borderTop: "1px solid #F0F6FC", paddingTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <button className="btn btn-sm btn-outline-primary"
+                    onClick={() => handleViewMovilidad(m)}
+                    style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+                    👁️ Ver
+                  </button>
+                  {canEdit && (
+                    <button className="btn btn-sm btn-outline-warning"
+                      onClick={() => handleEditMovilidad(m)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+                      ✏️ Editar
+                    </button>
+                  )}
+                  {canCumpl && (
+                    <button
+                      className={`btn btn-sm ${m.informe_enviado ? "btn-success" : "btn-outline-success"}`}
+                      onClick={() => handleCumplimiento(m)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+                      {m.informe_enviado ? "✅ Ver informe" : "📝 Cumplimiento"}
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button className="btn btn-sm btn-outline-danger"
+                      onClick={() => handleDeleteMovilidad(m)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.6rem" }}>
+                      🗑️ Eliminar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          <div style={{ textAlign: "center", color: "#8BA4C0", fontSize: 13, padding: "8px 0" }}>
+            {movilidades.length} movilidad{movilidades.length !== 1 ? "es" : ""}
+          </div>
+        </div>
+
       ) : (
+
+        /* ═══════════════════════════════════════════════════
+           VISTA DESKTOP — tabla original sin cambios
+        ═══════════════════════════════════════════════════ */
         <div className="card border-0 shadow-sm">
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0">
@@ -770,14 +885,11 @@ export default function MovilidadesManager() {
                       </span>
                     </td>
                     <td>
-                      <span className="badge bg-light text-dark">
-                        {getPais(m)}
-                      </span>
+                      <span className="badge bg-light text-dark">{getPais(m)}</span>
                     </td>
                     <td>
                       <small>
-                        {formatDateLocal(m.start_date)}
-                        <br />
+                        {formatDateLocal(m.start_date)}<br />
                         {formatDateLocal(m.end_date)}
                       </small>
                     </td>
@@ -786,54 +898,25 @@ export default function MovilidadesManager() {
                         {getStatusBadge(m.status).icon} {m.status}
                       </span>
                       {m.informe_enviado && (
-                        <>
-                          <br />
-                          <small className="text-success">📄 Informe ✓</small>
-                        </>
+                        <><br /><small className="text-success">📄 Informe ✓</small></>
                       )}
                     </td>
                     <td className="text-center">
                       <div className="btn-group btn-group-sm">
-                        {/* Ver */}
-                        <button
-                          className="btn btn-outline-primary"
-                          onClick={() => handleViewMovilidad(m)}
-                          title="Ver detalle"
-                        >
-                          👁️
-                        </button>
-                        
-                        {/* Editar (solo admin y si no está enviado) */}
+                        <button className="btn btn-outline-primary" onClick={() => handleViewMovilidad(m)} title="Ver detalle">👁️</button>
                         {userRole === "admin" && !m.informe_enviado && (
-                          <button
-                            className="btn btn-outline-warning"
-                            onClick={() => handleEditMovilidad(m)}
-                            title="Editar"
-                          >
-                            ✏️
-                          </button>
+                          <button className="btn btn-outline-warning" onClick={() => handleEditMovilidad(m)} title="Editar">✏️</button>
                         )}
-                        
-                        {/* Cumplimiento (admin o responsable) */}
                         {(userRole === "admin" || currentUser?.id === m.responsible_id) && (
                           <button
-                            className={`btn ${m.informe_enviado ? 'btn-success' : 'btn-outline-success'}`}
+                            className={`btn ${m.informe_enviado ? "btn-success" : "btn-outline-success"}`}
                             onClick={() => handleCumplimiento(m)}
-                            title={m.informe_enviado ? "Ver Informe" : "Registrar Cumplimiento"}
-                          >
+                            title={m.informe_enviado ? "Ver Informe" : "Registrar Cumplimiento"}>
                             {m.informe_enviado ? "✅" : "📝"}
                           </button>
                         )}
-                        
-                        {/* Eliminar (solo admin y si no está enviado) */}
                         {userRole === "admin" && !m.informe_enviado && (
-                          <button
-                            className="btn btn-outline-danger"
-                            onClick={() => handleDeleteMovilidad(m)}
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
+                          <button className="btn btn-outline-danger" onClick={() => handleDeleteMovilidad(m)} title="Eliminar">🗑️</button>
                         )}
                       </div>
                     </td>
@@ -842,7 +925,6 @@ export default function MovilidadesManager() {
               </tbody>
             </table>
           </div>
-          
           <div className="card-footer bg-white text-muted text-center">
             Mostrando {movilidades.length} movilidad{movilidades.length !== 1 ? "es" : ""}
           </div>
