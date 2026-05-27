@@ -144,20 +144,20 @@ function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
   return (
     <div className="card">
       <div className="card-header bg-light">
-        <div className="row text-center">
-          <div className="col">
+        <div className="row text-center g-2">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Convenios</div>
             <div className="h3 mb-0">{datos.length}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Internos</div>
             <div className="h3 mb-0 text-primary">{totalInternos}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Cursos</div>
             <div className="h3 mb-0 text-success">{totalCursos}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Alumnos</div>
             <div className="h3 mb-0 text-warning">{totalGeneral}</div>
           </div>
@@ -214,24 +214,24 @@ function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
   return (
     <div className="card">
       <div className="card-header bg-light">
-        <div className="row text-center">
-          <div className="col">
+        <div className="row text-center g-2">
+          <div className="col-6 col-md">
             <div className="text-muted small">Instituciones</div>
             <div className="h3 mb-0">{datos.length}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Convenios</div>
             <div className="h3 mb-0 text-info">{totalConvenios}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Internos</div>
             <div className="h3 mb-0 text-primary">{totalInternos}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Cursos</div>
             <div className="h3 mb-0 text-success">{totalCursos}</div>
           </div>
-          <div className="col">
+          <div className="col-6 col-md">
             <div className="text-muted small">Total Alumnos</div>
             <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
           </div>
@@ -1261,15 +1261,15 @@ export default function Reportes() {
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-body">
               <div className="row g-3 align-items-end">
-                <div className="col-md-2">
+                <div className="col-6 col-md-2">
                   <label className="form-label small fw-semibold">Fecha Inicio</label>
                   <input type="date" className="form-control" value={movilidadFechaInicio} onChange={(e) => setMovilidadFechaInicio(e.target.value)} />
                 </div>
-                <div className="col-md-2">
+                <div className="col-6 col-md-2">
                   <label className="form-label small fw-semibold">Fecha Fin</label>
                   <input type="date" className="form-control" value={movilidadFechaFin} onChange={(e) => setMovilidadFechaFin(e.target.value)} />
                 </div>
-                <div className="col-md-2">
+                <div className="col-6 col-md-2">
                   <label className="form-label small fw-semibold">Categoría</label>
                   <select className="form-select" value={movilidadCategoria} onChange={(e) => setMovilidadCategoria(e.target.value)}>
                     <option value="all">Todos</option>
@@ -1277,7 +1277,7 @@ export default function Reportes() {
                     <option value="docente">👨‍🏫 Docentes</option>
                   </select>
                 </div>
-                <div className="col-md-2">
+                <div className="col-6 col-md-2">
                   <label className="form-label small fw-semibold">Dirección</label>
                   <select className="form-select" value={movilidadDireccion} onChange={(e) => setMovilidadDireccion(e.target.value)}>
                     <option value="all">Todos</option>
@@ -1285,7 +1285,7 @@ export default function Reportes() {
                     <option value="saliente">📤 Salientes</option>
                   </select>
                 </div>
-                <div className="col-md-4">
+                <div className="col-12 col-md-4">
                   <div className="d-flex gap-2">
                     <button className="btn btn-outline-secondary" onClick={limpiarFiltrosMovilidades}>Limpiar</button>
                     <button className="btn btn-success" onClick={exportarMovilidadesExcel}>📥 Exportar Excel</button>
@@ -1776,7 +1776,7 @@ export default function Reportes() {
               {vistaContraprestaciones === "tipos" && (
                 <div className="row g-4">
                   {/* Gráfico de barras */}
-                  <div className="col-md-8">
+                  <div className="col-12 col-md-8">
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white border-0 p-4">
                         <div className="d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">📊 Top de Tipos de Contraprestaciones</h5><button onClick={() => setShowLabelsTopTipos(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsTopTipos ? "#3b82f6" : "#fff", color: showLabelsTopTipos ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsTopTipos ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
@@ -1803,7 +1803,7 @@ export default function Reportes() {
                   </div>
 
                   {/* Gráfico % Cumplimiento por tipo */}
-                  <div className="col-md-4">
+                  <div className="col-12 col-md-4">
                     <div className="card border-0 shadow-sm">
                       <div className="card-header bg-white border-0 p-4">
                         <h5 className="mb-0 fw-bold">📈 % Cumplimiento por Tipo</h5>
