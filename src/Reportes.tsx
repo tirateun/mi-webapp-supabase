@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { supabase } from "./supabaseClient";
 import * as XLSX from 'xlsx';
 import {
@@ -348,6 +349,8 @@ export default function Reportes() {
   const [showLabelsPais, setShowLabelsPais] = useState(false);
   const [showLabelsEjecucion, setShowLabelsEjecucion] = useState(false);
   const [showLabelsEscuela, setShowLabelsEscuela] = useState(false);
+
+  const isMobile = useIsMobile();
   const [showLabelsPaisMovilidad, setShowLabelsPaisMovilidad] = useState(false);
   const [showLabelsInstitucion, setShowLabelsInstitucion] = useState(false);
   const [showLabelsTopTipos, setShowLabelsTopTipos] = useState(false);
@@ -1093,17 +1096,17 @@ export default function Reportes() {
   };
 
   return (
-    <div style={{ padding: "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
+    <div style={{ padding: isMobile ? "0.75rem" : "2rem", backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="mb-1 fw-bold" style={{ color: "#1e293b" }}>📊 Reportes</h2>
-          <p className="text-muted mb-0">Análisis y estadísticas del sistema</p>
+          <h2 className="mb-1 fw-bold" style={{ color: "#1e293b", fontSize: isMobile ? "1.2rem" : undefined }}>📊 Reportes</h2>
+          <p className="text-muted mb-0" style={{ fontSize: isMobile ? "0.8rem" : undefined }}>Análisis y estadísticas del sistema</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <ul className="nav nav-tabs mb-4">
-        <li className="nav-item">
+      {/* Tabs — scrollables en móvil */}
+      <ul className="nav nav-tabs mb-4" style={{ overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch" as any, paddingBottom: 2 }}>
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
           <button 
             className={"nav-link " + (activeTab === "convenios" ? "active" : "")} 
             onClick={() => setActiveTab("convenios")} 
@@ -1112,25 +1115,25 @@ export default function Reportes() {
             📄 Convenios
           </button>
         </li>
-        <li className="nav-item">
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
           <button 
             className={"nav-link " + (activeTab === "movilidades" ? "active" : "")} 
             onClick={() => setActiveTab("movilidades")} 
             style={activeTab === "movilidades" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
-            🌍 Movilidades Académicas
+            🌍 Movilidades
           </button>
         </li>
-        <li className="nav-item">
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
           <button 
             className={"nav-link " + (activeTab === "informes" ? "active" : "")} 
             onClick={() => setActiveTab("informes")} 
             style={activeTab === "informes" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
-            📈 Informes Semestrales
+            📈 Informes
           </button>
         </li>
-        <li className="nav-item">
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
           <button
             type="button"
             className={"nav-link " + (activeTab === "contraprestaciones" ? "active" : "")} 
@@ -1138,7 +1141,7 @@ export default function Reportes() {
             style={activeTab === "contraprestaciones" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
             <i className="bi bi-clipboard-check me-2"></i>
-            Contraprestaciones
+            Contrapr.
           </button>
         </li>
       </ul>
@@ -1150,22 +1153,22 @@ export default function Reportes() {
           <div className="card border-0 shadow-sm mb-4">
             <div className="card-body">
               <div className="row g-3 align-items-end">
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label small fw-semibold">Fecha Inicio</label>
                   <input type="date" className="form-control" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
                 </div>
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label small fw-semibold">Fecha Fin</label>
                   <input type="date" className="form-control" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} />
                 </div>
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label small fw-semibold">Responsable</label>
                   <select className="form-select" value={responsableSeleccionado} onChange={(e) => setResponsableSeleccionado(e.target.value)}>
                     <option value="">Todos</option>
                     {responsables.map((r) => (<option key={r.id} value={r.id}>{r.full_name}</option>))}
                   </select>
                 </div>
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <div className="d-flex gap-2">
                     <button className="btn btn-primary flex-fill" onClick={cargarReportes}>🔍 Filtrar</button>
                     <button className="btn btn-success" onClick={exportarConveniosExcel} title="Exportar a Excel">📥</button>
@@ -1176,7 +1179,7 @@ export default function Reportes() {
           </div>
 
           <div className="row mb-4 g-3">
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Total Convenios</p>
@@ -1184,7 +1187,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Países</p>
@@ -1192,7 +1195,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Promedio Duración</p>
@@ -1200,7 +1203,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Cumplimiento</p>
@@ -1216,7 +1219,7 @@ export default function Reportes() {
                 <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">📊 Convenios por Tipo</h5><button onClick={() => setShowLabelsTipo(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsTipo ? "#3b82f6" : "#fff", color: showLabelsTipo ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsTipo ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {conveniosPorTipo.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
                       <BarChart data={conveniosPorTipo}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis dataKey="tipo" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 12 }} />
@@ -1234,7 +1237,7 @@ export default function Reportes() {
                 <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Top Convenios Internacionales</h5><button onClick={() => setShowLabelsPais(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsPais ? "#3b82f6" : "#fff", color: showLabelsPais ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsPais ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {conveniosPorPais.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
                       <BarChart data={conveniosPorPais}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis dataKey="pais" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 12 }} />
@@ -1294,7 +1297,7 @@ export default function Reportes() {
 
           {/* KPIs Movilidades - Primera fila */}
           <div className="row mb-4 g-3">
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Total Registradas</p>
@@ -1302,7 +1305,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Completadas (con informe)</p>
@@ -1311,7 +1314,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Pendientes</p>
@@ -1319,7 +1322,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">En Curso</p>
@@ -1331,7 +1334,7 @@ export default function Reportes() {
 
           {/* KPIs Movilidades - Segunda fila */}
           <div className="row mb-4 g-3">
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-center">
@@ -1341,7 +1344,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-center">
@@ -1351,7 +1354,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-center">
@@ -1361,7 +1364,7 @@ export default function Reportes() {
                 </div>
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100">
                 <div className="card-body">
                   <div className="d-flex justify-content-between align-items-center">
@@ -1380,7 +1383,7 @@ export default function Reportes() {
                 <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🏫 Por Escuela/Programa</h5><button onClick={() => setShowLabelsEscuela(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsEscuela ? "#3b82f6" : "#fff", color: showLabelsEscuela ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsEscuela ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {movilidadesPorEscuela.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
                       <BarChart data={movilidadesPorEscuela} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis type="number" tick={{ fontSize: 12 }} />
@@ -1398,7 +1401,7 @@ export default function Reportes() {
                 <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">🌍 Por País (Entrantes vs Salientes)</h5><button onClick={() => setShowLabelsPaisMovilidad(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsPaisMovilidad ? "#3b82f6" : "#fff", color: showLabelsPaisMovilidad ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsPaisMovilidad ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                 <div className="card-body p-4">
                   {movilidadesPorPais.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={350}>
+                    <ResponsiveContainer width="100%" height={isMobile ? 220 : 350}>
                       <BarChart data={movilidadesPorPais}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis dataKey="pais" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} />
@@ -1423,11 +1426,11 @@ export default function Reportes() {
             </div>
             <div className="card-body p-4">
               {movilidadesPorConvenio.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={isMobile ? 200 : 300}>
                   <BarChart data={movilidadesPorConvenio} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis type="number" tick={{ fontSize: 12 }} />
-                    <YAxis dataKey="convenio" type="category" width={350} tick={{ fontSize: 11 }} />
+                    <YAxis dataKey="convenio" type="category" width={isMobile ? 100 : 350} tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Bar dataKey="cantidad" fill="#3b82f6" radius={[0, 8, 8, 0]}>{showLabelsInstitucion && <LabelList dataKey="cantidad" position="right" style={{fontSize:12,fill:"#374151"}} />}</Bar>
                   </BarChart>
@@ -1451,7 +1454,7 @@ export default function Reportes() {
             <div className="card-body p-4">
               <div className="row align-items-center">
                 <div className="col-md-6">
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={isMobile ? 180 : 250}>
                     <PieChart>
                       <Pie
                         data={[
@@ -1603,7 +1606,7 @@ export default function Reportes() {
             </div>
             <div className="card-body">
               <div className="row g-3">
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label fw-bold">Año</label>
                   <select
                     className="form-select"
@@ -1617,7 +1620,7 @@ export default function Reportes() {
                   </select>
                 </div>
 
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label fw-bold">Semestre</label>
                   <select
                     className="form-select"
@@ -1630,7 +1633,7 @@ export default function Reportes() {
                   </select>
                 </div>
 
-                <div className="col-md-3">
+                <div className="col-6 col-md-3">
                   <label className="form-label fw-bold">Área Vinculada</label>
                   <select
                     className="form-select"
@@ -1645,7 +1648,7 @@ export default function Reportes() {
                 </div>
 
                 {vistaInformes === "convenios" && (
-                  <div className="col-md-3">
+                  <div className="col-6 col-md-3">
                     <label className="form-label fw-bold">Institución</label>
                     <select
                       className="form-select"
@@ -1694,7 +1697,7 @@ export default function Reportes() {
           {/* Dashboard de KPIs */}
           {dashboardContra && (
             <div className="row g-4 mb-4">
-              <div className="col-md-3">
+              <div className="col-6 col-md-3">
                 <div className="card border-0 shadow-sm h-100">
                   <div className="card-body text-center">
                     <div className="text-muted small mb-2">Total Contraprestaciones</div>
@@ -1702,7 +1705,7 @@ export default function Reportes() {
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
+              <div className="col-6 col-md-3">
                 <div className="card border-0 shadow-sm h-100">
                   <div className="card-body text-center">
                     <div className="text-muted small mb-2">Convenios con Contraprestaciones</div>
@@ -1710,7 +1713,7 @@ export default function Reportes() {
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
+              <div className="col-6 col-md-3">
                 <div className="card border-0 shadow-sm h-100">
                   <div className="card-body text-center">
                     <div className="text-muted small mb-2">Cumplidas</div>
@@ -1719,7 +1722,7 @@ export default function Reportes() {
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
+              <div className="col-6 col-md-3">
                 <div className="card border-0 shadow-sm h-100">
                   <div className="card-body text-center">
                     <div className="text-muted small mb-2">Instituciones</div>
@@ -1779,7 +1782,7 @@ export default function Reportes() {
                         <div className="d-flex justify-content-between align-items-center"><h5 className="mb-0 fw-bold">📊 Top de Tipos de Contraprestaciones</h5><button onClick={() => setShowLabelsTopTipos(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsTopTipos ? "#3b82f6" : "#fff", color: showLabelsTopTipos ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsTopTipos ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button></div>
                       </div>
                       <div className="card-body">
-                        <ResponsiveContainer width="100%" height={400}>
+                        <ResponsiveContainer width="100%" height={isMobile ? 240 : 400}>
                           <BarChart data={topTipos}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis 
