@@ -5,6 +5,7 @@ import { supabase } from "./supabaseClient";
 import FiltroAvanzado from "./FiltroAvanzado";
 import RenewalHistory from "./RenewalHistory";
 import AgreementDetailsModal from "./AgreementDetailsModal";
+import { useIsMobile } from "./hooks/useIsMobile";
 
 /* ------------------ Tipos ------------------ */
 interface AgreementsListProps {
@@ -98,6 +99,7 @@ export default function AgreementsList({
   onOpenInforme  // ← AGREGAR (sin coma al final)
 }: AgreementsListProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // data
   const [agreements, setAgreements] = useState<any[]>([]);
@@ -757,13 +759,136 @@ export default function AgreementsList({
         </div>
       </div>
 
-      {/* tabla */}
-      <div className="table-responsive shadow-sm" style={{ borderRadius: 10, border: "1px solid #e6e6e6" }}>
-        {loading ? (
-          <div className="p-4 text-center">Cargando convenios...</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-4 text-center text-muted">No se encontraron convenios.</div>
-        ) : (
+      {/* tabla / tarjetas */}
+      {loading ? (
+        <div className="p-4 text-center">Cargando convenios...</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-4 text-center text-muted">No se encontraron convenios.</div>
+      ) : isMobile ? (
+
+        /* ═══════════════════════════════════════════════════════
+           VISTA MÓVIL — tarjetas
+        ═══════════════════════════════════════════════════════ */
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "4px 0" }}>
+          {paged.map((a) => {
+            const st = getStatus(a);
+            const isAdmin = ["admin", "Admin", "Administrador"].includes(role);
+            return (
+              <div key={a.id} style={{
+                background: "#fff", borderRadius: 14,
+                padding: "14px 16px",
+                boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+                border: "1px solid #E2EAF4",
+              }}>
+                {/* Cabecera: nombre + estado */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#0B1F4B", lineHeight: 1.35 }}>
+                      {a.name || "-"}
+                    </div>
+                    {a["Resolución Rectoral"] && (
+                      <div style={{ fontSize: 11, color: "#8BA4C0", marginTop: 2 }}>
+                        {a["Resolución Rectoral"]}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ flexShrink: 0 }}>{renderStatusBadge(a)}</div>
+                </div>
+
+                {/* Grid de campos clave */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 12 }}>
+                  {[
+                    { label: "País",     value: a.pais || "-" },
+                    { label: "Duración", value: a.duration_years ? `${a.duration_years} ${Number(a.duration_years) === 1 ? "año" : "años"}` : "-" },
+                    { label: "Tipo",     value: Array.isArray(a.tipo_convenio) ? a.tipo_convenio.join(", ") : a.convenio || "-" },
+                    { label: "Firma",    value: a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") ?? "-" : "-" },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 10, color: "#8BA4C0", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{label}</div>
+                      <div style={{ fontSize: 13, color: "#1A3773", fontWeight: 500 }}>{value}</div>
+                    </div>
+                  ))}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 10, color: "#8BA4C0", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 2 }}>Vigencia</div>
+                    <div style={{ fontSize: 12 }}>{renderCountdown(a)}</div>
+                  </div>
+                </div>
+
+                {/* Acciones */}
+                <div style={{ borderTop: "1px solid #F0F6FC", paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button className="btn btn-sm btn-outline-info"
+                      onClick={() => handleOpenDetails(a)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      👁️ Ver
+                    </button>
+                    {isAdmin && (
+                      <>
+                        <button className="btn btn-sm btn-outline-secondary"
+                          onClick={() => onEdit(a)}
+                          style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                          ✏️ Editar
+                        </button>
+                        <button className="btn btn-sm btn-outline-danger"
+                          onClick={async () => {
+                            if (confirm(`¿Eliminar "${a.name}"?`)) {
+                              const { error } = await supabase.from("agreements").delete().eq("id", a.id);
+                              if (error) alert("Error: " + error.message);
+                              else { setAgreements(prev => prev.filter(x => x.id !== a.id)); alert("✅ Eliminado"); }
+                            }
+                          }}
+                          style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                          🗑️ Eliminar
+                        </button>
+                        {st.key === "vencido" && (
+                          <button className="btn btn-sm btn-warning"
+                            onClick={() => { setConvenioAFinalizar(a); setShowFinalizarModal(true); }}
+                            style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                            ⏹️ Finalizar
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button className="btn btn-sm btn-outline-success"
+                      onClick={() => onOpenContraprestaciones(a.id)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      📋 Programar
+                    </button>
+                    <button className="btn btn-sm btn-outline-warning"
+                      onClick={() => onOpenEvidencias(a.id)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      📂 Cumplimiento
+                    </button>
+                    <button className="btn btn-sm btn-outline-primary"
+                      onClick={() => onOpenInforme(a.id)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      📝 Informes
+                    </button>
+                    <button className="btn btn-sm btn-outline-dark"
+                      onClick={() => navigateToRenewalPage(a.id)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      🔄 Renovar
+                    </button>
+                    <button className="btn btn-sm btn-outline-info"
+                      onClick={() => handleOpenHistory(a)}
+                      style={{ fontSize: "0.75rem", padding: "0.2rem 0.5rem" }}>
+                      📜 Historial
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      ) : (
+
+        /* ═══════════════════════════════════════════════════════
+           VISTA DESKTOP — tabla original sin cambios
+        ═══════════════════════════════════════════════════════ */
+        <div className="table-responsive shadow-sm" style={{ borderRadius: 10, border: "1px solid #e6e6e6" }}>
           <table className="table table-hover mb-0 align-middle" style={{ fontSize: "0.92rem" }}>
             <thead className="table-light sticky-top" style={{ top: 0 }}>
               <tr>
@@ -778,166 +903,70 @@ export default function AgreementsList({
                 <th style={{ width: 380 }}>Acciones</th>
               </tr>
             </thead>
-
             <tbody>
               {paged.map((a) => {
-                // Calcular estado del convenio
                 const st = getStatus(a);
-                
                 return (
                 <tr key={a.id}>
                   <td style={{ textAlign: "left", verticalAlign: "middle" }}>
                     <div style={{ fontWeight: 600 }}>{a.name || "-"}</div>
                     <div style={{ fontSize: "0.85rem", color: "#6c757d" }}>{a["Resolución Rectoral"] || ""}</div>
                   </td>
-
                   <td style={{ verticalAlign: "middle" }}>
                     {Array.isArray(a.tipo_convenio) ? (
                       a.tipo_convenio.map((t: string, idx: number) => (
-                        <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>
-                          {t}
-                        </span>
+                        <span key={idx} className="badge bg-info text-dark me-1" style={{ fontSize: "0.75rem" }}>{t}</span>
                       ))
                     ) : a.convenio ? (
-                      <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>
-                        {a.convenio}
-                      </span>
+                      <span className="badge bg-info text-dark" style={{ fontSize: "0.75rem" }}>{a.convenio}</span>
                     ) : (
                       <span className="text-muted">-</span>
                     )}
                   </td>
-
                   <td style={{ verticalAlign: "middle" }}>
                     {(() => {
                       const subtypes = getSubtiposDocentes(a);
                       return subtypes !== "-" ? (
                         subtypes.split(", ").map((subtipo: string, idx: number) => (
-                          <span key={idx} className="badge bg-warning text-dark me-1 mb-1" style={{ fontSize: "0.75rem" }}>
-                            {subtipo}
-                          </span>
+                          <span key={idx} className="badge bg-warning text-dark me-1 mb-1" style={{ fontSize: "0.75rem" }}>{subtipo}</span>
                         ))
-                      ) : (
-                        <span className="text-muted">-</span>
-                      );
+                      ) : (<span className="text-muted">-</span>);
                     })()}
                   </td>
-
                   <td style={{ verticalAlign: "middle" }}>{a.pais || "-"}</td>
-
                   <td style={{ verticalAlign: "middle" }}>{a.duration_years ? `${a.duration_years} ${a.duration_years === 1 ? "año" : "años"}` : "Sin dato"}</td>
-
                   <td style={{ verticalAlign: "middle" }}>
                     {a.signature_date ? parseLocalDate(a.signature_date)?.toLocaleDateString("es-PE") : "-"}
                   </td>
-
                   <td style={{ verticalAlign: "middle", textAlign: "left" }}>{renderCountdown(a)}</td>
-
                   <td style={{ verticalAlign: "middle" }}>{renderStatusBadge(a)}</td>
-
                   <td style={{ verticalAlign: "middle" }}>
                     <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '350px' }}>
-                      
-                      {/* 🆕 BOTÓN VER - AL PRINCIPIO */}
-                      <button 
-                        className="btn btn-sm btn-outline-info" 
-                        onClick={() => handleOpenDetails(a)} 
-                        title="Ver detalles completos"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        👁️ Ver
-                      </button>
-
-                      {/* Solo Admin puede editar y eliminar */}
+                      <button className="btn btn-sm btn-outline-info" onClick={() => handleOpenDetails(a)} title="Ver detalles completos" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>👁️ Ver</button>
                       {["admin", "Admin", "Administrador"].includes(role) && (
                         <>
-                          <button 
-                            className="btn btn-sm btn-outline-secondary" 
-                            onClick={() => onEdit(a)} 
-                            title="Editar convenio"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => onEdit(a)} title="Editar convenio" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>✏️ Editar</button>
+                          <button className="btn btn-sm btn-outline-danger"
                             onClick={async () => {
                               if (confirm(`¿Eliminar el convenio "${a.name}"?`)) {
                                 const { error } = await supabase.from("agreements").delete().eq("id", a.id);
                                 if (error) alert("Error al eliminar: " + error.message);
-                                else {
-                                  setAgreements((prev) => prev.filter((x) => x.id !== a.id));
-                                  alert("✅ Convenio eliminado correctamente");
-                                }
+                                else { setAgreements((prev) => prev.filter((x) => x.id !== a.id)); alert("✅ Convenio eliminado correctamente"); }
                               }
                             }}
-                            title="Eliminar convenio"
-                            style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                          >
-                            🗑️ Eliminar
-                          </button>
-                          
-                          {/* 🆕 Botón Finalizar - Solo para convenios vencidos */}
+                            title="Eliminar convenio" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>🗑️ Eliminar</button>
                           {st.key === "vencido" && (
-                            <button
-                              className="btn btn-sm btn-warning"
-                              onClick={() => {
-                                setConvenioAFinalizar(a);
-                                setShowFinalizarModal(true);
-                              }}
-                              title="Finalizar convenio (no se renovará)"
-                              style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                            >
-                              ⏹️ Finalizar
-                            </button>
+                            <button className="btn btn-sm btn-warning"
+                              onClick={() => { setConvenioAFinalizar(a); setShowFinalizarModal(true); }}
+                              title="Finalizar convenio" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>⏹️ Finalizar</button>
                           )}
                         </>
                       )}
-
-                      {/* Botones disponibles para todos */}
-                      <button 
-                        className="btn btn-sm btn-outline-success"
-                        onClick={() => onOpenContraprestaciones(a.id)}
-                        title="Programar contraprestaciones"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📋 Programar
-                      </button>
-
-                      <button 
-                        className="btn btn-sm btn-outline-warning"
-                        onClick={() => onOpenEvidencias(a.id)}
-                        title="Cumplimiento / Evidencias"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📂 Cumplimiento
-                      </button>
-
-                      <button 
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => onOpenInforme(a.id)}
-                        title="Informes del convenio"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📝 Informes
-                      </button>
-                              
-                      <button 
-                        className="btn btn-sm btn-outline-dark" 
-                        onClick={() => navigateToRenewalPage(a.id)} 
-                        title="Renovar convenio"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        🔄 Renovar
-                      </button>
-
-                      <button 
-                        className="btn btn-sm btn-outline-info" 
-                        onClick={() => handleOpenHistory(a)} 
-                        title="Ver historial de renovaciones"
-                        style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                      >
-                        📜 Historial
-                      </button>
+                      <button className="btn btn-sm btn-outline-success" onClick={() => onOpenContraprestaciones(a.id)} title="Programar contraprestaciones" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>📋 Programar</button>
+                      <button className="btn btn-sm btn-outline-warning" onClick={() => onOpenEvidencias(a.id)} title="Cumplimiento / Evidencias" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>📂 Cumplimiento</button>
+                      <button className="btn btn-sm btn-outline-primary" onClick={() => onOpenInforme(a.id)} title="Informes del convenio" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>📝 Informes</button>
+                      <button className="btn btn-sm btn-outline-dark" onClick={() => navigateToRenewalPage(a.id)} title="Renovar convenio" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>🔄 Renovar</button>
+                      <button className="btn btn-sm btn-outline-info" onClick={() => handleOpenHistory(a)} title="Ver historial de renovaciones" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}>📜 Historial</button>
                     </div>
                   </td>
                 </tr>
@@ -945,8 +974,8 @@ export default function AgreementsList({
               })}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* paginación */}
       {filtered.length > 0 && (

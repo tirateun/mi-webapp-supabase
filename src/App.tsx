@@ -80,7 +80,7 @@ function MobileBottomBar({
   const mainItems = [
     {
       id: "agreementsList" as ActivePage,
-      consultaId: "consultaConvenios" as ActivePage, // página alternativa para rol consulta
+      consultaId: "consultaConvenios" as ActivePage,
       label: "Convenios",
       icon: (a: boolean) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
@@ -103,19 +103,6 @@ function MobileBottomBar({
       ),
     },
     {
-      id: "contraprestaciones" as ActivePage,
-      label: "Contrapr.",
-      icon: (a: boolean) => (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-          stroke={a ? "#00B4D8" : "#8BA4C0"} strokeWidth="2"
-          strokeLinecap="round" strokeLinejoin="round">
-          <line x1="18" y1="20" x2="18" y2="10"/>
-          <line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6"  y1="20" x2="6"  y2="14"/>
-        </svg>
-      ),
-    },
-    {
       id: "instituciones" as ActivePage,
       label: "Instituciones",
       icon: (a: boolean) => (
@@ -127,12 +114,28 @@ function MobileBottomBar({
         </svg>
       ),
     },
-  ];
+    {
+      id: "reportes" as ActivePage,
+      label: "Reportes",
+      icon: (a: boolean) => (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke={a ? "#00B4D8" : "#8BA4C0"} strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6"  y1="20" x2="6"  y2="14"/>
+        </svg>
+      ),
+    },
+  ].filter(item => {
+    // Consulta no ve Reportes
+    if (item.id === "reportes" && isConsulta) return false;
+    return true;
+  });
 
   // Ítems del drawer "Más"
   const moreItems = [
-    { id: "reportes" as ActivePage, label: "Reportes", emoji: "📊", show: !isConsulta },
-    { id: "users"   as ActivePage, label: "Usuarios",  emoji: "👥", show: isAdmin },
+    { id: "users" as ActivePage, label: "Usuarios", emoji: "👥", show: isAdmin },
   ].filter(i => i.show);
 
   const isActive = (item: typeof mainItems[0]): boolean =>
@@ -208,14 +211,12 @@ function MobileBottomBar({
           ))}
 
           {/* Cerrar sesión */}
-          <button
-            onClick={onLogout}
+          <button onClick={onLogout}
             style={{
               display: "flex", alignItems: "center", gap: 14,
               padding: "14px 24px", marginTop: 8, width: "100%",
               borderTop: "1px solid rgba(255,255,255,0.1)",
-              cursor: "pointer", border: "none",
-              background: "none",
+              cursor: "pointer", border: "none", background: "none",
               WebkitTapHighlightColor: "transparent",
             }}>
             <span style={{ fontSize: 20, width: 28, textAlign: "center" }}>🚪</span>
