@@ -98,10 +98,29 @@ body { overflow-x: hidden; }
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    white-space: nowrap;        /* ← esto fuerza el scroll horizontal */
+    white-space: nowrap;
   }
 
+  /* Limitar ancho de celdas para que las columnas sean accesibles */
   td, th {
     white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* Columna nombre — un poco más ancha */
+  td:first-child, th:first-child {
+    max-width: 160px;
+    min-width: 130px;
+  }
+
+  /* Columna acciones — sin límite de ancho, permite que se vean todos los botones */
+  td:last-child, th:last-child {
+    max-width: none;
+    white-space: normal;
+    min-width: 220px;
   }
 }
