@@ -24,10 +24,9 @@ export default function InformesAnualesList({
   const [mostrarForm, setMostrarForm] = useState(false);
   const [informeAEditar, setInformeAEditar] = useState<any>(null);
   const [totalesDesglosados, setTotalesDesglosados] = useState<{
-    internos: number;
-    alumnos: number;
-    cursos: number;
-  }>({ internos: 0, alumnos: 0, cursos: 0 });
+    internos: number; alumnos: number; cursos: number;
+    residentes: number; rotaciones: number;
+  }>({ internos: 0, alumnos: 0, cursos: 0, residentes: 0, rotaciones: 0 });
   
   useEffect(() => {
     cargarInformes();
@@ -55,9 +54,11 @@ export default function InformesAnualesList({
         
         return { 
           ...informe, 
-          num_internos: informe.num_internos || 0,
-          num_alumnos: informe.num_alumnos || 0,
-          num_cursos: informe.num_cursos || 0,
+          num_internos:   informe.num_internos   || 0,
+          num_alumnos:    informe.num_alumnos    || 0,
+          num_cursos:     informe.num_cursos     || 0,
+          num_residentes: informe.num_residentes || 0,
+          num_rotaciones: informe.num_rotaciones || 0,
           subtipo_nombre: subtipoNombre,
           area_nombre: areaNombre,
           es_pregrado: esPregrado
@@ -66,12 +67,13 @@ export default function InformesAnualesList({
       
       setInformes(informesConDetalle);
       
-      // Calcular totales desglosados
       const totales = informesConDetalle.reduce((acc, inf) => ({
-        internos: acc.internos + inf.num_internos,
-        alumnos: acc.alumnos + inf.num_alumnos,
-        cursos: acc.cursos + inf.num_cursos
-      }), { internos: 0, alumnos: 0, cursos: 0 });
+        internos:   acc.internos   + inf.num_internos,
+        alumnos:    acc.alumnos    + inf.num_alumnos,
+        cursos:     acc.cursos     + inf.num_cursos,
+        residentes: acc.residentes + inf.num_residentes,
+        rotaciones: acc.rotaciones + inf.num_rotaciones,
+      }), { internos: 0, alumnos: 0, cursos: 0, residentes: 0, rotaciones: 0 });
       
       setTotalesDesglosados(totales);
       
@@ -153,28 +155,35 @@ export default function InformesAnualesList({
             background: "rgba(255,255,255,0.15)",
             padding: "1rem 1.5rem",
             borderRadius: "12px",
-            minWidth: "320px"
+            minWidth: "420px"
           }}>
             <div style={{ fontSize: "0.9rem", opacity: 0.8, marginBottom: "0.5rem" }}>
               Total Histórico
             </div>
-            <div style={{ 
-              display: "grid", 
-              gridTemplateColumns: "1fr 1fr 1fr", 
-              gap: "1rem",
-              marginBottom: "0.5rem"
-            }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem", marginBottom: "0.5rem" }}>
               <div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Internos</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{totalesDesglosados.internos}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Internos</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{totalesDesglosados.internos}</div>
               </div>
               <div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Alumnos</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{totalesDesglosados.alumnos}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Alumnos</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{totalesDesglosados.alumnos}</div>
               </div>
               <div>
-                <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>Cursos</div>
-                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{totalesDesglosados.cursos}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Cursos</div>
+                <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{totalesDesglosados.cursos}</div>
+              </div>
+            </div>
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: "0.5rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Residentes</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{totalesDesglosados.residentes}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>Rotaciones Ext.</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>{totalesDesglosados.rotaciones}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -252,109 +261,149 @@ export default function InformesAnualesList({
                 </p>
               </div>
 
-              {/* Tabla de informes */}
+              {/* Tabla de informes — separada por tipo */}
               <div style={{ padding: "1.5rem" }}>
-                <div style={{ overflowX: "auto" }}>
-                  <table className="table table-hover">
-                    <thead style={{ background: "#F8F9FA" }}>
-                      <tr>
-                        <th>Subtipo</th>
-                        <th>Área Vinculada</th>
-                        <th className="text-center">👨‍⚕️ Internos</th>
-                        <th className="text-center">👩‍🎓 Alumnos</th>
-                        <th className="text-center">📚 Cursos</th>
-                        <th>Medios Verificables</th>
-                        {!isAdmin && <th style={{ width: "150px" }}>Acciones</th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {grupo.informes.map((inf: any) => (
-                        <tr key={inf.id}>
-                          <td>
-                            <span style={{
-                              background: inf.es_pregrado ? "#D4EDDA" : "#CCE5FF",
-                              color: inf.es_pregrado ? "#155724" : "#004085",
-                              padding: "0.25rem 0.75rem",
-                              borderRadius: "12px",
-                              fontSize: "0.85rem",
-                              fontWeight: 600
-                            }}>
-                              {inf.subtipo_nombre}
-                            </span>
-                          </td>
-                          <td>{inf.area_nombre}</td>
-                          <td className="text-center">
-                            <strong style={{ fontSize: "1.1rem" }}>{inf.num_internos}</strong>
-                          </td>
-                          <td className="text-center">
-                            <strong style={{ fontSize: "1.1rem" }}>{inf.num_alumnos}</strong>
-                          </td>
-                          <td className="text-center">
-                            <strong style={{ fontSize: "1.1rem" }}>{inf.num_cursos}</strong>
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                              {inf.medio_verificable_internos && (
-                                <a 
-                                  href={inf.medio_verificable_internos} 
-                                  target="_blank" 
-                                  rel="noreferrer"
-                                  className="btn btn-sm btn-outline-primary"
-                                  style={{ fontSize: "0.8rem" }}
-                                >
-                                  📄 Internos
-                                </a>
+                {/* ── PREGRADO ─────────────────────────────── */}
+                {grupo.informes.filter((i: any) => i.es_pregrado).length > 0 && (
+                  <div style={{ marginBottom: "1.5rem" }}>
+                    <h6 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#155724",
+                      background: "#D4EDDA", padding: "0.4rem 0.75rem", borderRadius: "6px",
+                      marginBottom: "0.75rem", display: "inline-block" }}>
+                      📚 Pregrado
+                    </h6>
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="table table-hover mb-0">
+                        <thead style={{ background: "#F8F9FA" }}>
+                          <tr>
+                            <th>Subtipo</th>
+                            <th>Área Vinculada</th>
+                            <th className="text-center">👨‍⚕️ Internos</th>
+                            <th className="text-center">👩‍🎓 Alumnos</th>
+                            <th className="text-center">📚 Cursos</th>
+                            <th>Medios Verificables</th>
+                            {!isAdmin && <th style={{ width: "110px" }}>Acciones</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grupo.informes.filter((i: any) => i.es_pregrado).map((inf: any) => (
+                            <tr key={inf.id}>
+                              <td>
+                                <span style={{ background: "#D4EDDA", color: "#155724",
+                                  padding: "0.25rem 0.75rem", borderRadius: "12px",
+                                  fontSize: "0.85rem", fontWeight: 600 }}>
+                                  {inf.subtipo_nombre}
+                                </span>
+                              </td>
+                              <td>{inf.area_nombre}</td>
+                              <td className="text-center"><strong>{inf.num_internos}</strong></td>
+                              <td className="text-center"><strong>{inf.num_alumnos}</strong></td>
+                              <td className="text-center"><strong>{inf.num_cursos}</strong></td>
+                              <td>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  {inf.medio_verificable_internos && (
+                                    <a href={inf.medio_verificable_internos} target="_blank" rel="noreferrer"
+                                      className="btn btn-sm btn-outline-primary" style={{ fontSize: "0.8rem" }}>
+                                      📄 Internos
+                                    </a>
+                                  )}
+                                  {inf.medio_verificable_alumnos && (
+                                    <a href={inf.medio_verificable_alumnos} target="_blank" rel="noreferrer"
+                                      className="btn btn-sm btn-outline-success" style={{ fontSize: "0.8rem" }}>
+                                      📄 Alumnos
+                                    </a>
+                                  )}
+                                  {inf.medio_verificable_cursos && (
+                                    <a href={inf.medio_verificable_cursos} target="_blank" rel="noreferrer"
+                                      className="btn btn-sm btn-outline-warning" style={{ fontSize: "0.8rem" }}>
+                                      📄 Cursos
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              {!isAdmin && (
+                                <td>
+                                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                                    <button onClick={() => { setInformeAEditar(inf); setMostrarForm(true); }}
+                                      className="btn btn-sm btn-outline-secondary">✏️</button>
+                                    <button onClick={() => handleEliminarInforme(inf.id)}
+                                      className="btn btn-sm btn-outline-danger">🗑️</button>
+                                  </div>
+                                </td>
                               )}
-                              {inf.medio_verificable_alumnos && (
-                                <a 
-                                  href={inf.medio_verificable_alumnos} 
-                                  target="_blank" 
-                                  rel="noreferrer"
-                                  className="btn btn-sm btn-outline-success"
-                                  style={{ fontSize: "0.8rem" }}
-                                >
-                                  📄 Alumnos
-                                </a>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── POSTGRADO / RESIDENTADO ───────────────── */}
+                {grupo.informes.filter((i: any) => !i.es_pregrado).length > 0 && (
+                  <div>
+                    <h6 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#004085",
+                      background: "#CCE5FF", padding: "0.4rem 0.75rem", borderRadius: "6px",
+                      marginBottom: "0.75rem", display: "inline-block" }}>
+                      🏥 Postgrado / Residentado
+                    </h6>
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="table table-hover mb-0">
+                        <thead style={{ background: "#F8F9FA" }}>
+                          <tr>
+                            <th>Subtipo</th>
+                            <th>Área Vinculada</th>
+                            <th className="text-center">👨‍⚕️ Residentes</th>
+                            <th className="text-center">🔄 Rotaciones Ext.</th>
+                            <th>Medios Verificables</th>
+                            {!isAdmin && <th style={{ width: "110px" }}>Acciones</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {grupo.informes.filter((i: any) => !i.es_pregrado).map((inf: any) => (
+                            <tr key={inf.id}>
+                              <td>
+                                <span style={{ background: "#CCE5FF", color: "#004085",
+                                  padding: "0.25rem 0.75rem", borderRadius: "12px",
+                                  fontSize: "0.85rem", fontWeight: 600 }}>
+                                  {inf.subtipo_nombre}
+                                </span>
+                              </td>
+                              <td>{inf.area_nombre}</td>
+                              <td className="text-center"><strong>{inf.num_residentes}</strong></td>
+                              <td className="text-center"><strong>{inf.num_rotaciones}</strong></td>
+                              <td>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  {inf.medio_verificable_residentes && (
+                                    <a href={inf.medio_verificable_residentes} target="_blank" rel="noreferrer"
+                                      className="btn btn-sm btn-outline-primary" style={{ fontSize: "0.8rem" }}>
+                                      📄 Residentes
+                                    </a>
+                                  )}
+                                  {inf.medio_verificable_rotaciones && (
+                                    <a href={inf.medio_verificable_rotaciones} target="_blank" rel="noreferrer"
+                                      className="btn btn-sm btn-outline-info" style={{ fontSize: "0.8rem" }}>
+                                      📄 Rotaciones
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              {!isAdmin && (
+                                <td>
+                                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                                    <button onClick={() => { setInformeAEditar(inf); setMostrarForm(true); }}
+                                      className="btn btn-sm btn-outline-secondary">✏️</button>
+                                    <button onClick={() => handleEliminarInforme(inf.id)}
+                                      className="btn btn-sm btn-outline-danger">🗑️</button>
+                                  </div>
+                                </td>
                               )}
-                              {inf.medio_verificable_cursos && (
-                                <a 
-                                  href={inf.medio_verificable_cursos} 
-                                  target="_blank" 
-                                  rel="noreferrer"
-                                  className="btn btn-sm btn-outline-warning"
-                                  style={{ fontSize: "0.8rem" }}
-                                >
-                                  📄 Cursos
-                                </a>
-                              )}
-                            </div>
-                          </td>
-                          {!isAdmin && (
-                            <td>
-                              <div style={{ display: "flex", gap: "0.5rem" }}>
-                                <button 
-                                  onClick={() => {
-                                    setInformeAEditar(inf);
-                                    setMostrarForm(true);
-                                  }}
-                                  className="btn btn-sm btn-outline-secondary"
-                                >
-                                  ✏️
-                                </button>
-                                <button 
-                                  onClick={() => handleEliminarInforme(inf.id)}
-                                  className="btn btn-sm btn-outline-danger"
-                                >
-                                  🗑️
-                                </button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Observaciones si existen */}
                 {grupo.informes.some((inf: any) => inf.observaciones) && (

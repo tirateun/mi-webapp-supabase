@@ -34,20 +34,24 @@ export default function InformeAnualForm({
   // Datos del informe
   const [anio, setAnio] = useState<number>(new Date().getFullYear());
   
-  // 🆕 3 CAMPOS NUMÉRICOS
+  // ── PREGRADO: Internos / Alumnos / Cursos ──────────────────
   const [numInternos, setNumInternos] = useState<number>(0);
   const [numAlumnos, setNumAlumnos] = useState<number>(0);
   const [numCursos, setNumCursos] = useState<number>(0);
-  
-  // 🆕 3 PDFs
   const [pdfInternosFile, setPdfInternosFile] = useState<File | null>(null);
   const [pdfInternosUrl, setPdfInternosUrl] = useState<string>("");
-  
   const [pdfAlumnosFile, setPdfAlumnosFile] = useState<File | null>(null);
   const [pdfAlumnosUrl, setPdfAlumnosUrl] = useState<string>("");
-  
   const [pdfCursosFile, setPdfCursosFile] = useState<File | null>(null);
   const [pdfCursosUrl, setPdfCursosUrl] = useState<string>("");
+
+  // ── POSTGRADO / RESIDENTADO: Residentes / Rotaciones ───────
+  const [numResidentes, setNumResidentes] = useState<number>(0);
+  const [numRotaciones, setNumRotaciones] = useState<number>(0);
+  const [pdfResidentesFile, setPdfResidentesFile] = useState<File | null>(null);
+  const [pdfResidentesUrl, setPdfResidentesUrl] = useState<string>("");
+  const [pdfRotacionesFile, setPdfRotacionesFile] = useState<File | null>(null);
+  const [pdfRotacionesUrl, setPdfRotacionesUrl] = useState<string>("");
   
   // Observaciones
   const [observaciones, setObservaciones] = useState("");
@@ -112,13 +116,19 @@ export default function InformeAnualForm({
     setAreaSeleccionada(informeExistente.area_vinculada_id || "");
     setObservaciones(informeExistente.observaciones || "");
     
+    // Pregrado
     setNumInternos(informeExistente.num_internos || 0);
     setNumAlumnos(informeExistente.num_alumnos || 0);
     setNumCursos(informeExistente.num_cursos || 0);
-    
     setPdfInternosUrl(informeExistente.medio_verificable_internos || "");
     setPdfAlumnosUrl(informeExistente.medio_verificable_alumnos || "");
     setPdfCursosUrl(informeExistente.medio_verificable_cursos || "");
+
+    // Postgrado / Residentado
+    setNumResidentes(informeExistente.num_residentes || 0);
+    setNumRotaciones(informeExistente.num_rotaciones || 0);
+    setPdfResidentesUrl(informeExistente.medio_verificable_residentes || "");
+    setPdfRotacionesUrl(informeExistente.medio_verificable_rotaciones || "");
   };
   
   const handleSubtipoChange = (subtipoId: string) => {
@@ -161,9 +171,16 @@ export default function InformeAnualForm({
       return;
     }
     
-    if (numInternos === 0 && numAlumnos === 0 && numCursos === 0) {
-      alert("❌ Debes ingresar al menos un número mayor a 0");
-      return;
+    if (esPregrado) {
+      if (numInternos === 0 && numAlumnos === 0 && numCursos === 0) {
+        alert("❌ Debes ingresar al menos un número mayor a 0 (Internos, Alumnos o Cursos)");
+        return;
+      }
+    } else {
+      if (numResidentes === 0 && numRotaciones === 0) {
+        alert("❌ Debes ingresar al menos un número mayor a 0 (Residentes o Rotaciones)");
+        return;
+      }
     }
     
     setSaving(true);
@@ -173,20 +190,28 @@ export default function InformeAnualForm({
       let urlInternos = pdfInternosUrl;
       let urlAlumnos = pdfAlumnosUrl;
       let urlCursos = pdfCursosUrl;
+      let urlResidentes = pdfResidentesUrl;
+      let urlRotaciones = pdfRotacionesUrl;
 
       if (pdfInternosFile) {
         const uploaded = await subirPDF(pdfInternosFile, "internos");
         if (uploaded) urlInternos = uploaded;
       }
-
       if (pdfAlumnosFile) {
         const uploaded = await subirPDF(pdfAlumnosFile, "alumnos");
         if (uploaded) urlAlumnos = uploaded;
       }
-
       if (pdfCursosFile) {
         const uploaded = await subirPDF(pdfCursosFile, "cursos");
         if (uploaded) urlCursos = uploaded;
+      }
+      if (pdfResidentesFile) {
+        const uploaded = await subirPDF(pdfResidentesFile, "residentes");
+        if (uploaded) urlResidentes = uploaded;
+      }
+      if (pdfRotacionesFile) {
+        const uploaded = await subirPDF(pdfRotacionesFile, "rotaciones");
+        if (uploaded) urlRotaciones = uploaded;
       }
       
       const dataToSave = {
@@ -194,12 +219,18 @@ export default function InformeAnualForm({
         anio,
         subtipo_id: subtipoSeleccionado,
         area_vinculada_id: areaSeleccionada,
-        num_internos: numInternos,
-        medio_verificable_internos: urlInternos || null,
-        num_alumnos: numAlumnos,
-        medio_verificable_alumnos: urlAlumnos || null,
-        num_cursos: numCursos,
-        medio_verificable_cursos: urlCursos || null,
+        // Pregrado
+        num_internos: esPregrado ? numInternos : 0,
+        medio_verificable_internos: esPregrado ? (urlInternos || null) : null,
+        num_alumnos: esPregrado ? numAlumnos : 0,
+        medio_verificable_alumnos: esPregrado ? (urlAlumnos || null) : null,
+        num_cursos: esPregrado ? numCursos : 0,
+        medio_verificable_cursos: esPregrado ? (urlCursos || null) : null,
+        // Postgrado / Residentado
+        num_residentes: !esPregrado ? numResidentes : 0,
+        medio_verificable_residentes: !esPregrado ? (urlResidentes || null) : null,
+        num_rotaciones: !esPregrado ? numRotaciones : 0,
+        medio_verificable_rotaciones: !esPregrado ? (urlRotaciones || null) : null,
         observaciones: observaciones || null
       };
       
@@ -348,107 +379,149 @@ export default function InformeAnualForm({
           </div>
           
           <hr style={{ margin: "2rem 0" }} />
-          
-          {/* N° de Internos */}
-          <div style={{ marginBottom: "2rem" }}>
-            <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-              👨‍⚕️ Internos
-            </h5>
-            <div className="row">
-              <div className="col-md-4">
-                <label className="form-label">N° de Internos</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={numInternos}
-                  onChange={(e) => setNumInternos(parseInt(e.target.value) || 0)}
-                  min={0}
-                />
-              </div>
-              <div className="col-md-8">
-                <label className="form-label">Medio Verificable (PDF)</label>
-                <input
-                  type="file"
-                  className="form-control"
-                  accept="application/pdf"
-                  onChange={(e) => setPdfInternosFile(e.target.files?.[0] || null)}
-                />
-                {pdfInternosUrl && (
-                  <small className="text-success d-block mt-1">
-                    ✅ <a href={pdfInternosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                  </small>
-                )}
-              </div>
+
+          {/* Indicador de modo */}
+          {subtipoSeleccionado && (
+            <div style={{
+              marginBottom: "1.5rem",
+              padding: "0.75rem 1rem",
+              borderRadius: "8px",
+              background: esPregrado ? "#D4EDDA" : "#CCE5FF",
+              color: esPregrado ? "#155724" : "#004085",
+              fontSize: "0.9rem",
+              fontWeight: 600
+            }}>
+              {esPregrado
+                ? "📚 Pregrado — campos: N° Internos · N° Alumnos · N° Cursos"
+                : "🏥 Postgrado / Residentado — campos: N° Residentes · N° Rotaciones Externas"}
             </div>
-          </div>
-          
-          {/* N° de Alumnos */}
-          <div style={{ marginBottom: "2rem" }}>
-            <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-              👩‍🎓 Alumnos
-            </h5>
-            <div className="row">
-              <div className="col-md-4">
-                <label className="form-label">N° de Alumnos</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={numAlumnos}
-                  onChange={(e) => setNumAlumnos(parseInt(e.target.value) || 0)}
-                  min={0}
-                />
+          )}
+
+          {esPregrado ? (
+            <>
+              {/* N° de Internos */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
+                  👨‍⚕️ Internos
+                </h5>
+                <div className="row">
+                  <div className="col-md-4">
+                    <label className="form-label">N° de Internos</label>
+                    <input type="number" className="form-control" value={numInternos}
+                      onChange={(e) => setNumInternos(parseInt(e.target.value) || 0)} min={0} />
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label">Medio Verificable (PDF)</label>
+                    <input type="file" className="form-control" accept="application/pdf"
+                      onChange={(e) => setPdfInternosFile(e.target.files?.[0] || null)} />
+                    {pdfInternosUrl && (
+                      <small className="text-success d-block mt-1">
+                        ✅ <a href={pdfInternosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
+                      </small>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="col-md-8">
-                <label className="form-label">Medio Verificable (PDF)</label>
-                <input
-                  type="file"
-                  className="form-control"
-                  accept="application/pdf"
-                  onChange={(e) => setPdfAlumnosFile(e.target.files?.[0] || null)}
-                />
-                {pdfAlumnosUrl && (
-                  <small className="text-success d-block mt-1">
-                    ✅ <a href={pdfAlumnosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                  </small>
-                )}
+
+              {/* N° de Alumnos */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
+                  👩‍🎓 Alumnos
+                </h5>
+                <div className="row">
+                  <div className="col-md-4">
+                    <label className="form-label">N° de Alumnos</label>
+                    <input type="number" className="form-control" value={numAlumnos}
+                      onChange={(e) => setNumAlumnos(parseInt(e.target.value) || 0)} min={0} />
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label">Medio Verificable (PDF)</label>
+                    <input type="file" className="form-control" accept="application/pdf"
+                      onChange={(e) => setPdfAlumnosFile(e.target.files?.[0] || null)} />
+                    {pdfAlumnosUrl && (
+                      <small className="text-success d-block mt-1">
+                        ✅ <a href={pdfAlumnosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
+                      </small>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          {/* 🆕 N° de Cursos */}
-          <div style={{ marginBottom: "2rem" }}>
-            <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-              📚 Cursos
-            </h5>
-            <div className="row">
-              <div className="col-md-4">
-                <label className="form-label">N° de Cursos</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={numCursos}
-                  onChange={(e) => setNumCursos(parseInt(e.target.value) || 0)}
-                  min={0}
-                />
+
+              {/* N° de Cursos */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
+                  📚 Cursos
+                </h5>
+                <div className="row">
+                  <div className="col-md-4">
+                    <label className="form-label">N° de Cursos</label>
+                    <input type="number" className="form-control" value={numCursos}
+                      onChange={(e) => setNumCursos(parseInt(e.target.value) || 0)} min={0} />
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label">Medio Verificable (PDF)</label>
+                    <input type="file" className="form-control" accept="application/pdf"
+                      onChange={(e) => setPdfCursosFile(e.target.files?.[0] || null)} />
+                    {pdfCursosUrl && (
+                      <small className="text-success d-block mt-1">
+                        ✅ <a href={pdfCursosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
+                      </small>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="col-md-8">
-                <label className="form-label">Medio Verificable (PDF)</label>
-                <input
-                  type="file"
-                  className="form-control"
-                  accept="application/pdf"
-                  onChange={(e) => setPdfCursosFile(e.target.files?.[0] || null)}
-                />
-                {pdfCursosUrl && (
-                  <small className="text-success d-block mt-1">
-                    ✅ <a href={pdfCursosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                  </small>
-                )}
+            </>
+          ) : (
+            <>
+              {/* N° de Residentes */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#004085" }}>
+                  👨‍⚕️ Residentes
+                </h5>
+                <div className="row">
+                  <div className="col-md-4">
+                    <label className="form-label">N° de Residentes</label>
+                    <input type="number" className="form-control" value={numResidentes}
+                      onChange={(e) => setNumResidentes(parseInt(e.target.value) || 0)} min={0} />
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label">Medio Verificable (PDF)</label>
+                    <input type="file" className="form-control" accept="application/pdf"
+                      onChange={(e) => setPdfResidentesFile(e.target.files?.[0] || null)} />
+                    {pdfResidentesUrl && (
+                      <small className="text-success d-block mt-1">
+                        ✅ <a href={pdfResidentesUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
+                      </small>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          <hr style={{ margin: "2rem 0" }} />
+
+              {/* N° de Rotaciones Externas */}
+              <div style={{ marginBottom: "2rem" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#004085" }}>
+                  🔄 Rotaciones Externas
+                </h5>
+                <div className="row">
+                  <div className="col-md-4">
+                    <label className="form-label">N° de Rotaciones Externas</label>
+                    <input type="number" className="form-control" value={numRotaciones}
+                      onChange={(e) => setNumRotaciones(parseInt(e.target.value) || 0)} min={0} />
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label">Medio Verificable (PDF)</label>
+                    <input type="file" className="form-control" accept="application/pdf"
+                      onChange={(e) => setPdfRotacionesFile(e.target.files?.[0] || null)} />
+                    {pdfRotacionesUrl && (
+                      <small className="text-success d-block mt-1">
+                        ✅ <a href={pdfRotacionesUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
+                      </small>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
           
           {/* Observaciones */}
           <div style={{ marginBottom: "1.5rem" }}>
