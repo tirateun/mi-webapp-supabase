@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { useIsMobile } from "./hooks/useIsMobile";
 import { supabase } from "./supabaseClient";
 import * as XLSX from 'xlsx';
 import {
@@ -137,9 +138,11 @@ interface ContraprestacionPorArea {
 // ============================================
 
 function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
-  const totalGeneral = datos.reduce((sum, r) => sum + r.total_alumnos, 0);
-  const totalInternos = datos.reduce((sum, r) => sum + r.total_internos, 0);
-  const totalCursos = datos.reduce((sum, r) => sum + r.total_cursos, 0);
+  const totalInternos   = datos.reduce((s, r) => s + (r.total_internos   || 0), 0);
+  const totalCursos     = datos.reduce((s, r) => s + (r.total_cursos     || 0), 0);
+  const totalAlumnos    = datos.reduce((s, r) => s + (r.total_alumnos    || 0), 0);
+  const totalResidentes = datos.reduce((s, r) => s + (r.total_residentes || 0), 0);
+  const totalRotaciones = datos.reduce((s, r) => s + (r.total_rotaciones || 0), 0);
 
   return (
     <div className="card">
@@ -150,16 +153,24 @@ function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
             <div className="h3 mb-0">{datos.length}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Internos</div>
+            <div className="text-muted small">Internos</div>
             <div className="h3 mb-0 text-primary">{totalInternos}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Cursos</div>
+            <div className="text-muted small">Alumnos</div>
+            <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Cursos</div>
             <div className="h3 mb-0 text-success">{totalCursos}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Alumnos</div>
-            <div className="h3 mb-0 text-warning">{totalGeneral}</div>
+            <div className="text-muted small">Residentes</div>
+            <div className="h3 mb-0 text-info">{totalResidentes}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Rotaciones</div>
+            <div className="h3 mb-0 text-secondary">{totalRotaciones}</div>
           </div>
         </div>
       </div>
@@ -171,15 +182,17 @@ function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
                 <th>Convenio</th>
                 <th>Institución</th>
                 <th className="text-end">Internos</th>
+                <th className="text-end">Alumnos</th>
                 <th className="text-end">Cursos</th>
-                <th className="text-end">Total</th>
+                <th className="text-end">Residentes</th>
+                <th className="text-end">Rotaciones</th>
                 <th className="text-end">Informes</th>
               </tr>
             </thead>
             <tbody>
               {datos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     No hay datos disponibles con los filtros seleccionados
                   </td>
                 </tr>
@@ -188,9 +201,11 @@ function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
                   <tr key={idx}>
                     <td className="fw-bold">{row.convenio_nombre}</td>
                     <td>{row.institucion_nombre}</td>
-                    <td className="text-end">{row.total_internos}</td>
-                    <td className="text-end">{row.total_cursos}</td>
-                    <td className="text-end fw-bold text-primary">{row.total_alumnos}</td>
+                    <td className="text-end">{row.total_internos || 0}</td>
+                    <td className="text-end">{row.total_alumnos || 0}</td>
+                    <td className="text-end">{row.total_cursos || 0}</td>
+                    <td className="text-end text-info fw-bold">{row.total_residentes || 0}</td>
+                    <td className="text-end text-secondary">{row.total_rotaciones || 0}</td>
                     <td className="text-end">
                       <span className="badge bg-secondary">{row.cantidad_informes}</span>
                     </td>
@@ -206,10 +221,12 @@ function TablaReporteInformesConvenios({ datos }: { datos: any[] }) {
 }
 
 function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
-  const totalConvenios = datos.reduce((sum, r) => sum + r.total_convenios, 0);
-  const totalInternos = datos.reduce((sum, r) => sum + r.total_internos, 0);
-  const totalCursos = datos.reduce((sum, r) => sum + r.total_cursos, 0);
-  const totalAlumnos = datos.reduce((sum, r) => sum + r.total_alumnos, 0);
+  const totalConvenios  = datos.reduce((s, r) => s + (r.total_convenios  || 0), 0);
+  const totalInternos   = datos.reduce((s, r) => s + (r.total_internos   || 0), 0);
+  const totalCursos     = datos.reduce((s, r) => s + (r.total_cursos     || 0), 0);
+  const totalAlumnos    = datos.reduce((s, r) => s + (r.total_alumnos    || 0), 0);
+  const totalResidentes = datos.reduce((s, r) => s + (r.total_residentes || 0), 0);
+  const totalRotaciones = datos.reduce((s, r) => s + (r.total_rotaciones || 0), 0);
 
   return (
     <div className="card">
@@ -220,20 +237,24 @@ function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
             <div className="h3 mb-0">{datos.length}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Convenios</div>
+            <div className="text-muted small">Convenios</div>
             <div className="h3 mb-0 text-info">{totalConvenios}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Internos</div>
+            <div className="text-muted small">Internos</div>
             <div className="h3 mb-0 text-primary">{totalInternos}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Cursos</div>
-            <div className="h3 mb-0 text-success">{totalCursos}</div>
+            <div className="text-muted small">Alumnos</div>
+            <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
           </div>
           <div className="col-6 col-md">
-            <div className="text-muted small">Total Alumnos</div>
-            <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
+            <div className="text-muted small">Residentes</div>
+            <div className="h3 mb-0 text-info">{totalResidentes}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Rotaciones</div>
+            <div className="h3 mb-0 text-secondary">{totalRotaciones}</div>
           </div>
         </div>
       </div>
@@ -245,15 +266,17 @@ function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
                 <th>Institución</th>
                 <th className="text-end">Convenios</th>
                 <th className="text-end">Internos</th>
+                <th className="text-end">Alumnos</th>
                 <th className="text-end">Cursos</th>
-                <th className="text-end">Total</th>
+                <th className="text-end">Residentes</th>
+                <th className="text-end">Rotaciones</th>
                 <th className="text-end">Informes</th>
               </tr>
             </thead>
             <tbody>
               {datos.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     No hay datos disponibles con los filtros seleccionados
                   </td>
                 </tr>
@@ -264,9 +287,11 @@ function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
                     <td className="text-end">
                       <span className="badge bg-info">{row.total_convenios}</span>
                     </td>
-                    <td className="text-end">{row.total_internos}</td>
-                    <td className="text-end">{row.total_cursos}</td>
-                    <td className="text-end fw-bold text-primary">{row.total_alumnos}</td>
+                    <td className="text-end">{row.total_internos || 0}</td>
+                    <td className="text-end">{row.total_alumnos || 0}</td>
+                    <td className="text-end">{row.total_cursos || 0}</td>
+                    <td className="text-end text-info fw-bold">{row.total_residentes || 0}</td>
+                    <td className="text-end text-secondary">{row.total_rotaciones || 0}</td>
                     <td className="text-end">
                       <span className="badge bg-secondary">{row.cantidad_informes}</span>
                     </td>
@@ -740,7 +765,7 @@ export default function Reportes() {
   const cargarCatalogosInformes = async () => {
     try {
       const { data: informes } = await supabase
-        .from("informes_semestrales")
+        .from("informes_anuales")
         .select("anio")
         .order("anio", { ascending: false });
       
@@ -768,13 +793,19 @@ export default function Reportes() {
   const cargarReporteInformesConvenios = async () => {
     setInformesLoading(true);
     try {
+      // ✅ Nueva arquitectura: consulta informes_anuales directamente
       let query = supabase
-        .from("informes_semestrales")
+        .from("informes_anuales")
         .select(`
           id,
           convenio_id,
           anio,
-          semestre,
+          num_internos,
+          num_alumnos,
+          num_cursos,
+          num_residentes,
+          num_rotaciones,
+          area_vinculada_id,
           agreements!inner (
             id,
             name,
@@ -785,11 +816,9 @@ export default function Reportes() {
           )
         `);
 
-      if (informesAnioFiltro) query = query.eq("anio", informesAnioFiltro);
-      if (informesSemestreFiltro) query = query.eq("semestre", informesSemestreFiltro);
-      if (informesInstitucionFiltro) {
-        query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
-      }
+      if (informesAnioFiltro)       query = query.eq("anio", informesAnioFiltro);
+      if (informesAreaFiltro)       query = query.eq("area_vinculada_id", informesAreaFiltro);
+      if (informesInstitucionFiltro) query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
 
       const { data: informes, error: informesError } = await query;
       if (informesError) throw informesError;
@@ -797,43 +826,33 @@ export default function Reportes() {
       const reporteMap: Record<string, any> = {};
 
       for (const informe of informes || []) {
-        let queryDetalle = supabase
-          .from("informes_semestrales_detalle")
-          .select("alumnos_internos, alumnos_cursos, total_alumnos, area_vinculada_id")
-          .eq("informe_id", informe.id);
-
-        if (informesAreaFiltro) {
-          queryDetalle = queryDetalle.eq("area_vinculada_id", informesAreaFiltro);
-        }
-
-        const { data: detalles } = await queryDetalle;
-
-        const totalInternos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_internos, 0);
-        const totalCursos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_cursos, 0);
-        const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
-
         const convenioId = informe.convenio_id;
-        const agreement = (informe as any).agreements;
+        const agreement  = (informe as any).agreements;
+
         if (!reporteMap[convenioId]) {
           reporteMap[convenioId] = {
-            convenio_id: convenioId,
-            convenio_nombre: agreement?.name || "Sin nombre",
+            convenio_id:       convenioId,
+            convenio_nombre:   agreement?.name || "Sin nombre",
             institucion_nombre: agreement?.instituciones?.nombre || "Sin institución",
-            total_internos: 0,
-            total_cursos: 0,
-            total_alumnos: 0,
+            total_internos:    0,
+            total_alumnos:     0,
+            total_cursos:      0,
+            total_residentes:  0,
+            total_rotaciones:  0,
             cantidad_informes: 0
           };
         }
 
-        reporteMap[convenioId].total_internos += totalInternos;
-        reporteMap[convenioId].total_cursos += totalCursos;
-        reporteMap[convenioId].total_alumnos += totalAlumnos;
+        reporteMap[convenioId].total_internos   += informe.num_internos   || 0;
+        reporteMap[convenioId].total_alumnos    += informe.num_alumnos    || 0;
+        reporteMap[convenioId].total_cursos     += informe.num_cursos     || 0;
+        reporteMap[convenioId].total_residentes += informe.num_residentes || 0;
+        reporteMap[convenioId].total_rotaciones += informe.num_rotaciones || 0;
         reporteMap[convenioId].cantidad_informes += 1;
       }
 
-      const reporte = Object.values(reporteMap).sort((a: any, b: any) => 
-        b.total_alumnos - a.total_alumnos
+      const reporte = Object.values(reporteMap).sort((a: any, b: any) =>
+        (b.total_internos + b.total_residentes) - (a.total_internos + a.total_residentes)
       );
 
       setReporteInformesConvenios(reporte);
@@ -847,13 +866,19 @@ export default function Reportes() {
   const cargarReporteInformesInstituciones = async () => {
     setInformesLoading(true);
     try {
+      // ✅ Nueva arquitectura: consulta informes_anuales directamente
       let query = supabase
-        .from("informes_semestrales")
+        .from("informes_anuales")
         .select(`
           id,
           convenio_id,
           anio,
-          semestre,
+          num_internos,
+          num_alumnos,
+          num_cursos,
+          num_residentes,
+          num_rotaciones,
+          area_vinculada_id,
           agreements!inner (
             id,
             name,
@@ -865,11 +890,9 @@ export default function Reportes() {
           )
         `);
 
-      if (informesAnioFiltro) query = query.eq("anio", informesAnioFiltro);
-      if (informesSemestreFiltro) query = query.eq("semestre", informesSemestreFiltro);
-      if (informesInstitucionFiltro) {
-        query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
-      }
+      if (informesAnioFiltro)        query = query.eq("anio", informesAnioFiltro);
+      if (informesAreaFiltro)        query = query.eq("area_vinculada_id", informesAreaFiltro);
+      if (informesInstitucionFiltro) query = query.eq("agreements.institucion_id", informesInstitucionFiltro);
 
       const { data: informes, error: informesError } = await query;
       if (informesError) throw informesError;
@@ -877,50 +900,43 @@ export default function Reportes() {
       const reporteMap: Record<string, any> = {};
 
       for (const informe of informes || []) {
-        let queryDetalle = supabase
-          .from("informes_semestrales_detalle")
-          .select("alumnos_internos, alumnos_cursos, total_alumnos, area_vinculada_id")
-          .eq("informe_id", informe.id);
-
-        if (informesAreaFiltro) {
-          queryDetalle = queryDetalle.eq("area_vinculada_id", informesAreaFiltro);
-        }
-
-        const { data: detalles } = await queryDetalle;
-
-        const totalInternos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_internos, 0);
-        const totalCursos = (detalles || []).reduce((sum: number, d: any) => sum + d.alumnos_cursos, 0);
-        const totalAlumnos = (detalles || []).reduce((sum: number, d: any) => sum + d.total_alumnos, 0);
-
-        const agreement = (informe as any).agreements;
+        const agreement       = (informe as any).agreements;
         const institucionNombre = agreement?.instituciones?.nombre || "Sin institución";
-        
+
         if (!reporteMap[institucionNombre]) {
           reporteMap[institucionNombre] = {
             institucion_nombre: institucionNombre,
-            convenios_set: new Set(),
-            total_internos: 0,
-            total_cursos: 0,
-            total_alumnos: 0,
-            cantidad_informes: 0
+            convenios_set:      new Set(),
+            total_internos:     0,
+            total_alumnos:      0,
+            total_cursos:       0,
+            total_residentes:   0,
+            total_rotaciones:   0,
+            cantidad_informes:  0
           };
         }
 
         reporteMap[institucionNombre].convenios_set.add(informe.convenio_id);
-        reporteMap[institucionNombre].total_internos += totalInternos;
-        reporteMap[institucionNombre].total_cursos += totalCursos;
-        reporteMap[institucionNombre].total_alumnos += totalAlumnos;
+        reporteMap[institucionNombre].total_internos   += informe.num_internos   || 0;
+        reporteMap[institucionNombre].total_alumnos    += informe.num_alumnos    || 0;
+        reporteMap[institucionNombre].total_cursos     += informe.num_cursos     || 0;
+        reporteMap[institucionNombre].total_residentes += informe.num_residentes || 0;
+        reporteMap[institucionNombre].total_rotaciones += informe.num_rotaciones || 0;
         reporteMap[institucionNombre].cantidad_informes += 1;
       }
 
       const reporte = Object.values(reporteMap).map((r: any) => ({
         institucion_nombre: r.institucion_nombre,
-        total_convenios: r.convenios_set.size,
-        total_internos: r.total_internos,
-        total_cursos: r.total_cursos,
-        total_alumnos: r.total_alumnos,
-        cantidad_informes: r.cantidad_informes
-      })).sort((a: any, b: any) => b.total_alumnos - a.total_alumnos);
+        total_convenios:    r.convenios_set.size,
+        total_internos:     r.total_internos,
+        total_alumnos:      r.total_alumnos,
+        total_cursos:       r.total_cursos,
+        total_residentes:   r.total_residentes,
+        total_rotaciones:   r.total_rotaciones,
+        cantidad_informes:  r.cantidad_informes
+      })).sort((a: any, b: any) =>
+        (b.total_internos + b.total_residentes) - (a.total_internos + a.total_residentes)
+      );
 
       setReporteInformesInstituciones(reporte);
     } catch (error) {
