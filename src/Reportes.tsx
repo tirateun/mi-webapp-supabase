@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useIsMobile } from "./hooks/useIsMobile";
-import { useIsMobile } from "./hooks/useIsMobile";
 import { supabase } from "./supabaseClient";
 import * as XLSX from 'xlsx';
 import {
