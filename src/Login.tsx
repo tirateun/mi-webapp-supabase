@@ -1,3 +1,4 @@
+// src/Login.tsx — Rediseño moderno split-screen
 import { useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -6,20 +7,18 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pwVisible, setPwVisible] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       setLoading(false);
-      setError("❌ Credenciales incorrectas o usuario no registrado.");
+      setError("Credenciales incorrectas o usuario no registrado.");
       return;
     }
 
@@ -27,13 +26,13 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("must_change_password")
-        .eq("user_id", data.user.id)  // ✅ Buscar por user_id (columna que apunta a auth.users)
+        .eq("user_id", data.user.id)
         .single();
 
       setLoading(false);
 
       if (profileError || !profile) {
-        setError("❌ Error cargando perfil del usuario.");
+        setError("Error al cargar el perfil del usuario.");
         return;
       }
 
@@ -46,332 +45,444 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        width: "100vw",
-        backgroundImage: "url('/Fondo 2022 47111 UNMSM.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif",
-        position: "relative",
-      }}
-    >
-      {/* Overlay oscuro para mejor contraste */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(61, 26, 79, 0.75)",
-          backdropFilter: "blur(3px)",
-        }}
-      />
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-      {/* Card de login */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          backgroundColor: "rgba(255, 255, 255, 0.98)",
-          padding: "3rem 2.5rem",
-          borderRadius: "20px",
-          width: "420px",
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.4)",
-          animation: "fadeInUp 0.6s ease-out",
-        }}
-      >
-        {/* Logo y header */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div
-            style={{
-              width: "120px",
-              height: "120px",
-              margin: "0 auto 1.5rem",
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 8px 20px rgba(91, 44, 111, 0.3)",
-              padding: "10px",
-            }}
-          >
-            <img
-              src="/Escudo SF.jpg"
-              alt="Logo UNMSM"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                borderRadius: "50%",
-              }}
-            />
+        *, *::before, *::after { box-sizing: border-box; }
+
+        .login-root {
+          min-height: 100dvh;
+          display: flex;
+          font-family: 'DM Sans', -apple-system, sans-serif;
+          background: #FAFAFA;
+        }
+
+        /* ── Panel izquierdo ── */
+        .login-brand {
+          width: 42%;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 3rem 3.5rem;
+          overflow: hidden;
+          background:
+            url('/Fondo 2022 47111 UNMSM.png') center/cover no-repeat;
+        }
+        .login-brand::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(160deg,
+            rgba(30, 6, 56, 0.92) 0%,
+            rgba(52, 18, 75, 0.88) 60%,
+            rgba(20, 4, 38, 0.95) 100%);
+        }
+        /* Patrón de puntos decorativo */
+        .login-brand::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle, rgba(212,160,23,0.12) 1px, transparent 1px);
+          background-size: 28px 28px;
+          pointer-events: none;
+        }
+
+        .brand-top, .brand-mid, .brand-bot {
+          position: relative;
+          z-index: 1;
+        }
+
+        .brand-top {
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+        }
+        .brand-crest {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 2px solid rgba(212,160,23,0.6);
+          object-fit: cover;
+          flex-shrink: 0;
+        }
+        .brand-acronym {
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.75rem;
+          font-weight: 500;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.55);
+        }
+
+        .brand-mid { padding: 2rem 0; }
+        .brand-rule {
+          width: 40px;
+          height: 2px;
+          background: #D4A017;
+          margin-bottom: 2rem;
+          border-radius: 1px;
+        }
+        .brand-title {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+          font-weight: 600;
+          color: #FFFFFF;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+          margin: 0 0 1rem 0;
+        }
+        .brand-subtitle {
+          font-size: 0.82rem;
+          font-weight: 400;
+          color: rgba(255,255,255,0.5);
+          line-height: 1.6;
+          margin: 0;
+          max-width: 280px;
+        }
+
+        .brand-bot {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.28);
+          letter-spacing: 0.04em;
+        }
+
+        /* ── Panel derecho ── */
+        .login-form-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem 2rem;
+          background: #FAFAFA;
+          animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(24px); }
+          to   { opacity: 1; transform: translateX(0);    }
+        }
+
+        .form-inner {
+          width: 100%;
+          max-width: 380px;
+        }
+
+        /* Header móvil (solo visible en móvil) */
+        .mobile-header {
+          display: none;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 2.5rem;
+          padding-bottom: 1.5rem;
+          border-bottom: 1px solid #E4E4E7;
+        }
+        .mobile-header img {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: 2px solid #5B2C6F;
+          object-fit: cover;
+        }
+        .mobile-header-text { line-height: 1.2; }
+        .mobile-header-text strong {
+          display: block;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: #2C0A4F;
+        }
+        .mobile-header-text span {
+          font-size: 0.75rem;
+          color: #9CA3AF;
+        }
+
+        /* Form headings */
+        .form-heading {
+          font-family: 'Playfair Display', Georgia, serif;
+          font-size: 2rem;
+          font-weight: 600;
+          color: #0F0A14;
+          margin: 0 0 0.5rem;
+          letter-spacing: -0.02em;
+        }
+        .form-subheading {
+          font-size: 0.875rem;
+          color: #6B7280;
+          margin: 0 0 2.25rem;
+          font-weight: 400;
+        }
+
+        /* Inputs */
+        .field { margin-bottom: 1.25rem; }
+        .field label {
+          display: block;
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #374151;
+          margin-bottom: 0.5rem;
+        }
+        .field-wrap { position: relative; }
+        .field-wrap input {
+          width: 100%;
+          padding: 0.8125rem 1rem;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.9375rem;
+          color: #0F0A14;
+          background: #fff;
+          border: 1.5px solid #E4E4E7;
+          border-radius: 10px;
+          outline: none;
+          transition: border-color 0.18s, box-shadow 0.18s;
+          -webkit-appearance: none;
+        }
+        .field-wrap input:focus {
+          border-color: #5B2C6F;
+          box-shadow: 0 0 0 3px rgba(91,44,111,0.1);
+        }
+        .field-wrap input::placeholder { color: #C4B5C9; }
+
+        /* Toggle password */
+        .pw-toggle {
+          position: absolute;
+          right: 0.875rem;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #9CA3AF;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          font-size: 1rem;
+          transition: color 0.15s;
+        }
+        .pw-toggle:hover { color: #5B2C6F; }
+
+        /* Error */
+        .form-error {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: #FFF5F5;
+          border: 1.5px solid #FECACA;
+          border-radius: 8px;
+          padding: 0.7rem 0.875rem;
+          font-size: 0.85rem;
+          color: #B91C1C;
+          margin-bottom: 1.25rem;
+          animation: shake 0.3s ease;
+        }
+        @keyframes shake {
+          0%,100% { transform: translateX(0);  }
+          25%      { transform: translateX(-4px); }
+          75%      { transform: translateX(4px);  }
+        }
+
+        /* Submit */
+        .btn-submit {
+          width: 100%;
+          padding: 0.9rem 1rem;
+          background: #3D1A4F;
+          color: #fff;
+          border: none;
+          border-radius: 10px;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.95rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 12px rgba(61,26,79,0.2);
+          margin-top: 0.5rem;
+        }
+        .btn-submit:hover:not(:disabled) {
+          background: #4e2263;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 4px rgba(0,0,0,0.12), 0 8px 20px rgba(61,26,79,0.28);
+        }
+        .btn-submit:active:not(:disabled) {
+          transform: translateY(0);
+        }
+        .btn-submit:disabled {
+          background: #9CA3AF;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+
+        /* Spinner */
+        .spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,0.35);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Form footer */
+        .form-footer {
+          margin-top: 2rem;
+          padding-top: 1.5rem;
+          border-top: 1px solid #E4E4E7;
+          text-align: center;
+        }
+        .form-footer p {
+          font-size: 0.75rem;
+          color: #9CA3AF;
+          margin: 0;
+          line-height: 1.6;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 767px) {
+          .login-brand   { display: none; }
+          .login-form-panel {
+            padding: 2rem 1.25rem;
+            justify-content: flex-start;
+            padding-top: 3rem;
+          }
+          .mobile-header { display: flex; }
+          .form-heading  { font-size: 1.625rem; }
+          .form-inner    { max-width: 100%; }
+        }
+
+        @media (max-width: 380px) {
+          .login-form-panel { padding: 1.5rem 1rem; }
+        }
+      `}</style>
+
+      <div className="login-root">
+
+        {/* ── Panel izquierdo: identidad institucional ── */}
+        <aside className="login-brand">
+          <div className="brand-top">
+            <img src="/Escudo SF.jpg" alt="Escudo FMSF" className="brand-crest" />
+            <span className="brand-acronym">FM San Fernando · UNMSM</span>
           </div>
 
-          <h2
-            style={{
-              color: "#3D1A4F",
-              marginBottom: "0.5rem",
-              fontSize: "1.75rem",
-              fontWeight: 700,
-              letterSpacing: "0.5px",
-            }}
-          >
-            Iniciar sesión
-          </h2>
-          <p
-            style={{
-              fontSize: "0.9rem",
-              color: "#6C757D",
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Gestión de Convenios
-          </p>
-          <p
-            style={{
-              fontSize: "0.85rem",
-              color: "#ADB5BD",
-              marginTop: "0.25rem",
-            }}
-          >
-            Facultad de Medicina San Fernando
-          </p>
-        </div>
-
-        {/* Formulario */}
-        <form onSubmit={handleLogin}>
-          {/* Email */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label
-              htmlFor="email"
-              style={{
-                display: "block",
-                fontWeight: 600,
-                fontSize: "0.9rem",
-                marginBottom: "0.5rem",
-                color: "#3D1A4F",
-              }}
-            >
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="usuario@unmsm.edu.pe"
-              required
-              style={{
-                width: "100%",
-                padding: "0.875rem 1rem",
-                borderRadius: "10px",
-                border: "2px solid #E9ECEF",
-                outline: "none",
-                fontSize: "0.95rem",
-                transition: "all 0.3s ease",
-                backgroundColor: "#F8F9FA",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#5B2C6F";
-                e.currentTarget.style.backgroundColor = "#FFFFFF";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(91, 44, 111, 0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#E9ECEF";
-                e.currentTarget.style.backgroundColor = "#F8F9FA";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            />
+          <div className="brand-mid">
+            <div className="brand-rule" />
+            <h1 className="brand-title">
+              Sistema de Gestión<br />de Convenios
+            </h1>
+            <p className="brand-subtitle">
+              Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
+            </p>
           </div>
 
-          {/* Password */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label
-              htmlFor="password"
-              style={{
-                display: "block",
-                fontWeight: 600,
-                fontSize: "0.9rem",
-                marginBottom: "0.5rem",
-                color: "#3D1A4F",
-              }}
-            >
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              style={{
-                width: "100%",
-                padding: "0.875rem 1rem",
-                borderRadius: "10px",
-                border: "2px solid #E9ECEF",
-                outline: "none",
-                fontSize: "0.95rem",
-                transition: "all 0.3s ease",
-                backgroundColor: "#F8F9FA",
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = "#5B2C6F";
-                e.currentTarget.style.backgroundColor = "#FFFFFF";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(91, 44, 111, 0.1)";
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = "#E9ECEF";
-                e.currentTarget.style.backgroundColor = "#F8F9FA";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            />
+          <div className="brand-bot">
+            © {new Date().getFullYear()} UNMSM · Todos los derechos reservados
           </div>
+        </aside>
 
-          {/* Error message */}
-          {error && (
-            <div
-              style={{
-                backgroundColor: "#f8d7da",
-                color: "#721c24",
-                padding: "0.75rem 1rem",
-                borderRadius: "8px",
-                fontSize: "0.9rem",
-                marginBottom: "1.5rem",
-                border: "1px solid #f5c6cb",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <span>⚠️</span>
-              <span>{error}</span>
+        {/* ── Panel derecho: formulario ── */}
+        <main className="login-form-panel">
+          <div className="form-inner">
+
+            {/* Logo compacto — solo móvil */}
+            <div className="mobile-header">
+              <img src="/Escudo SF.jpg" alt="Logo" />
+              <div className="mobile-header-text">
+                <strong>Sistema de Convenios</strong>
+                <span>FM San Fernando · UNMSM</span>
+              </div>
             </div>
-          )}
 
-          {/* Botón de login */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "1rem",
-              background: loading 
-                ? "#ADB5BD" 
-                : "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "10px",
-              fontWeight: 600,
-              fontSize: "1rem",
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "all 0.3s ease",
-              boxShadow: loading ? "none" : "0 4px 15px rgba(91, 44, 111, 0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.5rem",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(91, 44, 111, 0.4)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 4px 15px rgba(91, 44, 111, 0.3)";
-              }
-            }}
-          >
-            {loading ? (
-              <>
-                <span
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    border: "2px solid #ffffff",
-                    borderTopColor: "transparent",
-                    borderRadius: "50%",
-                    display: "inline-block",
-                    animation: "spin 0.8s linear infinite",
-                  }}
-                />
-                Ingresando...
-              </>
-            ) : (
-              <>
-                <i className="bi bi-box-arrow-in-right"></i>
-                Ingresar
-              </>
-            )}
-          </button>
-        </form>
+            <h2 className="form-heading">Bienvenido</h2>
+            <p className="form-subheading">Ingresa tus credenciales para continuar</p>
 
-        {/* Footer */}
-        <div
-          style={{
-            marginTop: "2rem",
-            paddingTop: "1.5rem",
-            borderTop: "1px solid #E9ECEF",
-            textAlign: "center",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "0.8rem",
-              color: "#6C757D",
-              margin: 0,
-            }}
-          >
-            © 2025 UNMSM - Facultad de Medicina San Fernando
-          </p>
-          <p
-            style={{
-              fontSize: "0.75rem",
-              color: "#ADB5BD",
-              margin: "0.25rem 0 0 0",
-            }}
-          >
-            Sistema de Gestión de Convenios - Unidad de Cooperación, Relaciones Interinstitucionales y Gestión de Proyectos
-          </p>
-        </div>
+            <form onSubmit={handleLogin} noValidate>
+
+              {/* Email */}
+              <div className="field">
+                <label htmlFor="email">Correo electrónico</label>
+                <div className="field-wrap">
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="usuario@unmsm.edu.pe"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Contraseña */}
+              <div className="field">
+                <label htmlFor="password">Contraseña</label>
+                <div className="field-wrap">
+                  <input
+                    id="password"
+                    type={pwVisible ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    style={{ paddingRight: "2.75rem" }}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="pw-toggle"
+                    onClick={() => setPwVisible(v => !v)}
+                    aria-label={pwVisible ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    {pwVisible ? "🙈" : "👁"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="form-error">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+                  </svg>
+                  {error}
+                </div>
+              )}
+
+              {/* Botón */}
+              <button type="submit" className="btn-submit" disabled={loading}>
+                {loading ? (
+                  <><div className="spinner" />Verificando...</>
+                ) : (
+                  <>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                    </svg>
+                    Ingresar
+                  </>
+                )}
+              </button>
+
+            </form>
+
+            {/* Footer */}
+            <div className="form-footer">
+              <p>
+                © {new Date().getFullYear()} Universidad Nacional Mayor de San Marcos<br />
+                Facultad de Medicina San Fernando
+              </p>
+            </div>
+
+          </div>
+        </main>
+
       </div>
-
-      {/* CSS para animaciones */}
-      <style>
-        {`
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}
-      </style>
-    </div>
+    </>
   );
 }
