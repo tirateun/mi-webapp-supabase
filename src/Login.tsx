@@ -52,15 +52,19 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         *, *::before, *::after { box-sizing: border-box; }
 
         .login-root {
-          min-height: 100dvh;
+          height: 100dvh;
+          width: 100vw;
+          max-width: 100%;
           display: flex;
           font-family: 'DM Sans', -apple-system, sans-serif;
-          background: #FAFAFA;
+          overflow: hidden;
         }
 
         /* ── Panel izquierdo ── */
         .login-brand {
           width: 42%;
+          min-width: 260px;
+          flex-shrink: 0;
           position: relative;
           display: flex;
           flex-direction: column;
@@ -151,12 +155,14 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         /* ── Panel derecho ── */
         .login-form-panel {
           flex: 1;
+          min-width: 0;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           padding: 3rem 2rem;
           background: #FAFAFA;
+          overflow-y: auto;
           animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
