@@ -55,15 +55,15 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
 
         /* ── Scene ─────────────────────────────────────────── */
         .ls {
-          min-height: 100dvh;
-          width: 100%;
+          position: fixed;
+          inset: 0;
           background: #070010;
           display: flex;
           align-items: center;
           justify-content: center;
-          position: relative;
-          overflow: hidden;
           font-family: 'Outfit', system-ui, sans-serif;
+          overflow: hidden;
+          z-index: 9999;
         }
 
         /* ── Blurred orbs ──────────────────────────────────── */
