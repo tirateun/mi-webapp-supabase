@@ -226,8 +226,64 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         .ls{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
           background:#1C0040;font-family:'Outfit',system-ui,sans-serif;overflow:hidden;z-index:9999}
 
+        /* ── Fachada de la Facultad ─────────────────────────── */
+        .building {
+          position: absolute;
+          left: 0; top: 0; bottom: 0;
+          width: 42%;
+          background: url('/facultad.png') center/cover no-repeat;
+          z-index: 1;
+        }
+        /* Overlay morado que se funde hacia el centro */
+        .building::before {
+          content: '';
+          position: absolute; inset: 0;
+          background: linear-gradient(
+            105deg,
+            rgba(28,0,64,0.42) 0%,
+            rgba(28,0,64,0.60) 45%,
+            rgba(28,0,64,0.92) 78%,
+            rgba(28,0,64,1.00) 100%
+          );
+        }
+        /* Viñeta oscura en bordes superior e inferior */
+        .building::after {
+          content: '';
+          position: absolute; inset: 0;
+          background:
+            linear-gradient(to bottom, rgba(28,0,64,0.7) 0%, transparent 20%, transparent 75%, rgba(28,0,64,0.8) 100%);
+          pointer-events: none;
+        }
+
+        /* Leyenda institucional sobre la fachada */
+        .building-caption {
+          position: absolute;
+          bottom: 2.5rem; left: 2rem;
+          z-index: 2;
+          pointer-events: none;
+        }
+        .building-caption .bc-year {
+          font-family: 'Outfit', sans-serif;
+          font-size: 0.62rem; font-weight: 600;
+          letter-spacing: 0.18em; text-transform: uppercase;
+          color: rgba(212,160,23,0.6);
+          margin-bottom: 0.4rem;
+          display: block;
+        }
+        .building-caption .bc-name {
+          font-family: 'Cormorant Garamond', Georgia, serif;
+          font-size: 1.1rem; font-weight: 600;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.3; display: block;
+        }
+        .building-caption .bc-rule {
+          display: block; width: 32px; height: 1.5px;
+          background: rgba(212,160,23,0.45);
+          margin-top: 0.6rem; border-radius: 1px;
+        }
+
         /* ── Orbs más vívidos ── */
-        .orb{position:absolute;border-radius:50%;pointer-events:none;will-change:transform}
+        .orb{position:absolute;border-radius:50%;pointer-events:none;will-change:transform;z-index:2}
         .orb-1{width:900px;height:900px;top:-250px;right:-200px;
           background:radial-gradient(circle at 40% 40%,rgba(140,60,255,0.65),rgba(100,30,220,0.2) 50%,transparent 70%);
           filter:blur(55px);animation:d1 14s ease-in-out infinite}
@@ -250,7 +306,7 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         @keyframes ecg-s{from{stroke-dashoffset:700}to{stroke-dashoffset:-700}}
 
         /* ── Decoraciones posicionadas ── */
-        .abs{position:absolute;pointer-events:none}
+        .abs{position:absolute;pointer-events:none;z-index:3}
         
         /* DNA */
         .dna-el{animation:dna-f 8s ease-in-out infinite}
@@ -337,8 +393,9 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         .pt{position:absolute;width:2px;height:2px;border-radius:50%;background:rgba(212,160,23,0.7);animation:pt-r linear infinite;bottom:-5%}
         @keyframes pt-r{0%{transform:translateY(0) scale(1);opacity:0}10%{opacity:1}90%{opacity:.3}100%{transform:translateY(-105vh) scale(.4);opacity:0}}
 
-        @media(max-width:900px){.dna-el:nth-child(n+7){display:none}.atom-el:nth-child(n+6){display:none}}
+        @media(max-width:900px){.dna-el:nth-child(n+7){display:none}.atom-el:nth-child(n+6){display:none}.building-caption{display:none}}
         @media(max-width:767px){
+          .building{width:100%;opacity:.25}
           .ghost-top{display:none}.card{padding:2.25rem 1.5rem 1.75rem;border-radius:18px}
           .card-h{font-size:2rem}.center{padding:0 1rem}
           .crest-img{width:64px;height:64px}.crest-wrap{margin-bottom:-22px}
@@ -348,6 +405,14 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
       `}</style>
 
       <div className="ls">
+        {/* ── Fachada de la Facultad (panel izquierdo) ── */}
+        <div className="building" aria-hidden="true" />
+        <div className="building-caption" aria-hidden="true">
+          <span className="bc-year">Est. 1811 · Lima, Perú</span>
+          <span className="bc-name">Facultad de Medicina<br/>San Fernando</span>
+          <span className="bc-rule" />
+        </div>
+
         {/* Orbs */}
         {["orb-1","orb-2","orb-3","orb-4","orb-5"].map(c=><div key={c} className={`orb ${c}`} aria-hidden="true"/>)}
 
