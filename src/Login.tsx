@@ -135,86 +135,55 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
     if (cardRef.current) cardRef.current.style.transform = "perspective(1400px) rotateY(0) rotateX(0) translateZ(0)";
   }, []);
 
-  /* ── Datos de decoraciones ── */
+  /* ── Datos de decoraciones — SOLO LADO DERECHO ── */
+  // La fachada ocupa el lado izquierdo; los adornos van solo a la derecha y centro
   const dnaItems = [
-    // Izquierda
-    { s: { left:"1%",  top:"2%"  }, h:200, flip:false, delay:0   },
-    { s: { left:"9%",  top:"18%" }, h:250, flip:true,  delay:-2  },
-    { s: { left:"1%",  top:"40%" }, h:220, flip:false, delay:-4  },
-    { s: { left:"10%", top:"57%" }, h:200, flip:true,  delay:-6  },
-    { s: { left:"2%",  top:"74%" }, h:190, flip:false, delay:-8  },
-    { s: { left:"11%", top:"82%" }, h:160, flip:true,  delay:-10 },
-    // Derecha
-    { s: { right:"1%", top:"5%"  }, h:210, flip:true,  delay:-1  },
-    { s: { right:"9%", top:"22%" }, h:240, flip:false, delay:-3  },
-    { s: { right:"1%", top:"43%" }, h:220, flip:true,  delay:-5  },
-    { s: { right:"10%",top:"60%" }, h:195, flip:false, delay:-7  },
-    { s: { right:"2%", top:"77%" }, h:185, flip:true,  delay:-9  },
-    { s: { right:"11%",top:"88%" }, h:150, flip:false, delay:-11 },
+    { s: { right:"1%",  top:"4%"  }, h:200, flip:true,  delay:-1  },
+    { s: { right:"9%",  top:"18%" }, h:250, flip:false, delay:-3  },
+    { s: { right:"1%",  top:"38%" }, h:230, flip:true,  delay:-5  },
+    { s: { right:"10%", top:"56%" }, h:200, flip:false, delay:-7  },
+    { s: { right:"2%",  top:"73%" }, h:190, flip:true,  delay:-9  },
+    { s: { right:"11%", top:"85%" }, h:160, flip:false, delay:-11 },
   ];
 
   const crossItems = [
-    // Izquierda
-    { s:{ left:"3%",  top:"4%"  }, size:44, alpha:0.22, delay:0   },
-    { s:{ left:"16%", top:"13%" }, size:28, alpha:0.16, delay:-1  },
-    { s:{ left:"5%",  top:"27%" }, size:36, alpha:0.20, delay:-2  },
-    { s:{ left:"19%", top:"35%" }, size:22, alpha:0.14, delay:-3  },
-    { s:{ left:"7%",  top:"50%" }, size:32, alpha:0.18, delay:-4  },
-    { s:{ left:"18%", top:"62%" }, size:20, alpha:0.13, delay:-5  },
-    { s:{ left:"4%",  top:"68%" }, size:38, alpha:0.21, delay:-6  },
-    { s:{ left:"15%", top:"78%" }, size:26, alpha:0.15, delay:-7  },
-    { s:{ left:"6%",  top:"88%" }, size:30, alpha:0.17, delay:-8  },
-    { s:{ left:"20%", top:"93%" }, size:18, alpha:0.12, delay:-9  },
-    { s:{ left:"12%", top:"3%"  }, size:16, alpha:0.11, delay:-10 },
-    { s:{ left:"22%", top:"48%" }, size:24, alpha:0.15, delay:-11 },
-    // Derecha
-    { s:{ right:"3%",  top:"8%"  }, size:40, alpha:0.22, delay:-0.5 },
-    { s:{ right:"16%", top:"17%" }, size:26, alpha:0.16, delay:-1.5 },
-    { s:{ right:"5%",  top:"30%" }, size:34, alpha:0.19, delay:-2.5 },
-    { s:{ right:"19%", top:"42%" }, size:20, alpha:0.14, delay:-3.5 },
-    { s:{ right:"7%",  top:"55%" }, size:30, alpha:0.18, delay:-4.5 },
-    { s:{ right:"18%", top:"67%" }, size:22, alpha:0.13, delay:-5.5 },
-    { s:{ right:"4%",  top:"72%" }, size:36, alpha:0.20, delay:-6.5 },
-    { s:{ right:"15%", top:"82%" }, size:24, alpha:0.15, delay:-7.5 },
-    { s:{ right:"6%",  top:"91%" }, size:28, alpha:0.17, delay:-8.5 },
-    { s:{ right:"20%", top:"96%" }, size:16, alpha:0.12, delay:-9.5 },
-    { s:{ right:"12%", top:"6%"  }, size:18, alpha:0.11, delay:-10.5},
-    { s:{ right:"22%", top:"52%" }, size:22, alpha:0.15, delay:-11.5},
+    { s:{ right:"3%",  top:"6%"  }, size:44, alpha:0.22, delay:-0.5 },
+    { s:{ right:"15%", top:"14%" }, size:30, alpha:0.18, delay:-1.5 },
+    { s:{ right:"5%",  top:"26%" }, size:36, alpha:0.20, delay:-2.5 },
+    { s:{ right:"18%", top:"38%" }, size:22, alpha:0.15, delay:-3.5 },
+    { s:{ right:"7%",  top:"50%" }, size:32, alpha:0.18, delay:-4.5 },
+    { s:{ right:"17%", top:"62%" }, size:24, alpha:0.14, delay:-5.5 },
+    { s:{ right:"4%",  top:"70%" }, size:38, alpha:0.21, delay:-6.5 },
+    { s:{ right:"14%", top:"80%" }, size:26, alpha:0.16, delay:-7.5 },
+    { s:{ right:"6%",  top:"88%" }, size:30, alpha:0.17, delay:-8.5 },
+    { s:{ right:"19%", top:"93%" }, size:18, alpha:0.13, delay:-9.5 },
+    { s:{ right:"12%", top:"4%"  }, size:20, alpha:0.12, delay:-10.5 },
+    { s:{ right:"21%", top:"48%" }, size:24, alpha:0.15, delay:-11.5 },
   ];
 
   const atomItems = [
-    { s:{ left:"5%",   top:"10%" }, size:80, alpha:1,   delay:0   },
-    { s:{ left:"17%",  top:"30%" }, size:55, alpha:0.8, delay:-8  },
-    { s:{ left:"5%",   top:"55%" }, size:68, alpha:0.9, delay:-16 },
-    { s:{ left:"18%",  top:"72%" }, size:50, alpha:0.7, delay:-24 },
-    { s:{ left:"8%",   top:"88%" }, size:60, alpha:0.85,delay:-32 },
-    { s:{ right:"5%",  top:"15%" }, size:75, alpha:1,   delay:-4  },
-    { s:{ right:"17%", top:"38%" }, size:52, alpha:0.8, delay:-12 },
-    { s:{ right:"5%",  top:"60%" }, size:65, alpha:0.9, delay:-20 },
-    { s:{ right:"18%", top:"78%" }, size:48, alpha:0.7, delay:-28 },
-    { s:{ right:"8%",  top:"92%" }, size:58, alpha:0.85,delay:-36 },
+    { s:{ right:"5%",  top:"10%" }, size:80, alpha:1,   delay:-4  },
+    { s:{ right:"17%", top:"30%" }, size:55, alpha:0.8, delay:-12 },
+    { s:{ right:"5%",  top:"55%" }, size:68, alpha:0.9, delay:-20 },
+    { s:{ right:"17%", top:"72%" }, size:52, alpha:0.7, delay:-28 },
+    { s:{ right:"7%",  top:"88%" }, size:60, alpha:0.85,delay:-36 },
   ];
 
   const pillItems = [
-    // Izquierda
-    { s:{ left:"14%", top:"7%"  }, w:42, h:16, rot:30,  alpha:0.18 },
-    { s:{ left:"3%",  top:"21%" }, w:36, h:14, rot:-15, alpha:0.15 },
-    { s:{ left:"20%", top:"45%" }, w:48, h:17, rot:45,  alpha:0.16 },
-    { s:{ left:"10%", top:"63%" }, w:38, h:15, rot:-30, alpha:0.14 },
-    { s:{ left:"21%", top:"83%" }, w:44, h:16, rot:20,  alpha:0.17 },
-    { s:{ left:"3%",  top:"93%" }, w:32, h:13, rot:60,  alpha:0.13 },
-    // Derecha
-    { s:{ right:"14%",top:"10%" }, w:40, h:15, rot:-35, alpha:0.18 },
-    { s:{ right:"3%", top:"24%" }, w:46, h:17, rot:25,  alpha:0.15 },
-    { s:{ right:"20%",top:"48%" }, w:36, h:14, rot:-50, alpha:0.16 },
-    { s:{ right:"10%",top:"66%" }, w:42, h:16, rot:40,  alpha:0.14 },
-    { s:{ right:"21%",top:"86%" }, w:38, h:15, rot:-20, alpha:0.17 },
-    { s:{ right:"3%", top:"95%" }, w:34, h:13, rot:55,  alpha:0.13 },
+    { s:{ right:"14%",top:"8%"  }, w:42, h:16, rot:-35, alpha:0.18 },
+    { s:{ right:"4%", top:"22%" }, w:46, h:17, rot:25,  alpha:0.15 },
+    { s:{ right:"19%",top:"44%" }, w:36, h:14, rot:-50, alpha:0.16 },
+    { s:{ right:"9%", top:"62%" }, w:44, h:16, rot:40,  alpha:0.14 },
+    { s:{ right:"20%",top:"80%" }, w:38, h:15, rot:-20, alpha:0.17 },
+    { s:{ right:"4%", top:"93%" }, w:34, h:13, rot:55,  alpha:0.13 },
   ];
 
   const nodeItems = [
-    ...Array.from({length:16}, (_,i) => ({ s:{ left:`${[3,8,15,20,5,12,18,22,4,10,16,21,7,13,19,23][i]}%`, top:`${(i*6+4)%98}%` }, size: [6,8,10,7,9,6,11,8,7,10,6,9,8,7,10,6][i] })),
-    ...Array.from({length:16}, (_,i) => ({ s:{ right:`${[3,8,15,20,5,12,18,22,4,10,16,21,7,13,19,23][i]}%`, top:`${(i*6+7)%98}%` }, size: [7,9,6,10,8,7,11,6,9,8,7,10,6,9,8,7][i] })),
+    ...Array.from({length:18}, (_,i) => ({
+      s:{ right:`${[3,8,14,19,5,11,17,22,4,9,15,20,6,12,18,23,7,13][i]}%`,
+          top:`${(i * 5.5 + 3) % 97}%` },
+      size: [7,9,6,10,8,7,11,6,9,8,7,10,6,9,8,7,10,6][i]
+    })),
   ];
 
   return (
@@ -230,28 +199,28 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         .building {
           position: absolute;
           left: 0; top: 0; bottom: 0;
-          width: 42%;
+          width: 45%;
           background: url('/facultad.png') center/cover no-repeat;
           z-index: 1;
         }
-        /* Overlay morado que se funde hacia el centro */
+        /* Overlay morado más sutil para que la imagen se vea bien */
         .building::before {
           content: '';
           position: absolute; inset: 0;
           background: linear-gradient(
             105deg,
-            rgba(28,0,64,0.42) 0%,
-            rgba(28,0,64,0.60) 45%,
-            rgba(28,0,64,0.92) 78%,
+            rgba(28,0,64,0.30) 0%,
+            rgba(28,0,64,0.45) 50%,
+            rgba(28,0,64,0.90) 82%,
             rgba(28,0,64,1.00) 100%
           );
         }
-        /* Viñeta oscura en bordes superior e inferior */
+        /* Viñeta oscura solo en bordes superior e inferior */
         .building::after {
           content: '';
           position: absolute; inset: 0;
           background:
-            linear-gradient(to bottom, rgba(28,0,64,0.7) 0%, transparent 20%, transparent 75%, rgba(28,0,64,0.8) 100%);
+            linear-gradient(to bottom, rgba(28,0,64,0.55) 0%, transparent 15%, transparent 80%, rgba(28,0,64,0.65) 100%);
           pointer-events: none;
         }
 
@@ -416,10 +385,10 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         {/* Orbs */}
         {["orb-1","orb-2","orb-3","orb-4","orb-5"].map(c=><div key={c} className={`orb ${c}`} aria-hidden="true"/>)}
 
-        {/* ECG lines — múltiples alturas */}
-        <ECG bottom="18%" opacity={0.38} delay={0}/>
-        <ECG bottom="42%" opacity={0.18} delay={-2}/>
-        <ECG bottom="65%" opacity={0.10} delay={-4} flip/>
+        {/* ECG lines — arrancan desde el centro hacia la derecha */}
+        <ECG bottom="18%" opacity={0.35} delay={0}/>
+        <ECG bottom="42%" opacity={0.16} delay={-2}/>
+        <ECG bottom="65%" opacity={0.09} delay={-4} flip/>
 
         {/* DNA helices — 12 instancias */}
         {dnaItems.map((d, i) => (
