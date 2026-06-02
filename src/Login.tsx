@@ -88,6 +88,98 @@ function ECG({ bottom, opacity, delay = 0, flip = false }:
   );
 }
 
+/* ── Microscopio ───────────────────────────────────────── */
+function Microscope({ size = 48, alpha = 0.22 }: { size?: number; alpha?: number }) {
+  const s = `rgba(212,160,23,${alpha})`;
+  return (
+    <svg width={size} height={Math.round(size * 1.25)} viewBox="0 0 48 60" fill="none">
+      {/* Base */}
+      <rect x="5" y="53" width="38" height="5" rx="2.5" stroke={s} strokeWidth="1.5"/>
+      {/* Columna vertical */}
+      <rect x="20" y="17" width="8" height="36" rx="4" stroke={s} strokeWidth="1.5"/>
+      {/* Brazo horizontal */}
+      <path d="M20,21 L8,21 L8,15" stroke={s} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* Tubo ocular (inclinado) */}
+      <line x1="8" y1="15" x2="20" y2="3" stroke={s} strokeWidth="2" strokeLinecap="round"/>
+      {/* Ocular */}
+      <rect x="16" y="0" width="14" height="6" rx="3" stroke={s} strokeWidth="1.5"/>
+      {/* Platina */}
+      <rect x="7" y="34" width="34" height="4" rx="2" stroke={s} strokeWidth="1.5"/>
+      {/* Clips de la platina */}
+      <path d="M17,34 L17,30 M31,34 L31,30" stroke={s} strokeWidth="1.2" strokeLinecap="round"/>
+      {/* Objetivo (lente inferior) */}
+      <line x1="24" y1="53" x2="24" y2="44" stroke={s} strokeWidth="1.5" strokeLinecap="round"/>
+      <ellipse cx="24" cy="42" rx="5" ry="3" stroke={s} strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+/* ── Estetoscopio ──────────────────────────────────────── */
+function Stethoscope({ size = 52, alpha = 0.22 }: { size?: number; alpha?: number }) {
+  const s = `rgba(212,160,23,${alpha})`;
+  return (
+    <svg width={size} height={Math.round(size * 1.1)} viewBox="0 0 52 57" fill="none">
+      {/* Auriculares */}
+      <circle cx="12" cy="6" r="4" stroke={s} strokeWidth="1.5"/>
+      <circle cx="40" cy="6" r="4" stroke={s} strokeWidth="1.5"/>
+      {/* Tubo en Y */}
+      <path d="M12,10 Q12,26 26,26 Q40,26 40,10" stroke={s} strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Tubo descendente con curva */}
+      <path d="M26,26 Q25,40 20,46 Q15,52 26,53" stroke={s} strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Diafragma (membrana) */}
+      <circle cx="26" cy="52" r="5" stroke={s} strokeWidth="1.5"/>
+      <circle cx="26" cy="52" r="2.5" stroke={s} strokeWidth="1" strokeDasharray="2 2"/>
+    </svg>
+  );
+}
+
+/* ── Pipeta ────────────────────────────────────────────── */
+function Pipette({ size = 18, alpha = 0.22 }: { size?: number; alpha?: number }) {
+  const s = `rgba(212,160,23,${alpha})`;
+  return (
+    <svg width={size} height={Math.round(size * 3.2)} viewBox="0 0 18 58" fill="none">
+      {/* Bulbo superior */}
+      <ellipse cx="9" cy="10" rx="7.5" ry="8.5" stroke={s} strokeWidth="1.5"/>
+      {/* Cuello estrecho */}
+      <path d="M6,18 L6,26 M12,18 L12,26" stroke={s} strokeWidth="1.3" strokeLinecap="round"/>
+      {/* Cuerpo graduado */}
+      <rect x="6" y="26" width="6" height="24" rx="3" stroke={s} strokeWidth="1.5"/>
+      {/* Marcas de graduación */}
+      <line x1="7" y1="32" x2="9" y2="32" stroke={s} strokeWidth="1"/>
+      <line x1="7" y1="38" x2="9" y2="38" stroke={s} strokeWidth="1"/>
+      <line x1="7" y1="44" x2="9" y2="44" stroke={s} strokeWidth="1"/>
+      {/* Punta */}
+      <path d="M7,50 Q9,58 11,50" stroke={s} strokeWidth="1.3" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+/* ── Jeringa ───────────────────────────────────────────── */
+function Syringe({ size = 58, alpha = 0.22, rot = 0 }: { size?: number; alpha?: number; rot?: number }) {
+  const s = `rgba(212,160,23,${alpha})`;
+  return (
+    <svg width={size} height={Math.round(size * 0.32)} viewBox="0 0 58 18"
+      fill="none" style={{ transform: `rotate(${rot}deg)` }}>
+      {/* Mango del émbolo */}
+      <path d="M2,4 L2,14 M2,9 L7,9" stroke={s} strokeWidth="1.5" strokeLinecap="round"/>
+      {/* Varilla del émbolo */}
+      <line x1="7" y1="9" x2="15" y2="9" stroke={s} strokeWidth="1.4" strokeLinecap="round"/>
+      {/* Barril */}
+      <rect x="15" y="5" width="33" height="8" rx="4" stroke={s} strokeWidth="1.5"/>
+      {/* Marcas de escala */}
+      <line x1="23" y1="5" x2="23" y2="3" stroke={s} strokeWidth="1"/>
+      <line x1="31" y1="5" x2="31" y2="3" stroke={s} strokeWidth="1"/>
+      <line x1="39" y1="5" x2="39" y2="3" stroke={s} strokeWidth="1"/>
+      {/* Aletas del barril */}
+      <path d="M15,5 L15,2 M15,14 L15,16 M48,5 L48,2 M48,14 L48,16" stroke={s} strokeWidth="1.2" strokeLinecap="round"/>
+      {/* Cubo de la aguja */}
+      <path d="M48,7 L53,7 L53,11 L48,11" stroke={s} strokeWidth="1.3" strokeLinejoin="round"/>
+      {/* Aguja */}
+      <line x1="53" y1="9" x2="58" y2="9" stroke={s} strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 /* ── Nodo molecular (círculo + líneas) ─────────────────── */
 function MolNode({ size = 8, alpha = 0.35 }: { size?: number; alpha?: number }) {
   return (
@@ -184,6 +276,29 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
           top:`${(i * 5.5 + 3) % 97}%` },
       size: [7,9,6,10,8,7,11,6,9,8,7,10,6,9,8,7,10,6][i]
     })),
+  ];
+
+  // ── Instrumentos médicos (derecha) ──
+  const toolItems = [
+    // Microscopios
+    { type:"scope", s:{ right:"22%", top:"5%"  }, size:46, alpha:0.24, delay:0   },
+    { type:"scope", s:{ right:"4%",  top:"32%" }, size:38, alpha:0.18, delay:-6  },
+    { type:"scope", s:{ right:"20%", top:"70%" }, size:42, alpha:0.20, delay:-12 },
+    { type:"scope", s:{ right:"6%",  top:"88%" }, size:34, alpha:0.16, delay:-18 },
+    // Estetoscopios
+    { type:"steth", s:{ right:"18%", top:"18%" }, size:50, alpha:0.22, delay:-3  },
+    { type:"steth", s:{ right:"3%",  top:"52%" }, size:44, alpha:0.18, delay:-9  },
+    { type:"steth", s:{ right:"21%", top:"83%" }, size:40, alpha:0.16, delay:-15 },
+    // Pipetas
+    { type:"pip", s:{ right:"13%", top:"8%"  }, size:16, alpha:0.22, delay:-2  },
+    { type:"pip", s:{ right:"8%",  top:"40%" }, size:18, alpha:0.20, delay:-8  },
+    { type:"pip", s:{ right:"15%", top:"60%" }, size:14, alpha:0.18, delay:-14 },
+    { type:"pip", s:{ right:"5%",  top:"75%" }, size:16, alpha:0.16, delay:-20 },
+    // Jeringas (rotadas)
+    { type:"syr", s:{ right:"16%", top:"27%" }, size:55, alpha:0.20, rot:-35, delay:-4  },
+    { type:"syr", s:{ right:"4%",  top:"62%" }, size:48, alpha:0.17, rot:25,  delay:-10 },
+    { type:"syr", s:{ right:"19%", top:"90%" }, size:52, alpha:0.18, rot:-50, delay:-16 },
+    { type:"syr", s:{ right:"9%",  top:"14%" }, size:44, alpha:0.15, rot:40,  delay:-22 },
   ];
 
   return (
@@ -441,6 +556,17 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
             }}/>
           ))}
         </div>
+
+        {/* Instrumentos médicos — microscopio, estetoscopio, pipeta, jeringa */}
+        {toolItems.map((t, i) => (
+          <div key={`tool-${i}`} className="abs dna-el"
+            style={{ ...t.s, animationDelay:`${t.delay}s`, animationDuration:`${9 + (i%5)}s` }}>
+            {t.type === "scope" && <Microscope  size={t.size} alpha={t.alpha}/>}
+            {t.type === "steth" && <Stethoscope size={t.size} alpha={t.alpha}/>}
+            {t.type === "pip"   && <Pipette     size={t.size} alpha={t.alpha}/>}
+            {t.type === "syr"   && <Syringe     size={t.size} alpha={t.alpha} rot={(t as any).rot ?? 0}/>}
+          </div>
+        ))}
 
         {/* Textos fantasma */}
         <div className="ghost ghost-top" aria-hidden="true">CONVENIOS</div>
