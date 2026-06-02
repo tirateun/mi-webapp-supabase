@@ -413,11 +413,34 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         @keyframes nd-pulse{0%,100%{opacity:.35}50%{opacity:.7}}
 
         /* ── Textos fantasma ── */
-        .ghost{position:absolute;font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;
-          letter-spacing:-.04em;line-height:1;white-space:nowrap;color:transparent;
-          -webkit-text-stroke:1px rgba(255,255,255,0.06);pointer-events:none;user-select:none}
-        .ghost-bot{bottom:-2%;left:50%;transform:translateX(-50%);font-size:clamp(80px,14vw,200px)}
-        .ghost-top{top:-1%;left:50%;transform:translateX(-50%);font-size:clamp(50px,9vw,140px);opacity:.8}
+        .ghost{
+          position:absolute;
+          font-family:'Cormorant Garamond',Georgia,serif;
+          font-weight:700;
+          letter-spacing:-.03em;
+          line-height:1;
+          white-space:nowrap;
+          color: rgba(255,255,255,0.07);
+          -webkit-text-stroke: 1.5px rgba(255,255,255,0.22);
+          text-stroke: 1.5px rgba(255,255,255,0.22);
+          pointer-events:none;
+          user-select:none;
+          z-index: 4;
+        }
+        .ghost-bot{
+          bottom:-2%;
+          left:50%;
+          transform:translateX(-50%);
+          font-size:clamp(90px,15vw,210px);
+        }
+        .ghost-top{
+          top:0%;
+          left:50%;
+          transform:translateX(-50%);
+          font-size:clamp(55px,10vw,150px);
+          color: rgba(255,255,255,0.06);
+          -webkit-text-stroke: 1.5px rgba(255,255,255,0.20);
+        }
 
         /* ── Grain ── */
         .grain{position:fixed;inset:-100px;pointer-events:none;z-index:5;opacity:.04;
