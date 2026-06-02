@@ -592,8 +592,8 @@ export default function Login({ onLogin, onRequirePasswordChange }: any) {
         ))}
 
         {/* Textos fantasma */}
-        <div className="ghost ghost-top" aria-hidden="true">CONVENIOS</div>
-        <div className="ghost ghost-bot" aria-hidden="true">MEDICINA</div>
+        <div className="ghost ghost-top" aria-hidden="true">GESTIÓN DE</div>
+        <div className="ghost ghost-bot" aria-hidden="true">CONVENIOS</div>
 
         {/* Grain */}
         <div className="grain" aria-hidden="true"/>
