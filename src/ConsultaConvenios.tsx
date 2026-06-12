@@ -113,35 +113,73 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // 📥 Función para exportar a Excel
   const exportarAExcel = () => {
     const data = conveniosFiltrados.map(c => ({
+      // ── Identificación ──────────────────────────────────
+      "N°": conveniosFiltrados.indexOf(c) + 1,
       "Convenio": c.name,
-      "Institución": c.institucion_nombre || "-",
-      "País": c.pais || "-",
+      "Tipo de Convenio (Marco/Específico)": c.convenio || "-",
       "Tipo": c.agreement_type || "-",
       "Sub Tipo Docente": getSubtiposDocentes(c),
+      "Resolución Rectoral": c.resolucion_rectoral || "-",
+      // ── Institución ──────────────────────────────────────
+      "Institución": c.institucion_nombre || "-",
+      "País": c.pais || "-",
       "Áreas Vinculadas": c.areas_vinculadas?.join(", ") || "-",
+      // ── Contacto institucional ────────────────────────────
+      "Contacto - Nombre": c.institucion_contacto || "-",
+      "Contacto - Cargo": (c as any).institucion_cargo || "-",
+      "Contacto - Email": c.institucion_email || "-",
+      "Contacto - Teléfono": c.institucion_telefono || "-",
+      // ── Responsable interno ───────────────────────────────
+      "Responsable Interno": c.internal_responsible_name || "-",
+      "Cargo Responsable": c.internal_responsible_cargo || "-",
+      "Email Responsable": c.internal_responsible_email || "-",
+      // ── Fechas y estado ───────────────────────────────────
       "Fecha Firma": formatDateLocal(c.signature_date),
       "Fecha Vencimiento": formatDateLocal(c.expiration_date),
       "Duración (años)": c.duration_years || 0,
-      "Estado": c.estado // ✅ CORRECCIÓN: usar directamente el estado calculado
+      "Estado": c.estado,
+      "Renovaciones": c.renovaciones_count ?? 0,
     }));
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     
     // Ajustar ancho de columnas
-    const wscols = [
-      { wch: 50 }, // Convenio
+    ws['!cols'] = [
+      { wch: 5  }, // N°
+      { wch: 55 }, // Convenio
+      { wch: 22 }, // Marco/Específico
+      { wch: 22 }, // Tipo
+      { wch: 30 }, // Sub Tipo Docente
+      { wch: 25 }, // Resolución Rectoral
       { wch: 30 }, // Institución
-      { wch: 15 }, // País
-      { wch: 20 }, // Tipo
-      { wch: 25 }, // Sub Tipo
-      { wch: 30 }, // Áreas
-      { wch: 12 }, // Fecha Firma
-      { wch: 12 }, // Fecha Venc
+      { wch: 14 }, // País
+      { wch: 35 }, // Áreas Vinculadas
+      { wch: 28 }, // Contacto Nombre
+      { wch: 24 }, // Contacto Cargo
+      { wch: 28 }, // Contacto Email
+      { wch: 16 }, // Contacto Teléfono
+      { wch: 28 }, // Responsable Interno
+      { wch: 24 }, // Cargo Responsable
+      { wch: 30 }, // Email Responsable
+      { wch: 13 }, // Fecha Firma
+      { wch: 13 }, // Fecha Vencimiento
       { wch: 10 }, // Duración
-      { wch: 12 }  // Estado
+      { wch: 12 }, // Estado
+      { wch: 10 }, // Renovaciones
     ];
-    ws['!cols'] = wscols;
+
+    // Estilo de encabezado (fondo morado)
+    const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
+    for (let C = range.s.c; C <= range.e.c; C++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!ws[cellRef]) continue;
+      ws[cellRef].s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "3D1A4F" } },
+        alignment: { horizontal: "center", wrapText: true }
+      };
+    }
     
     XLSX.utils.book_append_sheet(wb, ws, "Convenios");
     XLSX.writeFile(wb, `convenios_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -223,13 +261,14 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       // 2. Cargar instituciones por separado
       const { data: institucionesData } = await supabase
         .from("instituciones")
-        .select("id, nombre, email, contacto, telefono");
+        .select("id, nombre, email, contacto, cargo, telefono");
 
       const institucionesMap = new Map(
         (institucionesData || []).map(i => [i.id, {
           nombre: i.nombre,
           email: i.email,
           contacto: i.contacto,
+          cargo: i.cargo,
           telefono: i.telefono
         }])
       );
@@ -321,6 +360,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             institucion_nombre: institucionData?.nombre || "Sin institución",
             institucion_email: institucionData?.email,
             institucion_contacto: institucionData?.contacto,
+            institucion_cargo: institucionData?.cargo,
             institucion_telefono: institucionData?.telefono,
             // Datos del convenio:
             objetivos: conv.objetivos,
