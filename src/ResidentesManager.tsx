@@ -257,7 +257,7 @@ export default function ResidentesManager({ convenioId, convenioNombre, isAdmin 
                   </button>
                   {!isAdmin && (
                     <>
-                      <button onClick={() => { setEditando(r); setForm({ nombre:r.nombre, subtipoId:"", sedeId:"", fechaInicio:r.fecha_inicio, fechaFin:r.fecha_fin }); setShowForm(true); }}
+                      <button onClick={() => { setEditando(r); setForm({ nombre:r.nombre, subtipoId:"", sedeId:"", fechaInicio:r.fecha_inicio, fechaFin:r.fecha_fin, areaId:"" }); setShowForm(true); }}
                         className="btn btn-sm btn-outline-secondary">✏️</button>
                       <button onClick={() => eliminarResidencia(r.id)} className="btn btn-sm btn-outline-danger">🗑️</button>
                     </>

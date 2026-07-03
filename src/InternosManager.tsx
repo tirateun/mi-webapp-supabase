@@ -236,7 +236,7 @@ export default function InternosManager({ convenioId, convenioNombre, isAdmin = 
                   </button>
                   {!isAdmin && (
                     <>
-                      <button onClick={() => { setEditando(i); setForm({ nombre:i.nombre, subtipoId:"", sedeId:"", sedeMano:"", horasSel:"36", horasMano:"", fechaInicio:i.fecha_inicio, fechaFin:i.fecha_fin }); setShowForm(true); }}
+                      <button onClick={() => { setEditando(i); setForm({ nombre:i.nombre, subtipoId:"", sedeId:"", sedeMano:"", horasSel:"36", horasMano:"", fechaInicio:i.fecha_inicio, fechaFin:i.fecha_fin, areaId:"" }); setShowForm(true); }}
                         className="btn btn-sm btn-outline-secondary">✏️</button>
                       <button onClick={() => eliminar(i.id)} className="btn btn-sm btn-outline-danger">🗑️</button>
                     </>
