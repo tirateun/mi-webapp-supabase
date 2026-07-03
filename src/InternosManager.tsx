@@ -103,13 +103,18 @@ export default function InternosManager({ convenioId, convenioNombre, isAdmin = 
     if (!form.nombre.trim() || !form.fechaInicio || !form.fechaFin) {
       alert("❌ Nombre, fecha inicio y fecha fin son obligatorios"); return;
     }
-    const sedeId = form.sedeId || null;
+    // sede_id solo si es un UUID válido (no string placeholder)
+    const sedeIdValido = form.sedeId && form.sedeId !== "__auto__" ? form.sedeId : null;
+    // Si es institución única, guardar el nombre como texto
+    const sedeHospital = (!sedeIdValido && instInfo && esUnica(instInfo.tipo))
+      ? instInfo.nombre : null;
     const anio = parseInt(form.fechaInicio.split("-")[0]);
     setSaving(true);
     try {
       const payload = {
         convenio_id: convenioId, nombre: form.nombre.trim(),
-        subtipo_id: form.subtipoId || null, sede_id: sedeId,
+        subtipo_id: form.subtipoId || null, sede_id: sedeIdValido,
+        sede_hospital: sedeHospital,
         area_vinculada_id: form.areaId || null,
         fecha_inicio: form.fechaInicio, fecha_fin: form.fechaFin, anio,
       };
@@ -191,7 +196,7 @@ export default function InternosManager({ convenioId, convenioNombre, isAdmin = 
           <p style={{ margin:".2rem 0 0", opacity:.85, fontSize:".85rem" }}>Periodo anual · {internados.length} registros</p>
         </div>
         {!isAdmin && (
-          <button onClick={() => { setEditando(null); setForm({ ...EMPTY, sedeId: instInfo && esUnica(instInfo.tipo) ? "__auto__" : "" }); setShowForm(true); }}
+          <button onClick={() => { setEditando(null); setForm({ ...EMPTY }); setShowForm(true); }}
             style={{ background:"white", color:"#5C4010", border:"none", padding:".6rem 1.2rem", borderRadius:8, fontWeight:700, cursor:"pointer" }}>
             ➕ Nuevo Internado
           </button>

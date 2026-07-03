@@ -113,12 +113,12 @@ export default function ResidentesManager({ convenioId, convenioNombre, isAdmin 
     }
     const periodo = getPeriodo(form.fechaInicio);
     const anio = parseInt(form.fechaInicio.split("-")[0]);
-    const sedeId = form.sedeId || null;
+    const sedeIdValido = form.sedeId && form.sedeId !== "__auto__" ? form.sedeId : null;
     setSaving(true);
     try {
       const payload = {
         convenio_id: convenioId, nombre: form.nombre.trim(),
-        subtipo_id: form.subtipoId || null, sede_id: sedeId,
+        subtipo_id: form.subtipoId || null, sede_id: sedeIdValido,
         area_vinculada_id: form.areaId || null,
         fecha_inicio: form.fechaInicio, fecha_fin: form.fechaFin,
         periodo, anio,
