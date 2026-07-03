@@ -103,18 +103,14 @@ export default function InternosManager({ convenioId, convenioNombre, isAdmin = 
     if (!form.nombre.trim() || !form.fechaInicio || !form.fechaFin) {
       alert("❌ Nombre, fecha inicio y fecha fin son obligatorios"); return;
     }
-    // sede_id solo si es un UUID válido (no string placeholder)
+    // sede_id solo si es un UUID válido
     const sedeIdValido = form.sedeId && form.sedeId !== "__auto__" ? form.sedeId : null;
-    // Si es institución única, guardar el nombre como texto
-    const sedeHospital = (!sedeIdValido && instInfo && esUnica(instInfo.tipo))
-      ? instInfo.nombre : null;
     const anio = parseInt(form.fechaInicio.split("-")[0]);
     setSaving(true);
     try {
       const payload = {
         convenio_id: convenioId, nombre: form.nombre.trim(),
         subtipo_id: form.subtipoId || null, sede_id: sedeIdValido,
-        sede_hospital: sedeHospital,
         area_vinculada_id: form.areaId || null,
         fecha_inicio: form.fechaInicio, fecha_fin: form.fechaFin, anio,
       };
