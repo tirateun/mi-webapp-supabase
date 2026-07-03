@@ -17,6 +17,7 @@ import AreasVinculadasList from "./AreasVinculadasList";
 import AgreementRenewalsPage from "./AgreementRenewalsPage";
 import MovilidadesManager from "./MovilidadesManager";
 import InformesPage from "./InformesPage";
+import GestionAcademica from "./GestionAcademica";
 import React from "react";
 import ChatBot from "./ChatBot";
 // ── Imports móvil ────────────────────────────────────────────
@@ -35,7 +36,8 @@ type ActivePage =
   | "contraprestacionesEvidencias"
   | "areasVinculadas"
   | "consultaConvenios"
-  | "movilidades";
+  | "movilidades"
+  | "gestionAcademica";
 
 // ─── Título de cada sección ───────────────────────────────────
 const PAGE_TITLES: Record<ActivePage, string> = {
@@ -50,6 +52,7 @@ const PAGE_TITLES: Record<ActivePage, string> = {
   areasVinculadas:              "Áreas Vinculadas",
   consultaConvenios:            "Convenios",
   movilidades:                  "Movilidades",
+  gestionAcademica:             "Gestión Académica",
 };
 
 // ─── Normalizar role al tipo que espera MobileHeader ─────────
@@ -135,7 +138,8 @@ function MobileBottomBar({
 
   // Ítems del drawer "Más"
   const moreItems = [
-    { id: "users" as ActivePage, label: "Usuarios", emoji: "👥", show: isAdmin },
+    { id: "users"            as ActivePage, label: "Usuarios",          emoji: "👥", show: isAdmin },
+    { id: "gestionAcademica" as ActivePage, label: "Gestión Académica", emoji: "🎓", show: !isConsulta },
   ].filter(i => i.show);
 
   const isActive = (item: typeof mainItems[0]): boolean =>
@@ -338,6 +342,9 @@ function MainLayout({
       {activePage === "areasVinculadas"   && <AreasVinculadasList />}
       {activePage === "consultaConvenios" && <ConsultaConvenios userId={session.user.id} role={role} />}
       {activePage === "movilidades"       && <MovilidadesManager />}
+      {activePage === "gestionAcademica"  && (
+        <GestionAcademica userRole={role} userId={session.user.id} />
+      )}
     </>
   );
 

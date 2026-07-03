@@ -14,6 +14,7 @@ interface SidebarProps {
       | "areasVinculadas"
       | "consultaConvenios"
       | "movilidades"
+      | "gestionAcademica"
   ) => void;
   onLogout: () => void;
   role: string;
@@ -99,6 +100,14 @@ export default function Sidebar({
                 label="Movilidades"
                 active={activePage === "movilidades"}
                 onClick={() => handlePageChange("movilidades")}
+              />
+
+              {/* 🎓 Gestión Académica */}
+              <SidebarItem
+                icon="🎓"
+                label="Gestión Académica"
+                active={activePage === "gestionAcademica"}
+                onClick={() => handlePageChange("gestionAcademica")}
               />
 
               {/* Sección Admin */}

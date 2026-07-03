@@ -1,6 +1,8 @@
 // src/InformeAnualForm.tsx
 // Formulario de informes ANUALES para convenios Docente Asistencial
-// NUEVA ARQUITECTURA: 1 Informe = 1 Área (SIN semestre)
+// Los datos académicos (alumnos, cursos, internos, residentes, rotaciones)
+// se registran en Gestión Académica y se consultan automáticamente en Reportes.
+// Este formulario solo captura: año, subtipo, área y observaciones.
 
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
@@ -20,552 +22,297 @@ export default function InformeAnualForm({
   onSaved,
   informeExistente
 }: InformeAnualFormProps) {
-  
+
   const [saving, setSaving] = useState(false);
-  
-  // Estados para selección
+
+  // Selección
   const [subtiposDisponibles, setSubtiposDisponibles] = useState<any[]>([]);
   const [subtipoSeleccionado, setSubtipoSeleccionado] = useState<string>("");
   const [esPregrado, setEsPregrado] = useState(true);
-  
   const [areasDisponibles, setAreasDisponibles] = useState<any[]>([]);
   const [areaSeleccionada, setAreaSeleccionada] = useState<string>("");
-  
-  // Datos del informe
-  const [anio, setAnio] = useState<number>(new Date().getFullYear());
-  
-  // ── PREGRADO: Internos / Alumnos / Cursos ──────────────────
-  const [numInternos, setNumInternos] = useState<number>(0);
-  const [numAlumnos, setNumAlumnos] = useState<number>(0);
-  const [numCursos, setNumCursos] = useState<number>(0);
-  const [pdfInternosFile, setPdfInternosFile] = useState<File | null>(null);
-  const [pdfInternosUrl, setPdfInternosUrl] = useState<string>("");
-  const [pdfAlumnosFile, setPdfAlumnosFile] = useState<File | null>(null);
-  const [pdfAlumnosUrl, setPdfAlumnosUrl] = useState<string>("");
-  const [pdfCursosFile, setPdfCursosFile] = useState<File | null>(null);
-  const [pdfCursosUrl, setPdfCursosUrl] = useState<string>("");
 
-  // ── POSTGRADO / RESIDENTADO: Residentes / Rotaciones ───────
-  const [numResidentes, setNumResidentes] = useState<number>(0);
-  const [numRotaciones, setNumRotaciones] = useState<number>(0);
-  const [pdfResidentesFile, setPdfResidentesFile] = useState<File | null>(null);
-  const [pdfResidentesUrl, setPdfResidentesUrl] = useState<string>("");
-  const [pdfRotacionesFile, setPdfRotacionesFile] = useState<File | null>(null);
-  const [pdfRotacionesUrl, setPdfRotacionesUrl] = useState<string>("");
-  
-  // Observaciones
+  // Datos
+  const [anio, setAnio] = useState<number>(new Date().getFullYear());
   const [observaciones, setObservaciones] = useState("");
-  
+
+  // Preview de lo que hay en Gestión Académica para este año
+  const [resumenGestion, setResumenGestion] = useState<any>(null);
+  const [loadingResumen, setLoadingResumen] = useState(false);
+
   useEffect(() => {
-    cargarSubtiposDelConvenio();
-    cargarAreasVinculadas();
-    
-    if (informeExistente) {
-      cargarDatosExistentes();
-    }
-  }, [convenioId, informeExistente]);
-  
-  const cargarSubtiposDelConvenio = async () => {
-    try {
-      const { data: subtypes, error } = await supabase
-        .from("agreement_subtypes")
-        .select("id, subtipo_nombre")
-        .eq("agreement_id", convenioId)
-        .order("subtipo_nombre");
-      
-      if (error) throw error;
-      
-      setSubtiposDisponibles(subtypes || []);
-      
-      if (informeExistente?.subtipo_id) {
-        setSubtipoSeleccionado(informeExistente.subtipo_id);
-        const subtipo = (subtypes || []).find((s: any) => s.id === informeExistente.subtipo_id);
-        if (subtipo) {
-          const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
-          setEsPregrado(esPre);
-        }
-      }
-    } catch (error) {
-      console.error("Error cargando subtipos:", error);
+    cargarSubtipos();
+    if (informeExistente) cargarDatosExistentes();
+  }, [convenioId]);
+
+  useEffect(() => {
+    if (subtipoSeleccionado) cargarAreas(esPregrado);
+  }, [esPregrado, subtipoSeleccionado]);
+
+  useEffect(() => {
+    if (anio && convenioId) cargarResumenGestion();
+  }, [anio, convenioId]);
+
+  const cargarSubtipos = async () => {
+    const { data } = await supabase
+      .from("agreement_subtypes")
+      .select("id, subtipo_nombre")
+      .eq("agreement_id", convenioId)
+      .order("subtipo_nombre");
+    setSubtiposDisponibles(data || []);
+    if (informeExistente?.subtipo_id) {
+      setSubtipoSeleccionado(informeExistente.subtipo_id);
+      const sub = (data || []).find((s: any) => s.id === informeExistente.subtipo_id);
+      if (sub) setEsPregrado(sub.subtipo_nombre?.toUpperCase().includes("PREGRADO"));
     }
   };
-  
-  const cargarAreasVinculadas = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("areas_vinculadas")
-        .select("id, nombre")
-        .order("nombre");
-      
-      if (error) throw error;
-      setAreasDisponibles(data || []);
-      
-      if (informeExistente?.area_vinculada_id) {
-        setAreaSeleccionada(informeExistente.area_vinculada_id);
-      }
-    } catch (error) {
-      console.error("Error cargando áreas:", error);
-    }
+
+  const cargarAreas = async (esPre: boolean) => {
+    const { data: links } = await supabase
+      .from("agreement_areas_vinculadas")
+      .select("area_vinculada_id")
+      .eq("agreement_id", convenioId);
+    if (!links?.length) { setAreasDisponibles([]); return; }
+    const ids = links.map((l: any) => l.area_vinculada_id).filter(Boolean);
+    const { data } = await supabase
+      .from("areas_vinculadas")
+      .select("id, nombre")
+      .in("id", ids)
+      .order("nombre");
+    setAreasDisponibles(
+      (data || []).filter((a: any) =>
+        esPre ? a.nombre?.toLowerCase().includes("escuela")
+               : !a.nombre?.toLowerCase().includes("escuela")
+      )
+    );
   };
-  
-  const cargarDatosExistentes = async () => {
-    if (!informeExistente?.id) return;
-    
+
+  const cargarDatosExistentes = () => {
     setAnio(informeExistente.anio);
     setSubtipoSeleccionado(informeExistente.subtipo_id || "");
     setAreaSeleccionada(informeExistente.area_vinculada_id || "");
     setObservaciones(informeExistente.observaciones || "");
-    
-    // Pregrado
-    setNumInternos(informeExistente.num_internos || 0);
-    setNumAlumnos(informeExistente.num_alumnos || 0);
-    setNumCursos(informeExistente.num_cursos || 0);
-    setPdfInternosUrl(informeExistente.medio_verificable_internos || "");
-    setPdfAlumnosUrl(informeExistente.medio_verificable_alumnos || "");
-    setPdfCursosUrl(informeExistente.medio_verificable_cursos || "");
-
-    // Postgrado / Residentado
-    setNumResidentes(informeExistente.num_residentes || 0);
-    setNumRotaciones(informeExistente.num_rotaciones || 0);
-    setPdfResidentesUrl(informeExistente.medio_verificable_residentes || "");
-    setPdfRotacionesUrl(informeExistente.medio_verificable_rotaciones || "");
+    const sub = (informeExistente.subtipo_nombre || "");
+    setEsPregrado(sub.toUpperCase().includes("PREGRADO"));
   };
-  
-  const handleSubtipoChange = (subtipoId: string) => {
-    setSubtipoSeleccionado(subtipoId);
-    const subtipo = subtiposDisponibles.find(s => s.id === subtipoId);
-    if (subtipo) {
-      const esPre = subtipo.subtipo_nombre?.toUpperCase().includes("PREGRADO");
+
+  const cargarResumenGestion = async () => {
+    setLoadingResumen(true);
+    try {
+      const { data } = await supabase
+        .from("vw_resumen_academico")
+        .select("*")
+        .eq("convenio_id", convenioId)
+        .eq("anio", anio)
+        .single();
+      setResumenGestion(data || null);
+    } catch { setResumenGestion(null); }
+    setLoadingResumen(false);
+  };
+
+  const handleSubtipoChange = (id: string) => {
+    setSubtipoSeleccionado(id);
+    setAreaSeleccionada("");
+    const sub = subtiposDisponibles.find(s => s.id === id);
+    if (sub) {
+      const esPre = sub.subtipo_nombre?.toUpperCase().includes("PREGRADO");
       setEsPregrado(esPre);
     }
   };
-  
-  const subirPDF = async (file: File, carpeta: string): Promise<string | null> => {
-    try {
-      const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `${carpeta}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("informes")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("informes").getPublicUrl(filePath);
-      return data.publicUrl;
-    } catch (error) {
-      console.error("Error subiendo PDF:", error);
-      return null;
-    }
-  };
-  
   const handleGuardar = async () => {
-    // Validaciones
-    if (!subtipoSeleccionado) {
-      alert("❌ Debes seleccionar un subtipo");
-      return;
-    }
-    
-    if (!areaSeleccionada) {
-      alert("❌ Debes seleccionar un área vinculada");
-      return;
-    }
-    
-    if (esPregrado) {
-      if (numInternos === 0 && numAlumnos === 0 && numCursos === 0) {
-        alert("❌ Debes ingresar al menos un número mayor a 0 (Internos, Alumnos o Cursos)");
-        return;
-      }
-    } else {
-      if (numResidentes === 0 && numRotaciones === 0) {
-        alert("❌ Debes ingresar al menos un número mayor a 0 (Residentes o Rotaciones)");
-        return;
-      }
-    }
-    
-    setSaving(true);
-    
-    try {
-      // Subir PDFs si hay archivos nuevos
-      let urlInternos = pdfInternosUrl;
-      let urlAlumnos = pdfAlumnosUrl;
-      let urlCursos = pdfCursosUrl;
-      let urlResidentes = pdfResidentesUrl;
-      let urlRotaciones = pdfRotacionesUrl;
+    if (!subtipoSeleccionado) { alert("❌ Selecciona un subtipo"); return; }
+    if (!areaSeleccionada)    { alert("❌ Selecciona un área vinculada"); return; }
 
-      if (pdfInternosFile) {
-        const uploaded = await subirPDF(pdfInternosFile, "internos");
-        if (uploaded) urlInternos = uploaded;
-      }
-      if (pdfAlumnosFile) {
-        const uploaded = await subirPDF(pdfAlumnosFile, "alumnos");
-        if (uploaded) urlAlumnos = uploaded;
-      }
-      if (pdfCursosFile) {
-        const uploaded = await subirPDF(pdfCursosFile, "cursos");
-        if (uploaded) urlCursos = uploaded;
-      }
-      if (pdfResidentesFile) {
-        const uploaded = await subirPDF(pdfResidentesFile, "residentes");
-        if (uploaded) urlResidentes = uploaded;
-      }
-      if (pdfRotacionesFile) {
-        const uploaded = await subirPDF(pdfRotacionesFile, "rotaciones");
-        if (uploaded) urlRotaciones = uploaded;
-      }
-      
-      const dataToSave = {
+    setSaving(true);
+    try {
+      const payload = {
         convenio_id: convenioId,
         anio,
         subtipo_id: subtipoSeleccionado,
         area_vinculada_id: areaSeleccionada,
-        // Pregrado
-        num_internos: esPregrado ? numInternos : 0,
-        medio_verificable_internos: esPregrado ? (urlInternos || null) : null,
-        num_alumnos: esPregrado ? numAlumnos : 0,
-        medio_verificable_alumnos: esPregrado ? (urlAlumnos || null) : null,
-        num_cursos: esPregrado ? numCursos : 0,
-        medio_verificable_cursos: esPregrado ? (urlCursos || null) : null,
-        // Postgrado / Residentado
-        num_residentes: !esPregrado ? numResidentes : 0,
-        medio_verificable_residentes: !esPregrado ? (urlResidentes || null) : null,
-        num_rotaciones: !esPregrado ? numRotaciones : 0,
-        medio_verificable_rotaciones: !esPregrado ? (urlRotaciones || null) : null,
-        observaciones: observaciones || null
+        observaciones: observaciones || null,
+        // Limpiar campos numéricos heredados — los datos vienen de Gestión Académica
+        num_internos: null, num_alumnos: null, num_cursos: null,
+        num_residentes: null, num_rotaciones: null,
+        medio_verificable_internos: null, medio_verificable_alumnos: null,
+        medio_verificable_cursos: null, medio_verificable_residentes: null,
+        medio_verificable_rotaciones: null,
       };
-      
-      if (informeExistente?.id) {
-        // Actualizar
-        const { error } = await supabase
-          .from("informes_anuales")
-          .update(dataToSave)
-          .eq("id", informeExistente.id);
-        
-        if (error) throw error;
-        alert("✅ Informe actualizado correctamente");
-      } else {
-        // Crear
-        const { error } = await supabase
-          .from("informes_anuales")
-          .insert([dataToSave]);
-        
-        if (error) throw error;
-        alert("✅ Informe creado correctamente");
-      }
-      
+      const { error } = informeExistente?.id
+        ? await supabase.from("informes_anuales").update(payload).eq("id", informeExistente.id)
+        : await supabase.from("informes_anuales").insert([payload]);
+      if (error) throw error;
       onSaved();
-    } catch (error: any) {
-      console.error("Error:", error);
-      alert("❌ Error: " + (error.message || String(error)));
+    } catch (e: any) {
+      alert("❌ Error al guardar: " + e.message);
     } finally {
       setSaving(false);
     }
   };
-  
+
   return (
-    <div style={{
-      position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999,
-      padding: "1rem",
-      overflowY: "auto"
-    }}>
-      <div style={{
-        background: "white",
-        borderRadius: "12px",
-        maxWidth: "900px",
-        width: "100%",
-        maxHeight: "90vh",
-        overflowY: "auto",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
-      }}>
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0,
+      background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center",
+      justifyContent:"center", zIndex:9999, padding:"1rem", overflowY:"auto" }}>
+      <div style={{ background:"white", borderRadius:12, maxWidth:700, width:"100%",
+        maxHeight:"90vh", overflowY:"auto", boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }}>
+
         {/* Header */}
-        <div style={{
-          background: "linear-gradient(135deg, #5B2C6F 0%, #3D1A4F 100%)",
-          color: "white",
-          padding: "1.5rem",
-          borderRadius: "12px 12px 0 0",
-          position: "sticky",
-          top: 0,
-          zIndex: 10
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background:"linear-gradient(135deg,#5B2C6F,#3D1A4F)", color:"white",
+          padding:"1.5rem", borderRadius:"12px 12px 0 0",
+          position:"sticky", top:0, zIndex:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700 }}>
+              <h3 style={{ margin:0, fontSize:"1.4rem", fontWeight:700 }}>
                 {informeExistente ? "✏️ Editar Informe Anual" : "📄 Nuevo Informe Anual"}
               </h3>
-              <p style={{ margin: "0.5rem 0 0 0", opacity: 0.9, fontSize: "0.9rem" }}>
+              <p style={{ margin:"0.4rem 0 0", opacity:.85, fontSize:".85rem" }}>
                 {convenioNombre}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              disabled={saving}
-              style={{
-                background: "rgba(255,255,255,0.2)",
-                border: "none",
-                color: "white",
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                cursor: "pointer",
-                fontSize: "1.5rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
+            <button onClick={onClose} disabled={saving}
+              style={{ background:"rgba(255,255,255,.2)", border:"none", color:"white",
+                width:36, height:36, borderRadius:"50%", cursor:"pointer",
+                fontSize:"1.4rem", display:"flex", alignItems:"center", justifyContent:"center" }}>
               ×
             </button>
           </div>
         </div>
-        
+
         {/* Body */}
-        <div style={{ padding: "2rem" }}>
-          {/* Año */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: "0.5rem" }}>
-              Año *
-            </label>
-            <input
-              type="number"
-              className="form-control"
-              value={anio}
-              onChange={(e) => setAnio(parseInt(e.target.value))}
-              min={2000}
-              max={2100}
-            />
+        <div style={{ padding:"2rem" }}>
+
+          {/* Info panel */}
+          <div style={{ background:"#EBF2FB", border:"1px solid #B8D0F0",
+            borderRadius:10, padding:"1rem 1.25rem", marginBottom:"1.75rem",
+            fontSize:".88rem", color:"#1A4F8A" }}>
+            ℹ️ Los datos de alumnos, cursos, internos, residentes y rotaciones se registran
+            automáticamente desde <strong>Gestión Académica</strong> y se consolidan en <strong>Reportes</strong>.
+            Aquí solo registras el periodo, área y observaciones.
           </div>
-          
+
+          {/* Año */}
+          <div style={{ marginBottom:"1.5rem" }}>
+            <label style={{ display:"block", fontWeight:600, marginBottom:".5rem" }}>Año *</label>
+            <input type="number" className="form-control" value={anio}
+              onChange={e => setAnio(parseInt(e.target.value))} min={2000} max={2100}/>
+          </div>
+
           {/* Subtipo */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: "0.5rem" }}>
-              Subtipo *
-            </label>
-            <select
-              className="form-select"
-              value={subtipoSeleccionado}
-              onChange={(e) => handleSubtipoChange(e.target.value)}
-            >
+          <div style={{ marginBottom:"1.5rem" }}>
+            <label style={{ display:"block", fontWeight:600, marginBottom:".5rem" }}>Subtipo Docente *</label>
+            <select className="form-select" value={subtipoSeleccionado}
+              onChange={e => handleSubtipoChange(e.target.value)}>
               <option value="">Seleccionar subtipo...</option>
               {subtiposDisponibles.map(st => (
                 <option key={st.id} value={st.id}>{st.subtipo_nombre}</option>
               ))}
             </select>
           </div>
-          
-          {/* Área */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: "0.5rem" }}>
-              Área Vinculada *
-            </label>
-            <select
-              className="form-select"
-              value={areaSeleccionada}
-              onChange={(e) => setAreaSeleccionada(e.target.value)}
-            >
-              <option value="">Seleccionar área...</option>
-              {areasDisponibles.map(area => (
-                <option key={area.id} value={area.id}>{area.nombre}</option>
-              ))}
-            </select>
-          </div>
-          
-          <hr style={{ margin: "2rem 0" }} />
 
-          {/* Indicador de modo */}
+          {/* Área */}
           {subtipoSeleccionado && (
-            <div style={{
-              marginBottom: "1.5rem",
-              padding: "0.75rem 1rem",
-              borderRadius: "8px",
-              background: esPregrado ? "#D4EDDA" : "#CCE5FF",
-              color: esPregrado ? "#155724" : "#004085",
-              fontSize: "0.9rem",
-              fontWeight: 600
-            }}>
-              {esPregrado
-                ? "📚 Pregrado — campos: N° Internos · N° Alumnos · N° Cursos"
-                : "🏥 Postgrado / Residentado — campos: N° Residentes · N° Rotaciones Externas"}
+            <div style={{ marginBottom:"1.5rem" }}>
+              <label style={{ display:"block", fontWeight:600, marginBottom:".5rem" }}>
+                Área Vinculada * {" "}
+                <span style={{ fontWeight:400, fontSize:".8rem", color:"#6C757D" }}>
+                  ({esPregrado ? "Escuelas Profesionales" : "Especialidades / Programas"})
+                </span>
+              </label>
+              <select className="form-select" value={areaSeleccionada}
+                onChange={e => setAreaSeleccionada(e.target.value)}>
+                <option value="">Seleccionar área...</option>
+                {areasDisponibles.map(a => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </select>
+              {areasDisponibles.length === 0 && (
+                <small className="text-warning">
+                  ⚠️ No hay áreas {esPregrado ? "de pregrado" : "de postgrado"} vinculadas a este convenio
+                </small>
+              )}
             </div>
           )}
 
-          {esPregrado ? (
-            <>
-              {/* N° de Internos */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-                  👨‍⚕️ Internos
-                </h5>
-                <div className="row">
-                  <div className="col-md-4">
-                    <label className="form-label">N° de Internos</label>
-                    <input type="number" className="form-control" value={numInternos}
-                      onChange={(e) => setNumInternos(parseInt(e.target.value) || 0)} min={0} />
-                  </div>
-                  <div className="col-md-8">
-                    <label className="form-label">Medio Verificable (PDF)</label>
-                    <input type="file" className="form-control" accept="application/pdf"
-                      onChange={(e) => setPdfInternosFile(e.target.files?.[0] || null)} />
-                    {pdfInternosUrl && (
-                      <small className="text-success d-block mt-1">
-                        ✅ <a href={pdfInternosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                      </small>
-                    )}
-                  </div>
-                </div>
+          {/* Preview Gestión Académica */}
+          {subtipoSeleccionado && (
+            <div style={{ background:"#F8F9FA", borderRadius:10, padding:"1rem 1.25rem",
+              border:"1px solid #E9ECEF", marginBottom:"1.5rem" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+                marginBottom:".65rem" }}>
+                <strong style={{ fontSize:".9rem", color:"#3D1A4F" }}>
+                  📊 Datos en Gestión Académica — {anio}
+                </strong>
+                <button onClick={cargarResumenGestion} disabled={loadingResumen}
+                  style={{ background:"none", border:"1px solid #6C757D", color:"#6C757D",
+                    padding:".25rem .7rem", borderRadius:6, cursor:"pointer", fontSize:".78rem" }}>
+                  {loadingResumen ? "⏳" : "🔄 Actualizar"}
+                </button>
               </div>
-
-              {/* N° de Alumnos */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-                  👩‍🎓 Alumnos
-                </h5>
-                <div className="row">
-                  <div className="col-md-4">
-                    <label className="form-label">N° de Alumnos</label>
-                    <input type="number" className="form-control" value={numAlumnos}
-                      onChange={(e) => setNumAlumnos(parseInt(e.target.value) || 0)} min={0} />
-                  </div>
-                  <div className="col-md-8">
-                    <label className="form-label">Medio Verificable (PDF)</label>
-                    <input type="file" className="form-control" accept="application/pdf"
-                      onChange={(e) => setPdfAlumnosFile(e.target.files?.[0] || null)} />
-                    {pdfAlumnosUrl && (
-                      <small className="text-success d-block mt-1">
-                        ✅ <a href={pdfAlumnosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                      </small>
-                    )}
-                  </div>
+              {loadingResumen ? (
+                <p style={{ margin:0, fontSize:".85rem", color:"#6C757D" }}>Consultando...</p>
+              ) : resumenGestion ? (
+                <div style={{ display:"grid",
+                  gridTemplateColumns: esPregrado ? "repeat(3,1fr)" : "repeat(2,1fr)",
+                  gap:".5rem" }}>
+                  {esPregrado ? (
+                    <>
+                      <StatCard n={resumenGestion.num_cursos}   label="Cursos"   />
+                      <StatCard n={resumenGestion.num_alumnos}  label="Alumnos"  />
+                      <StatCard n={resumenGestion.num_internos} label="Internos" />
+                    </>
+                  ) : (
+                    <>
+                      <StatCard n={resumenGestion.num_residentes} label="Residentes" />
+                      <StatCard n={resumenGestion.num_rotaciones} label="Rotaciones"  />
+                    </>
+                  )}
                 </div>
-              </div>
-
-              {/* N° de Cursos */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#5B2C6F" }}>
-                  📚 Cursos
-                </h5>
-                <div className="row">
-                  <div className="col-md-4">
-                    <label className="form-label">N° de Cursos</label>
-                    <input type="number" className="form-control" value={numCursos}
-                      onChange={(e) => setNumCursos(parseInt(e.target.value) || 0)} min={0} />
-                  </div>
-                  <div className="col-md-8">
-                    <label className="form-label">Medio Verificable (PDF)</label>
-                    <input type="file" className="form-control" accept="application/pdf"
-                      onChange={(e) => setPdfCursosFile(e.target.files?.[0] || null)} />
-                    {pdfCursosUrl && (
-                      <small className="text-success d-block mt-1">
-                        ✅ <a href={pdfCursosUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                      </small>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* N° de Residentes */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#004085" }}>
-                  👨‍⚕️ Residentes
-                </h5>
-                <div className="row">
-                  <div className="col-md-4">
-                    <label className="form-label">N° de Residentes</label>
-                    <input type="number" className="form-control" value={numResidentes}
-                      onChange={(e) => setNumResidentes(parseInt(e.target.value) || 0)} min={0} />
-                  </div>
-                  <div className="col-md-8">
-                    <label className="form-label">Medio Verificable (PDF)</label>
-                    <input type="file" className="form-control" accept="application/pdf"
-                      onChange={(e) => setPdfResidentesFile(e.target.files?.[0] || null)} />
-                    {pdfResidentesUrl && (
-                      <small className="text-success d-block mt-1">
-                        ✅ <a href={pdfResidentesUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                      </small>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* N° de Rotaciones Externas */}
-              <div style={{ marginBottom: "2rem" }}>
-                <h5 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "1rem", color: "#004085" }}>
-                  🔄 Rotaciones Externas
-                </h5>
-                <div className="row">
-                  <div className="col-md-4">
-                    <label className="form-label">N° de Rotaciones Externas</label>
-                    <input type="number" className="form-control" value={numRotaciones}
-                      onChange={(e) => setNumRotaciones(parseInt(e.target.value) || 0)} min={0} />
-                  </div>
-                  <div className="col-md-8">
-                    <label className="form-label">Medio Verificable (PDF)</label>
-                    <input type="file" className="form-control" accept="application/pdf"
-                      onChange={(e) => setPdfRotacionesFile(e.target.files?.[0] || null)} />
-                    {pdfRotacionesUrl && (
-                      <small className="text-success d-block mt-1">
-                        ✅ <a href={pdfRotacionesUrl} target="_blank" rel="noreferrer">Ver PDF actual</a>
-                      </small>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
+              ) : (
+                <p style={{ margin:0, fontSize:".85rem", color:"#6C757D" }}>
+                  Sin datos registrados en Gestión Académica para {anio}.
+                  Los datos aparecerán cuando se creen cursos, internados, residencias o rotaciones.
+                </p>
+              )}
+            </div>
           )}
-          
+
           {/* Observaciones */}
-          <div style={{ marginBottom: "1.5rem" }}>
-            <label style={{ display: "block", fontWeight: 600, marginBottom: "0.5rem" }}>
+          <div style={{ marginBottom:"1.5rem" }}>
+            <label style={{ display:"block", fontWeight:600, marginBottom:".5rem" }}>
               Observaciones (opcional)
             </label>
-            <textarea
-              className="form-control"
-              rows={3}
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              placeholder="Comentarios adicionales..."
-            />
+            <textarea className="form-control" rows={4} value={observaciones}
+              onChange={e => setObservaciones(e.target.value)}
+              placeholder="Comentarios, incidencias, notas del periodo..."/>
           </div>
         </div>
-        
+
         {/* Footer */}
-        <div style={{
-          padding: "1.5rem",
-          borderTop: "1px solid #DEE2E6",
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "1rem",
-          position: "sticky",
-          bottom: 0,
-          background: "white",
-          borderRadius: "0 0 12px 12px"
-        }}>
-          <button
-            onClick={onClose}
-            disabled={saving}
-            className="btn btn-secondary"
-          >
+        <div style={{ padding:"1.25rem 2rem", borderTop:"1px solid #DEE2E6",
+          display:"flex", justifyContent:"flex-end", gap:"1rem",
+          position:"sticky", bottom:0, background:"white",
+          borderRadius:"0 0 12px 12px" }}>
+          <button onClick={onClose} disabled={saving} className="btn btn-secondary">
             Cancelar
           </button>
-          <button
-            onClick={handleGuardar}
-            disabled={saving}
-            className="btn btn-primary"
-          >
+          <button onClick={handleGuardar} disabled={saving}
+            className="btn btn-primary">
             {saving ? "Guardando..." : "💾 Guardar Informe"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatCard({ n, label }: { n: number; label: string }) {
+  return (
+    <div style={{ background:"white", borderRadius:8, padding:".65rem .9rem",
+      textAlign:"center", border:"1px solid #E9ECEF" }}>
+      <div style={{ fontSize:"1.6rem", fontWeight:700, color:"#3D1A4F" }}>{n ?? 0}</div>
+      <div style={{ fontSize:".75rem", color:"#6C757D" }}>{label}</div>
     </div>
   );
 }
