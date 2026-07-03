@@ -792,18 +792,14 @@ export default function Reportes() {
   const cargarReporteInformesConvenios = async () => {
     setInformesLoading(true);
     try {
-      // ✅ Nueva arquitectura: consulta informes_anuales directamente
+      // ✅ Los informes_anuales solo identifican qué convenios/años tienen informe
+      // y permiten filtrar por año/área/institución (ya no traen conteos numéricos).
       let query = supabase
         .from("informes_anuales")
         .select(`
           id,
           convenio_id,
           anio,
-          num_internos,
-          num_alumnos,
-          num_cursos,
-          num_residentes,
-          num_rotaciones,
           area_vinculada_id,
           agreements!inner (
             id,
@@ -822,7 +818,23 @@ export default function Reportes() {
       const { data: informes, error: informesError } = await query;
       if (informesError) throw informesError;
 
+      // ✅ Los conteos reales (cursos, alumnos, internos, residentes, rotaciones)
+      // vienen de Gestión Académica a través de vw_resumen_academico.
+      const aniosPresentes = [...new Set((informes || []).map((i: any) => i.anio))];
+      let resumenRows: any[] = [];
+      if (aniosPresentes.length > 0) {
+        const { data: resumen, error: resumenError } = await supabase
+          .from("vw_resumen_academico")
+          .select("*")
+          .in("anio", aniosPresentes);
+        if (resumenError) throw resumenError;
+        resumenRows = resumen || [];
+      }
+      const resumenMap = new Map<string, any>();
+      resumenRows.forEach((r: any) => resumenMap.set(`${r.convenio_id}|${r.anio}`, r));
+
       const reporteMap: Record<string, any> = {};
+      const paresUnicos = new Set<string>(); // "convenioId|anio" — evita duplicar si hay 2 informes (sem. I y II) del mismo año
 
       for (const informe of informes || []) {
         const convenioId = informe.convenio_id;
@@ -842,13 +854,21 @@ export default function Reportes() {
           };
         }
 
-        reporteMap[convenioId].total_internos   += informe.num_internos   || 0;
-        reporteMap[convenioId].total_alumnos    += informe.num_alumnos    || 0;
-        reporteMap[convenioId].total_cursos     += informe.num_cursos     || 0;
-        reporteMap[convenioId].total_residentes += informe.num_residentes || 0;
-        reporteMap[convenioId].total_rotaciones += informe.num_rotaciones || 0;
         reporteMap[convenioId].cantidad_informes += 1;
+        paresUnicos.add(`${convenioId}|${informe.anio}`);
       }
+
+      paresUnicos.forEach((par) => {
+        const convenioId = par.split("|")[0];
+        const resumen = resumenMap.get(par);
+        if (resumen && reporteMap[convenioId]) {
+          reporteMap[convenioId].total_internos   += resumen.num_internos   || 0;
+          reporteMap[convenioId].total_alumnos    += resumen.num_alumnos    || 0;
+          reporteMap[convenioId].total_cursos     += resumen.num_cursos     || 0;
+          reporteMap[convenioId].total_residentes += resumen.num_residentes || 0;
+          reporteMap[convenioId].total_rotaciones += resumen.num_rotaciones || 0;
+        }
+      });
 
       const reporte = Object.values(reporteMap).sort((a: any, b: any) =>
         (b.total_internos + b.total_residentes) - (a.total_internos + a.total_residentes)
@@ -865,18 +885,14 @@ export default function Reportes() {
   const cargarReporteInformesInstituciones = async () => {
     setInformesLoading(true);
     try {
-      // ✅ Nueva arquitectura: consulta informes_anuales directamente
+      // ✅ Los informes_anuales solo identifican qué convenios/años tienen informe
+      // y permiten filtrar por año/área/institución (ya no traen conteos numéricos).
       let query = supabase
         .from("informes_anuales")
         .select(`
           id,
           convenio_id,
           anio,
-          num_internos,
-          num_alumnos,
-          num_cursos,
-          num_residentes,
-          num_rotaciones,
           area_vinculada_id,
           agreements!inner (
             id,
@@ -896,11 +912,28 @@ export default function Reportes() {
       const { data: informes, error: informesError } = await query;
       if (informesError) throw informesError;
 
+      // ✅ Los conteos reales (cursos, alumnos, internos, residentes, rotaciones)
+      // vienen de Gestión Académica a través de vw_resumen_academico.
+      const aniosPresentes = [...new Set((informes || []).map((i: any) => i.anio))];
+      let resumenRows: any[] = [];
+      if (aniosPresentes.length > 0) {
+        const { data: resumen, error: resumenError } = await supabase
+          .from("vw_resumen_academico")
+          .select("*")
+          .in("anio", aniosPresentes);
+        if (resumenError) throw resumenError;
+        resumenRows = resumen || [];
+      }
+      const resumenMap = new Map<string, any>();
+      resumenRows.forEach((r: any) => resumenMap.set(`${r.convenio_id}|${r.anio}`, r));
+
       const reporteMap: Record<string, any> = {};
+      const paresPorInstitucion = new Map<string, Set<string>>(); // institución -> set de "convenioId|anio"
 
       for (const informe of informes || []) {
-        const agreement       = (informe as any).agreements;
-        const institucionNombre = agreement?.instituciones?.nombre || "Sin institución";
+        const agreement          = (informe as any).agreements;
+        const institucionNombre  = agreement?.instituciones?.nombre || "Sin institución";
+        const convenioId         = informe.convenio_id;
 
         if (!reporteMap[institucionNombre]) {
           reporteMap[institucionNombre] = {
@@ -913,16 +946,26 @@ export default function Reportes() {
             total_rotaciones:   0,
             cantidad_informes:  0
           };
+          paresPorInstitucion.set(institucionNombre, new Set());
         }
 
-        reporteMap[institucionNombre].convenios_set.add(informe.convenio_id);
-        reporteMap[institucionNombre].total_internos   += informe.num_internos   || 0;
-        reporteMap[institucionNombre].total_alumnos    += informe.num_alumnos    || 0;
-        reporteMap[institucionNombre].total_cursos     += informe.num_cursos     || 0;
-        reporteMap[institucionNombre].total_residentes += informe.num_residentes || 0;
-        reporteMap[institucionNombre].total_rotaciones += informe.num_rotaciones || 0;
+        reporteMap[institucionNombre].convenios_set.add(convenioId);
         reporteMap[institucionNombre].cantidad_informes += 1;
+        paresPorInstitucion.get(institucionNombre)!.add(`${convenioId}|${informe.anio}`);
       }
+
+      paresPorInstitucion.forEach((pares, institucionNombre) => {
+        pares.forEach((par) => {
+          const resumen = resumenMap.get(par);
+          if (resumen) {
+            reporteMap[institucionNombre].total_internos   += resumen.num_internos   || 0;
+            reporteMap[institucionNombre].total_alumnos    += resumen.num_alumnos    || 0;
+            reporteMap[institucionNombre].total_cursos     += resumen.num_cursos     || 0;
+            reporteMap[institucionNombre].total_residentes += resumen.num_residentes || 0;
+            reporteMap[institucionNombre].total_rotaciones += resumen.num_rotaciones || 0;
+          }
+        });
+      });
 
       const reporte = Object.values(reporteMap).map((r: any) => ({
         institucion_nombre: r.institucion_nombre,
@@ -1088,14 +1131,14 @@ export default function Reportes() {
 
     let csv = "";
     if (vistaInformes === "convenios") {
-      csv = "Convenio,Institución,Alumnos Internos,Alumnos Cursos,Total Alumnos,Cantidad Informes\n";
+      csv = "Convenio,Institución,Internos,Alumnos,Cursos,Residentes,Rotaciones,Cantidad Informes\n";
       datos.forEach((r: any) => {
-        csv += `"${r.convenio_nombre}","${r.institucion_nombre}",${r.total_internos},${r.total_cursos},${r.total_alumnos},${r.cantidad_informes}\n`;
+        csv += `"${r.convenio_nombre}","${r.institucion_nombre}",${r.total_internos},${r.total_alumnos},${r.total_cursos},${r.total_residentes},${r.total_rotaciones},${r.cantidad_informes}\n`;
       });
     } else {
-      csv = "Institución,Total Convenios,Alumnos Internos,Alumnos Cursos,Total Alumnos,Cantidad Informes\n";
+      csv = "Institución,Total Convenios,Internos,Alumnos,Cursos,Residentes,Rotaciones,Cantidad Informes\n";
       datos.forEach((r: any) => {
-        csv += `"${r.institucion_nombre}",${r.total_convenios},${r.total_internos},${r.total_cursos},${r.total_alumnos},${r.cantidad_informes}\n`;
+        csv += `"${r.institucion_nombre}",${r.total_convenios},${r.total_internos},${r.total_alumnos},${r.total_cursos},${r.total_residentes},${r.total_rotaciones},${r.cantidad_informes}\n`;
       });
     }
 
