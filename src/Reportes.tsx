@@ -305,6 +305,88 @@ function TablaReporteInformesInstituciones({ datos }: { datos: any[] }) {
   );
 }
 
+function TablaReporteAcademico({ datos }: { datos: any[] }) {
+  const totalCursos     = datos.reduce((s, r) => s + (r.num_cursos     || 0), 0);
+  const totalAlumnos    = datos.reduce((s, r) => s + (r.num_alumnos    || 0), 0);
+  const totalInternos   = datos.reduce((s, r) => s + (r.num_internos   || 0), 0);
+  const totalResidentes = datos.reduce((s, r) => s + (r.num_residentes || 0), 0);
+  const totalRotaciones = datos.reduce((s, r) => s + (r.num_rotaciones || 0), 0);
+  const conveniosUnicos = new Set(datos.map((r) => r.convenio_id)).size;
+
+  return (
+    <div className="card">
+      <div className="card-header bg-light">
+        <div className="row text-center g-2">
+          <div className="col-6 col-md">
+            <div className="text-muted small">Convenios</div>
+            <div className="h3 mb-0">{conveniosUnicos}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Cursos</div>
+            <div className="h3 mb-0 text-success">{totalCursos}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Alumnos</div>
+            <div className="h3 mb-0 text-warning">{totalAlumnos}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Internos</div>
+            <div className="h3 mb-0 text-primary">{totalInternos}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Residentes</div>
+            <div className="h3 mb-0 text-info">{totalResidentes}</div>
+          </div>
+          <div className="col-6 col-md">
+            <div className="text-muted small">Rotaciones</div>
+            <div className="h3 mb-0 text-secondary">{totalRotaciones}</div>
+          </div>
+        </div>
+      </div>
+      <div className="card-body p-0">
+        <div className="table-responsive">
+          <table className="table table-hover mb-0">
+            <thead className="table-dark">
+              <tr>
+                <th>Convenio</th>
+                <th>Institución</th>
+                <th className="text-end">Año</th>
+                <th className="text-end">Cursos</th>
+                <th className="text-end">Alumnos</th>
+                <th className="text-end">Internos</th>
+                <th className="text-end">Residentes</th>
+                <th className="text-end">Rotaciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {datos.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-5 text-muted">
+                    No hay datos de Gestión Académica para los filtros seleccionados
+                  </td>
+                </tr>
+              ) : (
+                datos.map((row: any) => (
+                  <tr key={`${row.convenio_id}-${row.anio}`}>
+                    <td>{row.convenio_nombre}</td>
+                    <td>{row.institucion_nombre}</td>
+                    <td className="text-end">{row.anio}</td>
+                    <td className="text-end text-success">{row.num_cursos || 0}</td>
+                    <td className="text-end text-warning">{row.num_alumnos || 0}</td>
+                    <td className="text-end text-primary fw-bold">{row.num_internos || 0}</td>
+                    <td className="text-end text-info fw-bold">{row.num_residentes || 0}</td>
+                    <td className="text-end text-secondary">{row.num_rotaciones || 0}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Reportes() {
   // Estados de convenios
   const [convenios, setConvenios] = useState<Convenio[]>([]);
@@ -345,10 +427,15 @@ export default function Reportes() {
   const [movilidadDireccion, setMovilidadDireccion] = useState<string>("all");
 
   // Tab activo
-  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "contraprestaciones">("convenios");
+  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "academico" | "contraprestaciones">("convenios");
 
   // Estados para tab de Informes
   const [vistaInformes, setVistaInformes] = useState<"convenios" | "instituciones">("convenios");
+  const [reporteAcademico, setReporteAcademico] = useState<any[]>([]);
+  const [academicoLoading, setAcademicoLoading] = useState(false);
+  const [academicoAnioFiltro, setAcademicoAnioFiltro] = useState<number | null>(null);
+  const [academicoAniosDisponibles, setAcademicoAniosDisponibles] = useState<number[]>([]);
+  const [academicoInstitucionFiltro, setAcademicoInstitucionFiltro] = useState<string>("");
   const [reporteInformesConvenios, setReporteInformesConvenios] = useState<any[]>([]);
   const [reporteInformesInstituciones, setReporteInformesInstituciones] = useState<any[]>([]);
   const [informesLoading, setInformesLoading] = useState(false);
@@ -396,7 +483,7 @@ export default function Reportes() {
   useEffect(() => {
     if (activeTab === "movilidades") {
       cargarReportesMovilidades();
-    } else if (activeTab === "informes") {
+    } else if (activeTab === "informes" || activeTab === "academico") {
       cargarCatalogosInformes();
     }
   }, [activeTab, movilidadFechaInicio, movilidadFechaFin, movilidadCategoria, movilidadDireccion]);
@@ -411,6 +498,12 @@ export default function Reportes() {
       }
     }
   }, [activeTab, vistaInformes, informesAnioFiltro, informesSemestreFiltro, informesAreaFiltro, informesInstitucionFiltro]);
+
+  useEffect(() => {
+    if (activeTab === "academico") {
+      cargarReporteAcademico();
+    }
+  }, [activeTab, academicoAnioFiltro, academicoInstitucionFiltro]);
 
   const cargarReportes = async () => {
     setLoading(true);
@@ -988,6 +1081,96 @@ export default function Reportes() {
     }
   };
 
+  // ============================================
+  // FUNCIONES PARA TAB ACADÉMICO (Gestión Académica — vw_resumen_academico)
+  // ============================================
+
+  const cargarReporteAcademico = async () => {
+    setAcademicoLoading(true);
+    try {
+      let query = supabase
+        .from("vw_resumen_academico")
+        .select("*")
+        .order("anio", { ascending: false });
+
+      if (academicoAnioFiltro) query = query.eq("anio", academicoAnioFiltro);
+
+      const { data: resumen, error: resumenError } = await query;
+      if (resumenError) throw resumenError;
+
+      const convenioIds = [...new Set((resumen || []).map((r: any) => r.convenio_id))];
+
+      let agreementsMap: Record<string, any> = {};
+      if (convenioIds.length > 0) {
+        let agreementsQuery = supabase
+          .from("agreements")
+          .select(`
+            id,
+            name,
+            institucion_id,
+            instituciones ( nombre )
+          `)
+          .in("id", convenioIds);
+
+        if (academicoInstitucionFiltro) agreementsQuery = agreementsQuery.eq("institucion_id", academicoInstitucionFiltro);
+
+        const { data: agreements, error: agreementsError } = await agreementsQuery;
+        if (agreementsError) throw agreementsError;
+        (agreements || []).forEach((a: any) => { agreementsMap[a.id] = a; });
+      }
+
+      const reporte = (resumen || [])
+        .filter((r: any) => agreementsMap[r.convenio_id]) // respeta el filtro de institución
+        .map((r: any) => ({
+          convenio_id:        r.convenio_id,
+          anio:                r.anio,
+          convenio_nombre:     agreementsMap[r.convenio_id]?.name || "Sin nombre",
+          institucion_nombre:  agreementsMap[r.convenio_id]?.instituciones?.nombre || "Sin institución",
+          num_cursos:          r.num_cursos || 0,
+          num_alumnos:         r.num_alumnos || 0,
+          num_internos:        r.num_internos || 0,
+          num_residentes:      r.num_residentes || 0,
+          num_rotaciones:      r.num_rotaciones || 0,
+        }))
+        .sort((a: any, b: any) => b.anio - a.anio || a.convenio_nombre.localeCompare(b.convenio_nombre));
+
+      setReporteAcademico(reporte);
+
+      const anios = [...new Set((resumen || []).map((r: any) => r.anio))].sort((a: number, b: number) => b - a);
+      setAcademicoAniosDisponibles(anios);
+    } catch (error) {
+      console.error("Error cargando reporte académico:", error);
+    } finally {
+      setAcademicoLoading(false);
+    }
+  };
+
+  const limpiarFiltrosAcademico = () => {
+    setAcademicoAnioFiltro(null);
+    setAcademicoInstitucionFiltro("");
+  };
+
+  const exportarAcademicoExcel = () => {
+    if (reporteAcademico.length === 0) {
+      alert("No hay datos para exportar");
+      return;
+    }
+    const datos = reporteAcademico.map((r: any) => ({
+      'Convenio': r.convenio_nombre,
+      'Institución': r.institucion_nombre,
+      'Año': r.anio,
+      'Cursos': r.num_cursos,
+      'Alumnos': r.num_alumnos,
+      'Internos': r.num_internos,
+      'Residentes': r.num_residentes,
+      'Rotaciones': r.num_rotaciones,
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Gestión Académica');
+    XLSX.writeFile(wb, `Gestion_Academica_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const limpiarFiltrosInformes = () => {
     setInformesAnioFiltro(null);
     setInformesSemestreFiltro(null);
@@ -1189,6 +1372,15 @@ export default function Reportes() {
             style={activeTab === "informes" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
           >
             📈 Informes
+          </button>
+        </li>
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
+          <button 
+            className={"nav-link " + (activeTab === "academico" ? "active" : "")} 
+            onClick={() => setActiveTab("academico")} 
+            style={activeTab === "academico" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
+          >
+            🎓 Académico
           </button>
         </li>
         <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
@@ -1744,6 +1936,70 @@ export default function Reportes() {
             <TablaReporteInformesConvenios datos={reporteInformesConvenios} />
           ) : (
             <TablaReporteInformesInstituciones datos={reporteInformesInstituciones} />
+          )}
+        </div>
+      )}
+
+
+      {/* TAB ACADÉMICO — Gestión Académica (vw_resumen_academico) */}
+      {activeTab === "academico" && (
+        <div>
+          {/* Filtros */}
+          <div className="card mb-4">
+            <div className="card-header bg-light">
+              <h5 className="mb-0">🔍 Filtros</h5>
+            </div>
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-6 col-md-4">
+                  <label className="form-label fw-bold">Año</label>
+                  <select
+                    className="form-select"
+                    value={academicoAnioFiltro || ""}
+                    onChange={(e) => setAcademicoAnioFiltro(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Todos</option>
+                    {academicoAniosDisponibles.map(anio => (
+                      <option key={anio} value={anio}>{anio}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-6 col-md-4">
+                  <label className="form-label fw-bold">Institución</label>
+                  <select
+                    className="form-select"
+                    value={academicoInstitucionFiltro}
+                    onChange={(e) => setAcademicoInstitucionFiltro(e.target.value)}
+                  >
+                    <option value="">Todas</option>
+                    {informesInstitucionesDisponibles.map(inst => (
+                      <option key={inst.id} value={inst.id}>{inst.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <button className="btn btn-secondary me-2" onClick={limpiarFiltrosAcademico}>
+                  🔄 Limpiar Filtros
+                </button>
+                <button className="btn btn-success" onClick={exportarAcademicoExcel}>
+                  📥 Exportar Excel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Contenido */}
+          {academicoLoading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : (
+            <TablaReporteAcademico datos={reporteAcademico} />
           )}
         </div>
       )}
