@@ -5,6 +5,42 @@ import MovilidadForm from "./MovilidadForm";
 import MovilidadCumplimiento from "./Movilidadcumplimiento";
 import { useIsMobile } from "./hooks/useIsMobile";
 
+// Catálogo de Escuelas (pregrado) y Programas (postgrado) — igual que en MovilidadForm
+const ESCUELAS_PREGRADO = [
+  "Escuela Profesional de Medicina Humana",
+  "Escuela Profesional de Nutrición",
+  "Escuela Profesional de Obstetricia",
+  "Escuela Profesional de Enfermería",
+  "Escuela Profesional de Tecnología Médica",
+];
+const PROGRAMAS_POSTGRADO = [
+  "Programa de Segunda Especialización en Medicina Humana",
+  "Programa de Segunda Especialización en Enfermería",
+  "Programa de Segunda Especialidad para Nutricionista",
+  "Programa de Segunda Especialidad para Obstetras",
+  "Sección Maestría",
+  "Sección Segunda Especialidad",
+  "Sección Educación Médica Continua",
+  "Sección Doctorado",
+];
+
+const PLAZO_INFORME_DIAS = 15;
+
+// Días de retraso para enviar el informe (null = no aplica: ya enviado o sin fecha de retorno)
+const calcularDiasRetraso = (endDate?: string, informeEnviado?: boolean): number | null => {
+  if (!endDate || informeEnviado) return null;
+  const fechaPura = endDate.includes("T") ? endDate.split("T")[0] : endDate;
+  const [y, m, d] = fechaPura.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const limite = new Date(y, m - 1, d);
+  limite.setDate(limite.getDate() + PLAZO_INFORME_DIAS);
+  limite.setHours(0, 0, 0, 0);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const dias = Math.floor((hoy.getTime() - limite.getTime()) / 86400000);
+  return dias > 0 ? dias : 0;
+};
+
 interface Movilidad {
   id: string;
   categoria: string;
@@ -79,6 +115,7 @@ export default function MovilidadesManager() {
   const [filterDireccion, setFilterDireccion] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterYear, setFilterYear] = useState<string>("all");
+  const [filterArea, setFilterArea] = useState<string>("all");
   const [searchText, setSearchText] = useState<string>("");
 
   // Usuario actual
@@ -97,7 +134,7 @@ export default function MovilidadesManager() {
     if (currentUser) {
       fetchMovilidades();
     }
-  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterYear, searchText]);
+  }, [currentUser, filterCategoria, filterTipoPrograma, filterDireccion, filterStatus, filterYear, filterArea, searchText]);
 
   // ==========================================
   // FUNCIONES DE CARGA
@@ -151,6 +188,9 @@ export default function MovilidadesManager() {
         const startOfYear = `${filterYear}-01-01`;
         const endOfYear = `${filterYear}-12-31`;
         query = query.gte("start_date", startOfYear).lte("start_date", endOfYear);
+      }
+      if (filterArea !== "all") {
+        query = query.eq("programa_especifico", filterArea);
       }
 
       const { data, error } = await query;
@@ -248,6 +288,7 @@ export default function MovilidadesManager() {
     setFilterDireccion("all");
     setFilterStatus("all");
     setFilterYear("all");
+    setFilterArea("all");
     setSearchText("");
   };
 
@@ -470,6 +511,15 @@ export default function MovilidadesManager() {
                       <p className="mb-0">{m.tipo_estancia || "-"}</p>
                     </div>
                   </div>
+                  {(() => {
+                    const dias = calcularDiasRetraso(m.end_date, m.informe_enviado);
+                    if (!dias) return null;
+                    return (
+                      <div className="alert alert-danger mt-3 mb-0 py-2">
+                        🔴 <strong>{dias} día{dias !== 1 ? "s" : ""} de retraso</strong> en el envío del informe (plazo: {PLAZO_INFORME_DIAS} días desde el retorno)
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -710,6 +760,26 @@ export default function MovilidadesManager() {
             </div>
 
             <div className="col-md-2">
+              <select
+                className="form-select form-select-sm"
+                value={filterArea}
+                onChange={(e) => setFilterArea(e.target.value)}
+              >
+                <option value="all">Área Vinculada</option>
+                <optgroup label="Pregrado">
+                  {ESCUELAS_PREGRADO.map(esc => (
+                    <option key={esc} value={esc}>{esc}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Postgrado">
+                  {PROGRAMAS_POSTGRADO.map(prog => (
+                    <option key={prog} value={prog}>{prog}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="col-md-2">
               <input
                 type="text"
                 className="form-control form-control-sm"
@@ -793,6 +863,17 @@ export default function MovilidadesManager() {
                     </div>
                   ))}
                 </div>
+
+                {/* Días de retraso en el envío del informe (plazo: 15 días desde el retorno) */}
+                {(() => {
+                  const dias = calcularDiasRetraso(m.end_date, m.informe_enviado);
+                  if (!dias) return null;
+                  return (
+                    <div style={{ marginBottom: 8, padding: "4px 10px", background: "#FDECEA", borderRadius: 8, fontSize: 12, color: "#B21F2D", fontWeight: 700 }}>
+                      🔴 {dias} día{dias !== 1 ? "s" : ""} de retraso en el envío del informe
+                    </div>
+                  );
+                })()}
 
                 {/* Informe enviado */}
                 {m.informe_enviado && (
@@ -892,6 +973,17 @@ export default function MovilidadesManager() {
                         {formatDateLocal(m.start_date)}<br />
                         {formatDateLocal(m.end_date)}
                       </small>
+                      {(() => {
+                        const dias = calcularDiasRetraso(m.end_date, m.informe_enviado);
+                        if (!dias) return null;
+                        return (
+                          <div style={{ marginTop: 4 }}>
+                            <span className="badge bg-danger" style={{ fontSize: 10 }}>
+                              🔴 {dias} día{dias !== 1 ? "s" : ""} retraso
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td>
                       <span className={`badge ${getStatusBadge(m.status).bg}`}>
