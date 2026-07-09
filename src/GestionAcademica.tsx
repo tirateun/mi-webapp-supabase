@@ -5,12 +5,12 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabaseClient";
 import AlumnosManager    from "./AlumnosManager";
 import CursosManager     from "./CursosManager";
+import CursoMaestroManager from "./CursoMaestroManager";
 import InternosManager   from "./InternosManager";
 import ResidentesManager from "./ResidentesManager";
-import RotacionesManager from "./RotacionesManager";
 import SedesManager      from "./SedesManager";
 
-type Tab = "alumnos" | "cursos" | "internos" | "residentes" | "rotaciones" | "sedes";
+type Tab = "alumnos" | "cursos" | "cursos_escuela" | "internos" | "residentes" | "sedes";
 
 interface Convenio { id: string; name: string; tipo_convenio: string; subtipos: string[]; }
 
@@ -45,7 +45,7 @@ export default function GestionAcademica({ userRole, userId }: Props) {
       // Solo convenios con al menos un subtipo PREGRADO
       return c.subtipos?.some(s => s.toUpperCase().includes("PREGRADO"));
     }
-    if (tab === "residentes" || tab === "rotaciones") {
+    if (tab === "residentes") {
       // Solo convenios con al menos un subtipo NO PREGRADO (postgrado/residentado)
       return c.subtipos?.some(s => !s.toUpperCase().includes("PREGRADO"));
     }
@@ -75,17 +75,17 @@ export default function GestionAcademica({ userRole, userId }: Props) {
   };
 
   const TABS: { key: Tab; label: string; emoji: string; needsConv: boolean; adminOnly: boolean }[] = [
-    { key: "alumnos",    label: "Alumnos",    emoji: "👩‍🎓", needsConv: false, adminOnly: false },
-    { key: "cursos",     label: "Cursos",     emoji: "📚",  needsConv: true,  adminOnly: false },
-    { key: "internos",   label: "Internos",   emoji: "👨‍⚕️", needsConv: true,  adminOnly: false },
-    { key: "residentes", label: "Residentes", emoji: "🏥",  needsConv: true,  adminOnly: false },
-    { key: "rotaciones", label: "Rotaciones", emoji: "🔄",  needsConv: true,  adminOnly: false },
-    { key: "sedes",      label: "Sedes",      emoji: "🏛️",  needsConv: false, adminOnly: true  },
+    { key: "alumnos",        label: "Alumnos",         emoji: "👩‍🎓", needsConv: false, adminOnly: false },
+    { key: "cursos_escuela", label: "Cursos (Escuela)", emoji: "🏫",  needsConv: false, adminOnly: false },
+    { key: "cursos",         label: "Cursos (convenio)", emoji: "📚", needsConv: true,  adminOnly: false },
+    { key: "internos",       label: "Internos",        emoji: "👨‍⚕️", needsConv: true,  adminOnly: false },
+    { key: "residentes",     label: "Residentes",      emoji: "🏥",  needsConv: true,  adminOnly: false },
+    { key: "sedes",          label: "Sedes",           emoji: "🏛️",  needsConv: false, adminOnly: true  },
   ];
 
   const handleTabChange = (newTab: Tab) => {
     const esPregrado  = (t: Tab) => t === "cursos" || t === "internos";
-    const esPostgrado = (t: Tab) => t === "residentes" || t === "rotaciones";
+    const esPostgrado = (t: Tab) => t === "residentes";
     if ((esPregrado(tab) && esPostgrado(newTab)) ||
         (esPostgrado(tab) && esPregrado(newTab))) {
       setConvenioId(""); setConvenioNombre(""); setBusqConv("");
@@ -215,6 +215,10 @@ export default function GestionAcademica({ userRole, userId }: Props) {
           <AlumnosManager isAdmin={false}/>
         )}
 
+        {tab === "cursos_escuela" && (
+          <CursoMaestroManager isAdmin={false}/>
+        )}
+
         {tab === "cursos" && (
           !convenioId ? (
             <SinConvenio texto="Selecciona un convenio docente asistencial para gestionar los cursos"/>
@@ -243,14 +247,6 @@ export default function GestionAcademica({ userRole, userId }: Props) {
             <SinConvenio texto="Selecciona un convenio docente asistencial para gestionar los residentes"/>
           ) : (
             <ResidentesManager convenioId={convenioId} convenioNombre={convenioNombre} isAdmin={false}/>
-          )
-        )}
-
-        {tab === "rotaciones" && (
-          !convenioId ? (
-            <SinConvenio texto="Selecciona un convenio docente asistencial para gestionar las rotaciones"/>
-          ) : (
-            <RotacionesManager convenioId={convenioId} convenioNombre={convenioNombre} isAdmin={false}/>
           )
         )}
 
