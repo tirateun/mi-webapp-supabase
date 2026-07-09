@@ -211,17 +211,37 @@ export default function CursoMaestroManager({ isAdmin = false }: { isAdmin?: boo
   const onConvenioRotChange = async (convenioId: string) => {
     setRotForm(f => ({ ...f, convenioId, sedeId: "", sedeManual: "" }));
     if (!convenioId) { setSedesConvenio([]); setInstConvenio(null); return; }
-    const [{ data: inst }, { data: sedes }] = await Promise.all([
+    const [{ data: inst, error: e1 }, { data: sedes, error: e2 }] = await Promise.all([
       supabase.from("agreements").select("instituciones(nombre, tipo)").eq("id", convenioId).single(),
       supabase.from("convenio_sedes").select("sedes_hospitalarias(id, nombre)").eq("convenio_id", convenioId),
     ]);
+    if (e1) console.error("Error cargando institución del convenio:", e1);
+    if (e2) console.error("Error cargando sedes del convenio:", e2);
     const i = (inst as any)?.instituciones;
-    setInstConvenio(i ? { nombre: i.nombre, tipo: i.tipo || "" } : null);
-    setSedesConvenio((sedes || []).map((s: any) => s.sedes_hospitalarias).filter(Boolean));
+    const institucion = i ? { nombre: i.nombre, tipo: i.tipo || "" } : null;
+    setInstConvenio(institucion);
+    const sedesList = (sedes || []).map((s: any) => s.sedes_hospitalarias).filter(Boolean);
+    setSedesConvenio(sedesList);
+    // Si el convenio NO tiene sedes configuradas (no es una red), autocompleta con el nombre de la institución
+    if (sedesList.length === 0 && institucion) {
+      setRotForm(f => ({ ...f, sedeManual: institucion.nombre }));
+    }
   };
 
-  const TIPOS_UNICOS = ["hospital", "clínica", "clinica", "instituto", "policlínico", "policlinico"];
-  const esUnica = (t: string) => TIPOS_UNICOS.some(x => t?.toLowerCase().includes(x));
+  const sedeFieldRot = () => {
+    if (sedesConvenio.length > 0) {
+      return <select style={inp} value={rotForm.sedeId} onChange={FR("sedeId")}>
+        <option value="">Seleccionar sede...</option>
+        {sedesConvenio.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+      </select>;
+    }
+    return (
+      <div style={{ ...inp, background: "#F0FAF5", color: "#155724", border: "1.5px solid #C3E6CB", display: "flex", alignItems: "center", gap: ".5rem" }}>
+        🏥 {rotForm.sedeManual || instConvenio?.nombre || "—"}
+        <span style={{ fontSize: ".72rem", color: "#6C757D", marginLeft: "auto" }}>(auto)</span>
+      </div>
+    );
+  };
 
   const guardarRotacion = async (grupo: Grupo) => {
     if (!rotForm.convenioId || !rotForm.fechaInicio || !rotForm.fechaFin) {
@@ -260,21 +280,6 @@ export default function CursoMaestroManager({ isAdmin = false }: { isAdmin?: boo
   const FR = (k: string) => (e: any) => setRotForm(f => ({ ...f, [k]: e.target.value }));
   const inp = { width: "100%", padding: ".6rem .85rem", border: "1.5px solid #DEE2E6", borderRadius: 8, fontSize: ".88rem", outline: "none" as const };
   const lbl = { display: "block" as const, fontWeight: 600 as const, fontSize: ".8rem", marginBottom: 4 };
-
-  const sedeFieldRot = () => {
-    if (instConvenio && esUnica(instConvenio.tipo)) {
-      return <div style={{ ...inp, background: "#F0FAF5", color: "#155724", border: "1.5px solid #C3E6CB" }}>
-        🏥 {instConvenio.nombre} <span style={{ fontSize: ".72rem", color: "#6C757D" }}>(auto)</span>
-      </div>;
-    }
-    if (sedesConvenio.length > 0) {
-      return <select style={inp} value={rotForm.sedeId} onChange={FR("sedeId")}>
-        <option value="">Seleccionar sede...</option>
-        {sedesConvenio.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-      </select>;
-    }
-    return <input style={inp} value={rotForm.sedeManual} onChange={FR("sedeManual")} placeholder="Nombre del hospital..."/>;
-  };
 
   return (
     <div style={{ padding: "1.5rem" }}>
