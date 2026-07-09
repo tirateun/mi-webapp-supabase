@@ -57,6 +57,7 @@ export default function CursoMaestroManager({ isAdmin = false }: { isAdmin?: boo
   const [instConvenio, setInstConvenio]     = useState<{ nombre: string; tipo: string } | null>(null);
   const [showRotForm, setShowRotForm] = useState(false);
   const [rotForm, setRotForm]         = useState({ ...EMPTY_ROT });
+  const [busqConvenioRot, setBusqConvenioRot] = useState("");
   const [savingRot, setSavingRot]     = useState(false);
 
   useEffect(() => { cargarEscuelas(); cargarConvenios(); }, []);
@@ -197,9 +198,13 @@ export default function CursoMaestroManager({ isAdmin = false }: { isAdmin?: boo
     return (a.apellidos + " " + a.nombres + " " + a.dni).toLowerCase().includes(q);
   });
 
+  const conveniosFiltradosRot = todosConvenios.filter(c =>
+    !busqConvenioRot || c.name.toLowerCase().includes(busqConvenioRot.toLowerCase())
+  );
+
   // ── Tramos de rotación ──
   const abrirNuevaRotacion = async () => {
-    setRotForm({ ...EMPTY_ROT }); setSedesConvenio([]); setInstConvenio(null);
+    setRotForm({ ...EMPTY_ROT }); setSedesConvenio([]); setInstConvenio(null); setBusqConvenioRot("");
     setShowRotForm(true);
   };
 
@@ -464,10 +469,32 @@ export default function CursoMaestroManager({ isAdmin = false }: { isAdmin?: boo
                                         <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: ".85rem" }}>
                                           <div>
                                             <label style={lbl}>Convenio (sede destino)</label>
-                                            <select style={inp} value={rotForm.convenioId} onChange={e => onConvenioRotChange(e.target.value)}>
-                                              <option value="">Seleccionar convenio...</option>
-                                              {todosConvenios.map(cv => <option key={cv.id} value={cv.id}>{cv.name}</option>)}
-                                            </select>
+                                            {rotForm.convenioId ? (
+                                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
+                                                background: "#F0FAF5", border: "1.5px solid #C3E6CB", borderRadius: 8, padding: ".6rem .9rem" }}>
+                                                <span style={{ fontSize: ".85rem", fontWeight: 600, color: "#155724" }}>
+                                                  ✅ {todosConvenios.find(cv => cv.id === rotForm.convenioId)?.name}
+                                                </span>
+                                                <button onClick={() => onConvenioRotChange("")} className="btn btn-sm btn-outline-secondary">Cambiar</button>
+                                              </div>
+                                            ) : (
+                                              <>
+                                                <input type="text" style={inp} placeholder="🔍 Buscar convenio por nombre..."
+                                                  value={busqConvenioRot} onChange={e => setBusqConvenioRot(e.target.value)}/>
+                                                <div style={{ maxHeight: 220, overflowY: "auto", marginTop: ".4rem", display: "flex", flexDirection: "column", gap: ".3rem" }}>
+                                                  {conveniosFiltradosRot.slice(0, 50).map(cv => (
+                                                    <div key={cv.id} onClick={() => { onConvenioRotChange(cv.id); setBusqConvenioRot(""); }}
+                                                      style={{ padding: ".5rem .8rem", background: "#F8F9FA", borderRadius: 8, border: "1px solid #E9ECEF",
+                                                        fontSize: ".82rem", cursor: "pointer" }}>
+                                                      {cv.name}
+                                                    </div>
+                                                  ))}
+                                                  {conveniosFiltradosRot.length === 0 && (
+                                                    <p style={{ color: "#6C757D", fontSize: ".82rem", textAlign: "center", padding: ".5rem" }}>Sin resultados</p>
+                                                  )}
+                                                </div>
+                                              </>
+                                            )}
                                           </div>
                                           {rotForm.convenioId && (
                                             <div>
