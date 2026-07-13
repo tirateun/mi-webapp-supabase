@@ -37,6 +37,24 @@ const PROGRAMAS_POSTGRADO = [
   "Sección Doctorado",
 ];
 
+// Movilidades DOCENTES a nivel Postgrado son responsabilidad de los Departamentos Académicos
+const DEPARTAMENTOS_ACADEMICOS = [
+  "Departamento Académico de Ciencias Morfológicas",
+  "Departamento Académico de Ciencias Dinámicas",
+  "Departamento Académico de Cirugía Humana",
+  "Departamento Académico de Enfermería",
+  "Departamento Académico de Ginecología y Obstetricia",
+  "Departamento Académico de Medicina Humana",
+  "Departamento Académico de Medicina Preventiva y Salud Pública",
+  "Departamento Académico de Microbiología Médica",
+  "Departamento Académico de Nutrición",
+  "Departamento Académico de Obstetricia",
+  "Departamento Académico de Patología",
+  "Departamento Académico de Pediatría",
+  "Departamento Académico de Psiquiatría",
+  "Departamento Académico de Tecnología Médica",
+];
+
 // Mapeo de escuela_programa a escuela (para constraint)
 const ESCUELA_MAP: Record<string, string> = {
   "Escuela Profesional de Medicina Humana": "Medicina",
@@ -52,6 +70,20 @@ const ESCUELA_MAP: Record<string, string> = {
   "Sección Segunda Especialidad": "Medicina",
   "Sección Educación Médica Continua": "Medicina",
   "Sección Doctorado": "Medicina",
+  "Departamento Académico de Ciencias Morfológicas": "Medicina",
+  "Departamento Académico de Ciencias Dinámicas": "Medicina",
+  "Departamento Académico de Cirugía Humana": "Medicina",
+  "Departamento Académico de Enfermería": "Enfermería",
+  "Departamento Académico de Ginecología y Obstetricia": "Obstetricia",
+  "Departamento Académico de Medicina Humana": "Medicina",
+  "Departamento Académico de Medicina Preventiva y Salud Pública": "Medicina",
+  "Departamento Académico de Microbiología Médica": "Medicina",
+  "Departamento Académico de Nutrición": "Nutrición",
+  "Departamento Académico de Obstetricia": "Obstetricia",
+  "Departamento Académico de Patología": "Medicina",
+  "Departamento Académico de Pediatría": "Medicina",
+  "Departamento Académico de Psiquiatría": "Medicina",
+  "Departamento Académico de Tecnología Médica": "Tecnología Médica",
 };
 
 const TIPOS_ESTANCIA_ESTUDIANTE = [
@@ -549,6 +581,7 @@ export default function MovilidadForm({
   };
 
   const getEscuelasProgramas = () => {
+    if (categoria === "docente" && nivelAcademico === "Pregrado") return DEPARTAMENTOS_ACADEMICOS;
     return nivelAcademico === "Pregrado" ? ESCUELAS_PREGRADO : PROGRAMAS_POSTGRADO;
   };
 
@@ -923,7 +956,10 @@ export default function MovilidadForm({
 
                   <div className="col-md-6 mb-3">
                     <label className="form-label fw-bold">
-                      {nivelAcademico === "Pregrado" ? "Escuela Profesional *" : nivelAcademico === "Postgrado" ? "Programa *" : "Escuela/Programa *"}
+                      {categoria === "docente" && nivelAcademico === "Pregrado" ? "Departamento Académico *"
+                        : nivelAcademico === "Pregrado" ? "Escuela Profesional *"
+                        : nivelAcademico === "Postgrado" ? "Programa *"
+                        : "Escuela/Programa *"}
                     </label>
                     <select
                       className="form-select"
@@ -933,9 +969,24 @@ export default function MovilidadForm({
                       required
                     >
                       <option value="">Seleccione...</option>
-                      {getEscuelasProgramas().map(ep => (
-                        <option key={ep} value={ep}>{ep}</option>
-                      ))}
+                      {nivelAcademico === "Postgrado" && categoria === "docente" ? (
+                        <>
+                          <optgroup label="Programas de Posgrado">
+                            {PROGRAMAS_POSTGRADO.map(ep => (
+                              <option key={ep} value={ep}>{ep}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Departamentos Académicos">
+                            {DEPARTAMENTOS_ACADEMICOS.map(ep => (
+                              <option key={ep} value={ep}>{ep}</option>
+                            ))}
+                          </optgroup>
+                        </>
+                      ) : (
+                        getEscuelasProgramas().map(ep => (
+                          <option key={ep} value={ep}>{ep}</option>
+                        ))
+                      )}
                     </select>
                     {!nivelAcademico && (
                       <small className="text-muted">Primero seleccione el nivel académico</small>
