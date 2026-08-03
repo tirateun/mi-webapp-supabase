@@ -112,7 +112,33 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
 
   // 📥 Función para exportar a Excel
   const exportarAExcel = () => {
-    const data = conveniosFiltrados.map(c => ({
+    const data = conveniosFiltrados.map(c => {
+      // Concatenar contraprestaciones en una celda (una por línea)
+      const cps = ((c as any).contraprestaciones || []) as any[];
+      const contraprestacionesTexto = cps.length === 0 ? "-" : cps.map(cp => {
+        const periodo = cp.periodo ? `P${cp.periodo}` : "";
+        const rango = (cp.periodo_inicio || cp.periodo_fin)
+          ? ` (${formatDateLocal(cp.periodo_inicio)} → ${formatDateLocal(cp.periodo_fin)})` : "";
+        const unidades = cp.unidades_comprometidas != null ? ` x${cp.unidades_comprometidas}` : "";
+        return `${periodo ? periodo + " · " : ""}${cp.tipo}${unidades}${cp.descripcion ? " — " + cp.descripcion : ""}${rango}`.trim();
+      }).join("\n");
+
+      // Concatenar informes anuales en una celda (uno por línea)
+      const infs = ((c as any).informes || []) as any[];
+      const informesTexto = infs.length === 0 ? "-" : infs
+        .sort((a, b) => (a.anio || 0) - (b.anio || 0))
+        .map(inf => {
+          const partes = [];
+          if (inf.num_alumnos)    partes.push(`Alumnos: ${inf.num_alumnos}`);
+          if (inf.num_internos)   partes.push(`Internos: ${inf.num_internos}`);
+          if (inf.num_cursos)     partes.push(`Cursos: ${inf.num_cursos}`);
+          if (inf.num_residentes) partes.push(`Residentes: ${inf.num_residentes}`);
+          if (inf.num_rotaciones) partes.push(`Rotaciones: ${inf.num_rotaciones}`);
+          const resumen = partes.length ? partes.join(", ") : "sin conteos";
+          return `${inf.anio}: ${resumen}${inf.observaciones ? " — " + inf.observaciones : ""}`;
+        }).join("\n");
+
+      return {
       // ── Identificación ──────────────────────────────────
       "N°": conveniosFiltrados.indexOf(c) + 1,
       "Convenio": c.name,
@@ -120,6 +146,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "Tipo": c.agreement_type || "-",
       "Sub Tipo Docente": getSubtiposDocentes(c),
       "Resolución Rectoral": c.resolucion_rectoral || "-",
+      "Objetivos": (c as any).objetivos || "-",
       // ── Institución ──────────────────────────────────────
       "Institución": c.institucion_nombre || "-",
       "País": c.pais || "-",
@@ -133,13 +160,21 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "Responsable Interno": c.internal_responsible_name || "-",
       "Cargo Responsable": c.internal_responsible_cargo || "-",
       "Email Responsable": c.internal_responsible_email || "-",
+      // ── Responsable externo ───────────────────────────────
+      "Responsable Externo": (c as any).external_responsible || "-",
       // ── Fechas y estado ───────────────────────────────────
       "Fecha Firma": formatDateLocal(c.signature_date),
       "Fecha Vencimiento": formatDateLocal(c.expiration_date),
       "Duración (años)": c.duration_years || 0,
       "Estado": c.estado,
       "Renovaciones": c.renovaciones_count ?? 0,
-    }));
+      // ── Contraprestaciones e informes ─────────────────────
+      "Contraprestaciones": contraprestacionesTexto,
+      "N° Contraprestaciones": cps.length,
+      "Informes Anuales": informesTexto,
+      "N° Informes": infs.length,
+      };
+    });
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
@@ -152,6 +187,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       { wch: 22 }, // Tipo
       { wch: 30 }, // Sub Tipo Docente
       { wch: 25 }, // Resolución Rectoral
+      { wch: 40 }, // Objetivos
       { wch: 30 }, // Institución
       { wch: 14 }, // País
       { wch: 35 }, // Áreas Vinculadas
@@ -162,11 +198,16 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       { wch: 28 }, // Responsable Interno
       { wch: 24 }, // Cargo Responsable
       { wch: 30 }, // Email Responsable
+      { wch: 28 }, // Responsable Externo
       { wch: 13 }, // Fecha Firma
       { wch: 13 }, // Fecha Vencimiento
       { wch: 10 }, // Duración
       { wch: 12 }, // Estado
       { wch: 10 }, // Renovaciones
+      { wch: 50 }, // Contraprestaciones
+      { wch: 8  }, // N° Contraprestaciones
+      { wch: 50 }, // Informes Anuales
+      { wch: 8  }, // N° Informes
     ];
 
     // Estilo de encabezado (fondo morado)
@@ -284,6 +325,32 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           cargo: p.cargo
         }])
       );
+
+      // 2c. Cargar TODAS las contraprestaciones e informes de una sola vez (evita N consultas)
+      const agreementIds = (data || []).map((c: any) => c.id);
+
+      const { data: contraprestacionesData } = await supabase
+        .from("contraprestaciones")
+        .select("agreement_id, tipo, descripcion, unidades_comprometidas, periodo, periodo_inicio, periodo_fin");
+
+      const { data: informesData } = await supabase
+        .from("informes_anuales")
+        .select("convenio_id, anio, num_internos, num_alumnos, num_cursos, num_residentes, num_rotaciones, observaciones");
+
+      // Agrupar por convenio
+      const contraprestacionesMap = new Map<string, any[]>();
+      (contraprestacionesData || []).forEach((cp: any) => {
+        if (!cp.agreement_id) return;
+        if (!contraprestacionesMap.has(cp.agreement_id)) contraprestacionesMap.set(cp.agreement_id, []);
+        contraprestacionesMap.get(cp.agreement_id)!.push(cp);
+      });
+
+      const informesMap = new Map<string, any[]>();
+      (informesData || []).forEach((inf: any) => {
+        if (!inf.convenio_id) return;
+        if (!informesMap.has(inf.convenio_id)) informesMap.set(inf.convenio_id, []);
+        informesMap.get(inf.convenio_id)!.push(inf);
+      });
       // 3. Procesar datos
       const conveniosConDatos = await Promise.all(
         (data || []).map(async (conv: any) => {
@@ -383,6 +450,9 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             // Renovaciones:
             renovaciones_count: renovacionesCount,
             ultimo_cambio: ultimoCambio,
+            // Contraprestaciones e informes (para el export completo):
+            contraprestaciones: contraprestacionesMap.get(conv.id) || [],
+            informes: informesMap.get(conv.id) || [],
           };
         })  // ← Cierra el .map
       );
