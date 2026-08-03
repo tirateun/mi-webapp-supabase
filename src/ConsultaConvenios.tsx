@@ -138,6 +138,12 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           return `${inf.anio}: ${resumen}${inf.observaciones ? " — " + inf.observaciones : ""}`;
         }).join("\n");
 
+      // Responsables internos (varios por convenio)
+      const resps = ((c as any).responsables_internos || []) as any[];
+      const responsablesNombres = resps.length === 0 ? "-" : resps.map(r => r.full_name).filter(Boolean).join("\n");
+      const responsablesCargos  = resps.length === 0 ? "-" : resps.map(r => r.cargo || "-").join("\n");
+      const responsablesEmails  = resps.length === 0 ? "-" : resps.map(r => r.email || "-").join("\n");
+
       return {
       // ── Identificación ──────────────────────────────────
       "N°": conveniosFiltrados.indexOf(c) + 1,
@@ -156,10 +162,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "Contacto - Cargo": (c as any).institucion_cargo || "-",
       "Contacto - Email": c.institucion_email || "-",
       "Contacto - Teléfono": c.institucion_telefono || "-",
-      // ── Responsable interno ───────────────────────────────
-      "Responsable Interno": c.internal_responsible_name || "-",
-      "Cargo Responsable": c.internal_responsible_cargo || "-",
-      "Email Responsable": c.internal_responsible_email || "-",
+      // ── Responsables internos (pueden ser varios) ─────────
+      "Responsables Internos": responsablesNombres,
+      "Cargos Responsables": responsablesCargos,
+      "Emails Responsables": responsablesEmails,
+      "N° Responsables Internos": resps.length,
       // ── Responsable externo ───────────────────────────────
       "Responsable Externo": (c as any).external_responsible || "-",
       // ── Fechas y estado ───────────────────────────────────
@@ -195,9 +202,10 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       { wch: 24 }, // Contacto Cargo
       { wch: 28 }, // Contacto Email
       { wch: 16 }, // Contacto Teléfono
-      { wch: 28 }, // Responsable Interno
-      { wch: 24 }, // Cargo Responsable
-      { wch: 30 }, // Email Responsable
+      { wch: 30 }, // Responsables Internos
+      { wch: 30 }, // Cargos Responsables
+      { wch: 30 }, // Emails Responsables
+      { wch: 8  }, // N° Responsables Internos
       { wch: 28 }, // Responsable Externo
       { wch: 13 }, // Fecha Firma
       { wch: 13 }, // Fecha Vencimiento
@@ -351,6 +359,20 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
         if (!informesMap.has(inf.convenio_id)) informesMap.set(inf.convenio_id, []);
         informesMap.get(inf.convenio_id)!.push(inf);
       });
+
+      // 2d. Responsables internos: viven en agreement_internal_responsibles (varios por convenio)
+      const { data: responsablesData } = await supabase
+        .from("agreement_internal_responsibles")
+        .select("agreement_id, internal_responsible_id");
+
+      const responsablesMap = new Map<string, any[]>();
+      (responsablesData || []).forEach((r: any) => {
+        if (!r.agreement_id) return;
+        const prof = profilesMap.get(r.internal_responsible_id);
+        if (!prof) return;
+        if (!responsablesMap.has(r.agreement_id)) responsablesMap.set(r.agreement_id, []);
+        responsablesMap.get(r.agreement_id)!.push(prof);
+      });
       // 3. Procesar datos
       const conveniosConDatos = await Promise.all(
         (data || []).map(async (conv: any) => {
@@ -447,6 +469,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             internal_responsible_name: responsableData?.full_name,
             internal_responsible_email: responsableData?.email,
             internal_responsible_cargo: responsableData?.cargo,
+            // Responsables internos (M2M, varios por convenio):
+            responsables_internos: responsablesMap.get(conv.id) || [],
             // Renovaciones:
             renovaciones_count: renovacionesCount,
             ultimo_cambio: ultimoCambio,
