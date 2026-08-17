@@ -66,8 +66,13 @@ interface Convenio {
   institucion_email?: string;
   institucion_contacto?: string;
   institucion_telefono?: string;
+  institucion_tipo?: string | null;
+  institucion_cargo?: string;
   internal_responsible_email?: string;
   internal_responsible_cargo?: string;
+  responsables_internos?: Array<{ full_name?: string; email?: string; cargo?: string }>;
+  contraprestaciones?: any[];
+  informes?: any[];
   renovaciones_count?: number;
   ultimo_cambio?: string;
   // 🆕 SUBTIPOS desde tabla relacionada:
@@ -2027,4 +2032,3 @@ const verDetalleConvenio = (convenio: Convenio) => {
     </div>
   );
 }
-//
