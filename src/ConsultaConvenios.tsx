@@ -98,7 +98,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [filtroArea, setFiltroArea] = useState<string>("");
   const [filtroTipo, setFiltroTipo] = useState<string[]>([]);
-  const [filtroInstitucionTipo, setFiltroInstitucionTipo] = useState<string>("");
+  const [filtroInstitucionTipo, setFiltroInstitucionTipo] = useState<string[]>([]);
   const [filtroPais, setFiltroPais] = useState<string>("");
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
   const [filtroSubTipo, setFiltroSubTipo] = useState<string>("");  // 🆕 Filtro Sub Tipo Docente
@@ -575,9 +575,9 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       });
     }
 
-    // Filtro por tipo de institución (universidad, hospital, etc.)
-    if (filtroInstitucionTipo) {
-      resultado = resultado.filter(c => c.institucion_tipo === filtroInstitucionTipo);
+    // Filtro por tipo de institución (multi-selección: coincide si es AL MENOS uno de los marcados)
+    if (filtroInstitucionTipo.length > 0) {
+      resultado = resultado.filter(c => c.institucion_tipo != null && filtroInstitucionTipo.includes(c.institucion_tipo));
     }
 
     // Filtro por país
@@ -613,7 +613,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
     setFiltroEstado("todos");
     setFiltroArea("");
     setFiltroTipo([]);
-    setFiltroInstitucionTipo("");
+    setFiltroInstitucionTipo([]);
     setFiltroPais("");
     setFiltroInstitucion("");
     setFiltroSubTipo("");  // 🆕 Limpiar filtro de subtipo
@@ -894,7 +894,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
               )}
             </div>
 
-            {/* Filtro por Tipo de Institución */}
+            {/* Filtro por Tipo de Institución (multi-selección) */}
             <div>
               <label style={{ 
                 display: "block", 
@@ -904,24 +904,45 @@ const verDetalleConvenio = (convenio: Convenio) => {
                 fontSize: "0.9rem" 
               }}>
                 <i className="bi bi-building"></i> Tipo de Institución
+                {filtroInstitucionTipo.length > 0 && (
+                  <span style={{ marginLeft: 6, fontSize: "0.75rem", background: "#5B2C6F", color: "white", padding: "1px 7px", borderRadius: 10 }}>
+                    {filtroInstitucionTipo.length}
+                  </span>
+                )}
               </label>
-              <select
-                value={filtroInstitucionTipo}
-                onChange={(e) => setFiltroInstitucionTipo(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.75rem",
-                  border: "2px solid #E9ECEF",
-                  borderRadius: "8px",
-                  fontSize: "0.95rem",
-                  cursor: "pointer"
-                }}
-              >
-                <option value="">Todas las instituciones</option>
-                {tiposInstitucion.map((ti) => (
-                  <option key={ti} value={ti}>{ti}</option>
-                ))}
-              </select>
+              <div style={{
+                border: "2px solid #E9ECEF", borderRadius: "8px", padding: "0.5rem 0.75rem",
+                maxHeight: 160, overflowY: "auto", background: "white"
+              }}>
+                {tiposInstitucion.map((ti) => {
+                  const marcado = filtroInstitucionTipo.includes(ti);
+                  return (
+                    <label key={ti} style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "3px 0",
+                      cursor: "pointer", fontSize: "0.88rem"
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={marcado}
+                        onChange={() => {
+                          setFiltroInstitucionTipo(prev => marcado ? prev.filter(t => t !== ti) : [...prev, ti]);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                      {ti}
+                    </label>
+                  );
+                })}
+                {tiposInstitucion.length === 0 && <span style={{ fontSize: "0.82rem", color: "#6C757D" }}>Sin tipos disponibles</span>}
+              </div>
+              {filtroInstitucionTipo.length > 0 && (
+                <button
+                  onClick={() => setFiltroInstitucionTipo([])}
+                  style={{ marginTop: 6, background: "none", border: "none", color: "#5B2C6F", fontSize: "0.78rem", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                >
+                  Limpiar selección
+                </button>
+              )}
             </div>
 
             {/* Filtro por País */}
