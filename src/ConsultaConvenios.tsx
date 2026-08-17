@@ -92,7 +92,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Estados de filtros
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [filtroArea, setFiltroArea] = useState<string>("");
-  const [filtroTipo, setFiltroTipo] = useState<string>("");
+  const [filtroTipo, setFiltroTipo] = useState<string[]>([]);
+  const [filtroInstitucionTipo, setFiltroInstitucionTipo] = useState<string>("");
   const [filtroPais, setFiltroPais] = useState<string>("");
   const [filtroInstitucion, setFiltroInstitucion] = useState<string>("");
   const [filtroSubTipo, setFiltroSubTipo] = useState<string>("");  // 🆕 Filtro Sub Tipo Docente
@@ -102,6 +103,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Catálogos para dropdowns
   const [areas, setAreas] = useState<any[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
+  const [tiposInstitucion, setTiposInstitucion] = useState<string[]>([]);
   const [paises, setPaises] = useState<string[]>([]);
   const [instituciones, setInstituciones] = useState<any[]>([]);
   const [subtipos, setSubtipos] = useState<string[]>([]);  // 🆕 Catálogo de subtipos
@@ -155,6 +157,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "Objetivos": (c as any).objetivos || "-",
       // ── Institución ──────────────────────────────────────
       "Institución": c.institucion_nombre || "-",
+      "Tipo de Institución": (c as any).institucion_tipo || "-",
       "País": c.pais || "-",
       "Áreas Vinculadas": c.areas_vinculadas?.join(", ") || "-",
       // ── Contacto institucional ────────────────────────────
@@ -196,6 +199,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       { wch: 25 }, // Resolución Rectoral
       { wch: 40 }, // Objetivos
       { wch: 30 }, // Institución
+      { wch: 20 }, // Tipo de Institución
       { wch: 14 }, // País
       { wch: 35 }, // Áreas Vinculadas
       { wch: 28 }, // Contacto Nombre
@@ -247,7 +251,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   // Aplicar filtros cuando cambian
   useEffect(() => {
     aplicarFiltros();
-  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroPais, filtroInstitucion, filtroSubTipo, busquedaTexto, mostrarFinalizados]);
+  }, [convenios, filtroEstado, filtroArea, filtroTipo, filtroInstitucionTipo, filtroPais, filtroInstitucion, filtroSubTipo, busquedaTexto, mostrarFinalizados]);
 
   const cargarCatalogos = async () => {
     // Cargar áreas vinculadas
@@ -310,7 +314,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       // 2. Cargar instituciones por separado
       const { data: institucionesData } = await supabase
         .from("instituciones")
-        .select("id, nombre, email, contacto, cargo, telefono");
+        .select("id, nombre, email, contacto, cargo, telefono, tipo");
 
       const institucionesMap = new Map(
         (institucionesData || []).map(i => [i.id, {
@@ -318,7 +322,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
           email: i.email,
           contacto: i.contacto,
           cargo: i.cargo,
-          telefono: i.telefono
+          telefono: i.telefono,
+          tipo: i.tipo
         }])
       );
       // 2b. Cargar perfiles (responsables internos)
@@ -451,6 +456,7 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
             institucion_contacto: institucionData?.contacto,
             institucion_cargo: institucionData?.cargo,
             institucion_telefono: institucionData?.telefono,
+            institucion_tipo: institucionData?.tipo || null,
             // Datos del convenio:
             objetivos: conv.objetivos,
             convenio: conv.convenio,
@@ -502,6 +508,10 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       const paisesUnicos = [...new Set(conveniosConDatos.map(c => c.pais))].filter(Boolean);
       setPaises(paisesUnicos);
 
+      // Extraer tipos de institución únicos
+      const tiposInstUnicos = [...new Set(conveniosConDatos.map(c => c.institucion_tipo))].filter(Boolean) as string[];
+      setTiposInstitucion(tiposInstUnicos.sort());
+
       // 🆕 Extraer subtipos únicos
       const subtiposUnicos: string[] = [];
       conveniosConDatos.forEach(conv => {
@@ -551,14 +561,18 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       );
     }
 
-    // Filtro por tipo
-    if (filtroTipo) {
+    // Filtro por tipo (multi-selección: coincide si el convenio tiene AL MENOS uno de los tipos marcados)
+    if (filtroTipo.length > 0) {
       resultado = resultado.filter(c => {
         if (!c.agreement_type) return false;
-        // Dividir los tipos por coma y verificar si alguno coincide
         const tipos = c.agreement_type.split(',').map((t: string) => t.trim());
-        return tipos.includes(filtroTipo);
+        return filtroTipo.some(sel => tipos.includes(sel));
       });
+    }
+
+    // Filtro por tipo de institución (universidad, hospital, etc.)
+    if (filtroInstitucionTipo) {
+      resultado = resultado.filter(c => c.institucion_tipo === filtroInstitucionTipo);
     }
 
     // Filtro por país
@@ -593,7 +607,8 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
   const limpiarFiltros = () => {
     setFiltroEstado("todos");
     setFiltroArea("");
-    setFiltroTipo("");
+    setFiltroTipo([]);
+    setFiltroInstitucionTipo("");
     setFiltroPais("");
     setFiltroInstitucion("");
     setFiltroSubTipo("");  // 🆕 Limpiar filtro de subtipo
@@ -823,7 +838,7 @@ const verDetalleConvenio = (convenio: Convenio) => {
               </select>
             </div>
 
-            {/* Filtro por Tipo de Convenio */}
+            {/* Filtro por Tipo de Convenio (multi-selección) */}
             <div>
               <label style={{ 
                 display: "block", 
@@ -833,10 +848,61 @@ const verDetalleConvenio = (convenio: Convenio) => {
                 fontSize: "0.9rem" 
               }}>
                 <i className="bi bi-file-text"></i> Tipo de Convenio
+                {filtroTipo.length > 0 && (
+                  <span style={{ marginLeft: 6, fontSize: "0.75rem", background: "#5B2C6F", color: "white", padding: "1px 7px", borderRadius: 10 }}>
+                    {filtroTipo.length}
+                  </span>
+                )}
+              </label>
+              <div style={{
+                border: "2px solid #E9ECEF", borderRadius: "8px", padding: "0.5rem 0.75rem",
+                maxHeight: 160, overflowY: "auto", background: "white"
+              }}>
+                {tipos.map((tipo) => {
+                  const marcado = filtroTipo.includes(tipo);
+                  return (
+                    <label key={tipo} style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "3px 0",
+                      cursor: "pointer", fontSize: "0.88rem"
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={marcado}
+                        onChange={() => {
+                          setFiltroTipo(prev => marcado ? prev.filter(t => t !== tipo) : [...prev, tipo]);
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                      {tipo}
+                    </label>
+                  );
+                })}
+                {tipos.length === 0 && <span style={{ fontSize: "0.82rem", color: "#6C757D" }}>Sin tipos disponibles</span>}
+              </div>
+              {filtroTipo.length > 0 && (
+                <button
+                  onClick={() => setFiltroTipo([])}
+                  style={{ marginTop: 6, background: "none", border: "none", color: "#5B2C6F", fontSize: "0.78rem", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                >
+                  Limpiar selección
+                </button>
+              )}
+            </div>
+
+            {/* Filtro por Tipo de Institución */}
+            <div>
+              <label style={{ 
+                display: "block", 
+                marginBottom: "0.5rem", 
+                color: "#3D1A4F", 
+                fontWeight: 600, 
+                fontSize: "0.9rem" 
+              }}>
+                <i className="bi bi-building"></i> Tipo de Institución
               </label>
               <select
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
+                value={filtroInstitucionTipo}
+                onChange={(e) => setFiltroInstitucionTipo(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "0.75rem",
@@ -846,11 +912,9 @@ const verDetalleConvenio = (convenio: Convenio) => {
                   cursor: "pointer"
                 }}
               >
-                <option value="">Todos los tipos</option>
-                {tipos.map((tipo) => (
-                  <option key={tipo} value={tipo}>
-                    {tipo}
-                  </option>
+                <option value="">Todas las instituciones</option>
+                {tiposInstitucion.map((ti) => (
+                  <option key={ti} value={ti}>{ti}</option>
                 ))}
               </select>
             </div>
