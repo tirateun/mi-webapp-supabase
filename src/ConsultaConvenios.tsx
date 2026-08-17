@@ -2027,3 +2027,4 @@ const verDetalleConvenio = (convenio: Convenio) => {
     </div>
   );
 }
+//
