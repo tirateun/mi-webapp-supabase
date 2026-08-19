@@ -364,7 +364,7 @@ export default function InformesAnualesPage({
                     )}
 
                     <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#6C757D" }}>
-                      <i className="bi bi-clock"></i> Última actualización: {new Date(informe.updated_at).toLocaleString('es-PE')}
+                      <i className="bi bi-clock"></i> Fecha de registro: {new Date(informe.created_at).toLocaleString('es-PE')}
                     </div>
                   </div>
                 )}
