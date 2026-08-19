@@ -14,7 +14,7 @@ interface InformeAnual {
   id: string;
   convenio_id: string;
   year_id: string;
-  contenido: string;
+  descripcion: string;
   dificultades: string;
 }
 
@@ -46,7 +46,7 @@ export default function InformesAnualesModal({
     fetchProfile();
     
     if (editing) {
-      setContenido(editing.contenido || "");
+      setContenido(editing.descripcion || "");
       setDificultades(editing.dificultades || "");
     } else {
       setContenido("");
@@ -85,19 +85,20 @@ export default function InformesAnualesModal({
       const payload: any = {
         convenio_id: convenioId,
         year_id: year.id,
-        contenido,
+        descripcion: contenido,
         dificultades: dificultades || null,
-        created_by: profile?.id || null
+        periodo_inicio: year.year_start || null,
+        periodo_fin: year.year_end || null,
+        user_id: profile?.id || null
       };
 
       if (editing && editing.id) {
         // Actualizar informe existente
         const { error } = await supabase
-          .from("informes_anuales")
+          .from("informe_convenios")
           .update({
-            contenido,
-            dificultades: dificultades || null,
-            updated_at: new Date().toISOString()
+            descripcion: contenido,
+            dificultades: dificultades || null
           })
           .eq("id", editing.id);
 
@@ -105,7 +106,7 @@ export default function InformesAnualesModal({
       } else {
         // Crear nuevo informe
         const { error } = await supabase
-          .from("informes_anuales")
+          .from("informe_convenios")
           .insert([payload]);
 
         if (error) throw error;

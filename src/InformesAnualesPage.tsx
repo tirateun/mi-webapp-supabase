@@ -16,10 +16,12 @@ interface InformeAnual {
   id: string;
   convenio_id: string;
   year_id: string;
-  contenido: string;
+  descripcion: string;
   dificultades: string;
+  user_id?: string;
+  periodo_inicio?: string;
+  periodo_fin?: string;
   created_at: string;
-  updated_at: string;
 }
 
 interface Props {
@@ -71,7 +73,7 @@ export default function InformesAnualesPage({
 
       // Cargar informes existentes
       const { data: informesData, error: informesError } = await supabase
-        .from("informes_anuales")
+        .from("informe_convenios")
         .select("*")
         .eq("convenio_id", convenioId);
 
@@ -104,7 +106,7 @@ export default function InformesAnualesPage({
 
     try {
       const { error } = await supabase
-        .from("informes_anuales")
+        .from("informe_convenios")
         .delete()
         .eq("id", informeId);
 
@@ -338,7 +340,7 @@ export default function InformesAnualesPage({
                         lineHeight: "1.6",
                         color: "#495057"
                       }}>
-                        {informe.contenido}
+                        {informe.descripcion}
                       </div>
                     </div>
 
