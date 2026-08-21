@@ -17,6 +17,41 @@ import {
   Cell,
 } from "recharts";
 
+// Catálogos de Nivel Académico (mismos que MovilidadForm)
+const ESCUELAS_PREGRADO = [
+  "Escuela Profesional de Medicina Humana",
+  "Escuela Profesional de Nutrición",
+  "Escuela Profesional de Obstetricia",
+  "Escuela Profesional de Enfermería",
+  "Escuela Profesional de Tecnología Médica",
+];
+const PROGRAMAS_POSTGRADO = [
+  "Programa de Segunda Especialización en Medicina Humana",
+  "Programa de Segunda Especialización en Enfermería",
+  "Programa de Segunda Especialidad para Nutricionista",
+  "Programa de Segunda Especialidad para Obstetras",
+  "Sección Maestría",
+  "Sección Segunda Especialidad",
+  "Sección Educación Médica Continua",
+  "Sección Doctorado",
+];
+const DEPARTAMENTOS_ACADEMICOS = [
+  "Departamento Académico de Ciencias Morfológicas",
+  "Departamento Académico de Ciencias Dinámicas",
+  "Departamento Académico de Cirugía Humana",
+  "Departamento Académico de Enfermería",
+  "Departamento Académico de Ginecología y Obstetricia",
+  "Departamento Académico de Medicina Humana",
+  "Departamento Académico de Medicina Preventiva y Salud Pública",
+  "Departamento Académico de Microbiología Médica",
+  "Departamento Académico de Nutrición",
+  "Departamento Académico de Obstetricia",
+  "Departamento Académico de Patología",
+  "Departamento Académico de Pediatría",
+  "Departamento Académico de Psiquiatría",
+  "Departamento Académico de Tecnología Médica",
+];
+
 interface Convenio {
   id: string;
   name: string;
@@ -425,6 +460,8 @@ export default function Reportes() {
   const [movilidadFechaFin, setMovilidadFechaFin] = useState<string>("");
   const [movilidadCategoria, setMovilidadCategoria] = useState<string>("all");
   const [movilidadDireccion, setMovilidadDireccion] = useState<string>("all");
+  const [movilidadNivel, setMovilidadNivel] = useState<string>("all");
+  const [movilidadEscuelaPrograma, setMovilidadEscuelaPrograma] = useState<string>("all");
 
   // Tab activo
   const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "academico" | "contraprestaciones">("convenios");
@@ -486,7 +523,7 @@ export default function Reportes() {
     } else if (activeTab === "informes" || activeTab === "academico") {
       cargarCatalogosInformes();
     }
-  }, [activeTab, movilidadFechaInicio, movilidadFechaFin, movilidadCategoria, movilidadDireccion]);
+  }, [activeTab, movilidadFechaInicio, movilidadFechaFin, movilidadCategoria, movilidadDireccion, movilidadNivel, movilidadEscuelaPrograma]);
 
   // useEffect para recargar cuando cambian filtros de informes
   useEffect(() => {
@@ -651,6 +688,7 @@ export default function Reportes() {
       if (movilidadFechaFin) query = query.lte("start_date", movilidadFechaFin);
       if (movilidadCategoria !== "all") query = query.or("categoria.ilike.%" + movilidadCategoria + "%");
       if (movilidadDireccion !== "all") query = query.ilike("direccion", "%" + movilidadDireccion + "%");
+      if (movilidadEscuelaPrograma !== "all") query = query.eq("programa_especifico", movilidadEscuelaPrograma);
 
       const { data: movilidadesData, error } = await query;
       if (error) throw error;
@@ -764,6 +802,7 @@ export default function Reportes() {
         "Participante": m.nombre_completo || "-",
         "Categoría": m.categoria || "-",
         "Dirección": m.direccion || "-",
+        "Escuela / Programa / Depto.": m.programa_especifico || m.escuela || "-",
         "Tipo Programa": m.tipo_programa || "-",
         "País": m.direccion?.toLowerCase() === "entrante" ? (m.pais_origen || m.agreements?.pais || "-") : (m.pais_destino || m.destination_country || "-"),
         "Institución": institucion,
@@ -801,6 +840,8 @@ export default function Reportes() {
     setMovilidadFechaFin("");
     setMovilidadCategoria("all");
     setMovilidadDireccion("all");
+    setMovilidadNivel("all");
+    setMovilidadEscuelaPrograma("all");
   };
 
   // Helpers para badges
@@ -1533,6 +1574,43 @@ export default function Reportes() {
                     <option value="all">Todos</option>
                     <option value="entrante">📥 Entrantes</option>
                     <option value="saliente">📤 Salientes</option>
+                  </select>
+                </div>
+                <div className="col-6 col-md-2">
+                  <label className="form-label small fw-semibold">Nivel</label>
+                  <select className="form-select" value={movilidadNivel}
+                    onChange={(e) => { setMovilidadNivel(e.target.value); setMovilidadEscuelaPrograma("all"); }}>
+                    <option value="all">Todos</option>
+                    <option value="Pregrado">Pregrado</option>
+                    <option value="Postgrado">Postgrado</option>
+                  </select>
+                </div>
+                <div className="col-6 col-md-3">
+                  <label className="form-label small fw-semibold">Escuela / Programa / Depto.</label>
+                  <select className="form-select" value={movilidadEscuelaPrograma}
+                    onChange={(e) => setMovilidadEscuelaPrograma(e.target.value)}
+                    disabled={movilidadNivel === "all"}>
+                    <option value="all">{movilidadNivel === "all" ? "Elija nivel primero" : "Todas"}</option>
+                    {movilidadNivel === "Pregrado" && (
+                      <>
+                        <optgroup label="Escuelas Profesionales">
+                          {ESCUELAS_PREGRADO.map(e => <option key={e} value={e}>{e}</option>)}
+                        </optgroup>
+                        <optgroup label="Departamentos Académicos">
+                          {DEPARTAMENTOS_ACADEMICOS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </optgroup>
+                      </>
+                    )}
+                    {movilidadNivel === "Postgrado" && (
+                      <>
+                        <optgroup label="Programas de Posgrado">
+                          {PROGRAMAS_POSTGRADO.map(p => <option key={p} value={p}>{p}</option>)}
+                        </optgroup>
+                        <optgroup label="Departamentos Académicos">
+                          {DEPARTAMENTOS_ACADEMICOS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </optgroup>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="col-12 col-md-4">
