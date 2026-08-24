@@ -428,7 +428,9 @@ export default function Reportes() {
   const [conveniosPorTipo, setConveniosPorTipo] = useState<ConvenioPorTipo[]>([]);
   const [conveniosPorPais, setConveniosPorPais] = useState<ConvenioPorPais[]>([]);
   const [totalInstitucionesVigentes, setTotalInstitucionesVigentes] = useState(0);
-  const [institucionesVigentes, setInstitucionesVigentes] = useState<{ institucion: string; cantidad: number }[]>([]);
+  const [totalInstitucionesVigentesNac, setTotalInstitucionesVigentesNac] = useState(0);
+  const [totalInstitucionesVigentesInt, setTotalInstitucionesVigentesInt] = useState(0);
+  const [institucionesVigentes, setInstitucionesVigentes] = useState<{ institucion: string; institucionCompleta?: string; cantidad: number; pais?: string; ambito?: string }[]>([]);
   const [ejecucionContraprestaciones, setEjecucionContraprestaciones] = useState<ReporteEjecucion[]>([]);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -552,7 +554,7 @@ export default function Reportes() {
         .from("agreements")
         .select(`
           *,
-          institucion:instituciones(id, nombre)
+          institucion:instituciones(id, nombre, pais)
         `);
       if (fechaInicio) query = query.gte("signature_date", fechaInicio);
       if (fechaFin) query = query.lte("signature_date", fechaFin);
@@ -604,24 +606,34 @@ export default function Reportes() {
       // aunque tenga varios convenios). Vigente = no finalizado y con fecha de vencimiento futura.
       const hoyVig = new Date();
       hoyVig.setHours(0, 0, 0, 0);
-      const conteoInstVigentes: Record<string, number> = {};
+      const esPeru = (p: string) => ["perú", "peru"].includes((p || "").trim().toLowerCase());
+      // Acumula por institución: cantidad de convenios vigentes + su país/ámbito
+      const instVigMap: Record<string, { cantidad: number; pais: string; ambito: string }> = {};
       conveniosData?.forEach((c: any) => {
         if (c.finalizado) return;
         if (!c.expiration_date) return;
         const venc = new Date(c.expiration_date);
         if (venc < hoyVig) return; // vencido
         const nombreInst = c.institucion?.nombre || "Sin institución";
-        conteoInstVigentes[nombreInst] = (conteoInstVigentes[nombreInst] || 0) + 1;
+        const paisInst = c.institucion?.pais || "";
+        const ambito = esPeru(paisInst) ? "Nacional" : "Internacional";
+        if (!instVigMap[nombreInst]) instVigMap[nombreInst] = { cantidad: 0, pais: paisInst || "-", ambito };
+        instVigMap[nombreInst].cantidad += 1;
       });
-      const institucionesVigentesArr = Object.entries(conteoInstVigentes)
-        .map(([institucion, cantidad]) => ({
+
+      const institucionesVigentesArr = Object.entries(instVigMap)
+        .map(([institucion, info]) => ({
           institucion: institucion.length > 28 ? institucion.substring(0, 28) + "…" : institucion,
           institucionCompleta: institucion,
-          cantidad,
+          cantidad: info.cantidad,
+          pais: info.pais,
+          ambito: info.ambito,
         }))
         .sort((a, b) => b.cantidad - a.cantidad);
       setInstitucionesVigentes(institucionesVigentesArr);
       setTotalInstitucionesVigentes(institucionesVigentesArr.length);
+      setTotalInstitucionesVigentesNac(institucionesVigentesArr.filter(i => i.ambito === "Nacional").length);
+      setTotalInstitucionesVigentesInt(institucionesVigentesArr.filter(i => i.ambito === "Internacional").length);
 
       // Contraprestaciones - SOLO convenios con contraprestaciones programadas
       const { data: allYearsData } = await supabase.from("agreement_years").select("id, agreement_id, year_start, year_end");
@@ -792,6 +804,36 @@ export default function Reportes() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportarInstitucionesVigentesExcel = () => {
+    // Hoja 1: Resumen numérico
+    const resumen = [
+      { "Indicador": "Instituciones con convenio vigente (total)", "Cantidad": totalInstitucionesVigentes },
+      { "Indicador": "  · Nacionales (Perú)", "Cantidad": totalInstitucionesVigentesNac },
+      { "Indicador": "  · Internacionales (otro país)", "Cantidad": totalInstitucionesVigentesInt },
+    ];
+
+    // Hoja 2: Detalle por institución
+    const detalle = institucionesVigentes.map((i: any, idx: number) => ({
+      "N°": idx + 1,
+      "Institución": i.institucionCompleta || i.institucion,
+      "País": i.pais || "-",
+      "Ámbito": i.ambito || "-",
+      "Convenios vigentes": i.cantidad,
+    }));
+
+    const wb = XLSX.utils.book_new();
+
+    const wsResumen = XLSX.utils.json_to_sheet(resumen);
+    wsResumen['!cols'] = [{ wch: 45 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+
+    const wsDetalle = XLSX.utils.json_to_sheet(detalle);
+    wsDetalle['!cols'] = [{ wch: 5 }, { wch: 50 }, { wch: 18 }, { wch: 15 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, wsDetalle, "Detalle");
+
+    XLSX.writeFile(wb, "instituciones_vigentes_" + new Date().toISOString().split('T')[0] + ".xlsx");
   };
 
   const exportarConveniosExcel = () => {
@@ -1583,9 +1625,26 @@ export default function Reportes() {
               <div className="card border-0 shadow-sm">
                 <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center">
                   <h5 className="mb-0 fw-bold">🏛️ Instituciones con convenio vigente ({totalInstitucionesVigentes})</h5>
-                  <button onClick={() => setShowLabelsInstVig(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsInstVig ? "#14b8a6" : "#fff", color: showLabelsInstVig ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsInstVig ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button>
+                  <div className="d-flex gap-2">
+                    <button onClick={exportarInstitucionesVigentesExcel} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #14b8a6", background:"#14b8a6", color:"#fff", cursor:"pointer", whiteSpace:"nowrap"}}>📥 Exportar Excel</button>
+                    <button onClick={() => setShowLabelsInstVig(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsInstVig ? "#14b8a6" : "#fff", color: showLabelsInstVig ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsInstVig ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button>
+                  </div>
                 </div>
                 <div className="card-body p-4">
+                  <div className="row g-3 mb-3">
+                    <div className="col-6">
+                      <div className="p-3 rounded" style={{ background: "#F0FDFA", border: "1px solid #99F6E4" }}>
+                        <div className="small text-muted">🇵🇪 Nacionales (Perú)</div>
+                        <div className="h3 mb-0 fw-bold" style={{ color: "#0F766E" }}>{totalInstitucionesVigentesNac}</div>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="p-3 rounded" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+                        <div className="small text-muted">🌍 Internacionales</div>
+                        <div className="h3 mb-0 fw-bold" style={{ color: "#1D4ED8" }}>{totalInstitucionesVigentesInt}</div>
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-muted small mb-3">Cada institución cuenta una sola vez, sin importar cuántos convenios vigentes tenga. La barra indica cuántos convenios vigentes hay con cada una.</p>
                   {institucionesVigentes.length > 0 ? (
                     <ResponsiveContainer width="100%" height={Math.max(300, institucionesVigentes.length * 28)}>
