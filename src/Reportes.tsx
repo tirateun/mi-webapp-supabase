@@ -427,6 +427,8 @@ export default function Reportes() {
   const [convenios, setConvenios] = useState<Convenio[]>([]);
   const [conveniosPorTipo, setConveniosPorTipo] = useState<ConvenioPorTipo[]>([]);
   const [conveniosPorPais, setConveniosPorPais] = useState<ConvenioPorPais[]>([]);
+  const [totalInstitucionesVigentes, setTotalInstitucionesVigentes] = useState(0);
+  const [institucionesVigentes, setInstitucionesVigentes] = useState<{ institucion: string; cantidad: number }[]>([]);
   const [ejecucionContraprestaciones, setEjecucionContraprestaciones] = useState<ReporteEjecucion[]>([]);
   const [responsables, setResponsables] = useState<Responsable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -495,6 +497,7 @@ export default function Reportes() {
   // Toggle etiquetas en gráficos
   const [showLabelsTipo, setShowLabelsTipo] = useState(false);
   const [showLabelsPais, setShowLabelsPais] = useState(false);
+  const [showLabelsInstVig, setShowLabelsInstVig] = useState(false);
   const [showLabelsEjecucion, setShowLabelsEjecucion] = useState(false);
   const [showLabelsEscuela, setShowLabelsEscuela] = useState(false);
 
@@ -596,6 +599,29 @@ export default function Reportes() {
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 10);
       setConveniosPorPais(paisesProcesados);
+
+      // Instituciones con al menos un convenio VIGENTE (una institución cuenta 1 sola vez
+      // aunque tenga varios convenios). Vigente = no finalizado y con fecha de vencimiento futura.
+      const hoyVig = new Date();
+      hoyVig.setHours(0, 0, 0, 0);
+      const conteoInstVigentes: Record<string, number> = {};
+      conveniosData?.forEach((c: any) => {
+        if (c.finalizado) return;
+        if (!c.expiration_date) return;
+        const venc = new Date(c.expiration_date);
+        if (venc < hoyVig) return; // vencido
+        const nombreInst = c.institucion?.nombre || "Sin institución";
+        conteoInstVigentes[nombreInst] = (conteoInstVigentes[nombreInst] || 0) + 1;
+      });
+      const institucionesVigentesArr = Object.entries(conteoInstVigentes)
+        .map(([institucion, cantidad]) => ({
+          institucion: institucion.length > 28 ? institucion.substring(0, 28) + "…" : institucion,
+          institucionCompleta: institucion,
+          cantidad,
+        }))
+        .sort((a, b) => b.cantidad - a.cantidad);
+      setInstitucionesVigentes(institucionesVigentesArr);
+      setTotalInstitucionesVigentes(institucionesVigentesArr.length);
 
       // Contraprestaciones - SOLO convenios con contraprestaciones programadas
       const { data: allYearsData } = await supabase.from("agreement_years").select("id, agreement_id, year_start, year_end");
@@ -1479,6 +1505,14 @@ export default function Reportes() {
               </div>
             </div>
             <div className="col-6 col-md-3">
+              <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)' }}>
+                <div className="card-body text-white">
+                  <p className="mb-1 opacity-75">Instituciones c/ convenio vigente</p>
+                  <h2 className="mb-0 fw-bold">{totalInstitucionesVigentes}</h2>
+                </div>
+              </div>
+            </div>
+            <div className="col-6 col-md-3">
               <div className="card border-0 shadow-sm h-100" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
                 <div className="card-body text-white">
                   <p className="mb-1 opacity-75">Países</p>
@@ -1538,6 +1572,32 @@ export default function Reportes() {
                       </BarChart>
                     </ResponsiveContainer>
                   ) : <div className="text-center text-muted py-5">No hay datos</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico: Instituciones con convenio vigente */}
+          <div className="row g-4 mb-4">
+            <div className="col-12">
+              <div className="card border-0 shadow-sm">
+                <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0 fw-bold">🏛️ Instituciones con convenio vigente ({totalInstitucionesVigentes})</h5>
+                  <button onClick={() => setShowLabelsInstVig(v => !v)} style={{fontSize:12, padding:"2px 10px", borderRadius:12, border:"1px solid #d1d5db", background: showLabelsInstVig ? "#14b8a6" : "#fff", color: showLabelsInstVig ? "#fff" : "#374151", cursor:"pointer", whiteSpace:"nowrap"}}>{showLabelsInstVig ? "🏷️ Ocultar" : "🏷️ Mostrar"}</button>
+                </div>
+                <div className="card-body p-4">
+                  <p className="text-muted small mb-3">Cada institución cuenta una sola vez, sin importar cuántos convenios vigentes tenga. La barra indica cuántos convenios vigentes hay con cada una.</p>
+                  {institucionesVigentes.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={Math.max(300, institucionesVigentes.length * 28)}>
+                      <BarChart data={institucionesVigentes} layout="vertical" margin={{ left: 20, right: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                        <YAxis type="category" dataKey="institucion" width={220} tick={{ fontSize: 11 }} />
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
+                        <Bar dataKey="cantidad" fill="#14b8a6" radius={[0, 8, 8, 0]}>{showLabelsInstVig && <LabelList dataKey="cantidad" position="right" style={{fontSize:12,fill:"#374151"}} />}</Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : <div className="text-center text-muted py-5">No hay instituciones con convenios vigentes</div>}
                 </div>
               </div>
             </div>
