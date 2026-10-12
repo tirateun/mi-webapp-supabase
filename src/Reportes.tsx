@@ -166,6 +166,20 @@ interface ContraprestacionPorArea {
   pendientes: number;
 }
 
+// Interfaz para Renovaciones
+interface RenovacionReporte {
+  id: string;
+  old_expiration_date: string;
+  new_expiration_date: string;
+  changed_at: string;
+  agreements?: {
+    name: string;
+    instituciones?: {
+      nombre: string;
+    };
+  };
+}
+
 
 // ============================================
 // COMPONENTES AUXILIARES PARA TAB INFORMES
@@ -467,8 +481,8 @@ export default function Reportes() {
   const [movilidadNivel, setMovilidadNivel] = useState<string>("all");
   const [movilidadEscuelaPrograma, setMovilidadEscuelaPrograma] = useState<string>("all");
 
-  // Tab activo
-  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "academico" | "contraprestaciones">("convenios");
+  // Tab activo (incluyendo 'renovaciones')
+  const [activeTab, setActiveTab] = useState<"convenios" | "movilidades" | "informes" | "academico" | "contraprestaciones" | "renovaciones">("convenios");
 
   // Estados para tab de Informes
   const [vistaInformes, setVistaInformes] = useState<"convenios" | "instituciones">("convenios");
@@ -495,6 +509,12 @@ export default function Reportes() {
   const [contraPorInstitucion, setContraPorInstitucion] = useState<ContraprestacionPorInstitucion[]>([]);
   const [contraPorArea, setContraPorArea] = useState<ContraprestacionPorArea[]>([]);
   const [contraLoading, setContraLoading] = useState(false);
+
+  // Estados para Renovaciones
+  const [renovaciones, setRenovaciones] = useState<RenovacionReporte[]>([]);
+  const [renovacionesFechaInicio, setRenovacionesFechaInicio] = useState<string>("");
+  const [renovacionesFechaFin, setRenovacionesFechaFin] = useState<string>("");
+  const [loadingRenovaciones, setLoadingRenovaciones] = useState(false);
 
   // Toggle etiquetas en gráficos
   const [showLabelsTipo, setShowLabelsTipo] = useState(false);
@@ -546,6 +566,47 @@ export default function Reportes() {
       cargarReporteAcademico();
     }
   }, [activeTab, academicoAnioFiltro, academicoInstitucionFiltro]);
+
+  // useEffect y función para recargar cuando cambian filtros de renovaciones
+  useEffect(() => {
+    if (activeTab === "renovaciones") {
+      cargarReporteRenovaciones();
+    }
+  }, [activeTab, renovacionesFechaInicio, renovacionesFechaFin]);
+
+  const cargarReporteRenovaciones = async () => {
+    setLoadingRenovaciones(true);
+    try {
+      let query = supabase
+        .from("agreement_renewals")
+        .select(`
+          id,
+          old_expiration_date,
+          new_expiration_date,
+          changed_at,
+          agreements (
+            name,
+            instituciones (
+              nombre
+            )
+          )
+        `)
+        .order("changed_at", { ascending: false });
+
+      if (renovacionesFechaInicio) query = query.gte("changed_at", renovacionesFechaInicio + "T00:00:00");
+      if (renovacionesFechaFin) query = query.lte("changed_at", renovacionesFechaFin + "T23:59:59");
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      setRenovaciones((data as any[]) || []);
+    } catch (error) {
+      console.error("Error cargando reporte de renovaciones:", error);
+    } finally {
+      setLoadingRenovaciones(false);
+    }
+  };
+
 
   const cargarReportes = async () => {
     setLoading(true);
@@ -1303,11 +1364,11 @@ export default function Reportes() {
       
       setTopTipos(tipos || []);
 
-      const { data: instituciones } = await supabase
+      const { data: institutions } = await supabase
         .from('vista_contraprestaciones_por_institucion')
         .select('*');
       
-      setContraPorInstitucion(instituciones || []);
+      setContraPorInstitucion(institutions || []);
 
       const { data: areas } = await supabase
         .from('vista_contraprestaciones_por_area')
@@ -1501,6 +1562,17 @@ export default function Reportes() {
           >
             <i className="bi bi-clipboard-check me-2"></i>
             Contrapr.
+          </button>
+        </li>
+        <li className="nav-item" style={{ whiteSpace: "nowrap" }}>
+          <button
+            type="button"
+            className={"nav-link " + (activeTab === "renovaciones" ? "active" : "")}
+            onClick={() => setActiveTab("renovaciones")}
+            style={activeTab === "renovaciones" ? { color: "#5B2C6F", borderColor: "#5B2C6F #5B2C6F #fff" } : {}}
+          >
+            <i className="bi bi-arrow-repeat me-2"></i>
+            Renovaciones
           </button>
         </li>
       </ul>
@@ -2477,6 +2549,108 @@ export default function Reportes() {
 
 
             </>
+          )}
+        </div>
+      )}
+
+      {/* TAB RENOVACIONES */}
+      {activeTab === "renovaciones" && (
+        <div>
+          {/* Filtros */}
+          <div className="card mb-4 border-0 shadow-sm">
+            <div className="card-header bg-white border-0 p-4">
+              <h5 className="mb-0 fw-bold">🔍 Filtros de Renovación</h5>
+            </div>
+            <div className="card-body">
+              <div className="row g-3">
+                <div className="col-6 col-md-4">
+                  <label className="form-label fw-bold">Fecha de Renovación (Inicio)</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={renovacionesFechaInicio} 
+                    onChange={(e) => setRenovacionesFechaInicio(e.target.value)} 
+                  />
+                </div>
+                <div className="col-6 col-md-4">
+                  <label className="form-label fw-bold">Fecha de Renovación (Fin)</label>
+                  <input 
+                    type="date" 
+                    className="form-control" 
+                    value={renovacionesFechaFin} 
+                    onChange={(e) => setRenovacionesFechaFin(e.target.value)} 
+                  />
+                </div>
+                <div className="col-12 col-md-4 d-flex align-items-end">
+                  <button 
+                    className="btn btn-secondary w-100" 
+                    onClick={() => { setRenovacionesFechaInicio(""); setRenovacionesFechaFin(""); }}
+                  >
+                    🔄 Limpiar Filtros
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla */}
+          {loadingRenovaciones ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="card border-0 shadow-sm">
+              <div className="card-header bg-white border-0 p-4 d-flex justify-content-between align-items-center">
+                <h5 className="mb-0 fw-bold">📋 Convenios Renovados ({renovaciones.length})</h5>
+              </div>
+              <div className="card-body p-0">
+                <div className="table-responsive">
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-dark">
+                      <tr>
+                        <th className="px-4 py-3">Convenio</th>
+                        <th className="px-4 py-3">Institución</th>
+                        <th className="px-4 py-3 text-center">Vencimiento Anterior</th>
+                        <th className="px-4 py-3 text-center">Nuevo Vencimiento</th>
+                        <th className="px-4 py-3 text-center">Fecha de Registro</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {renovaciones.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-5 text-muted">
+                            No se encontraron renovaciones en este periodo.
+                          </td>
+                        </tr>
+                      ) : (
+                        renovaciones.map((r) => (
+                          <tr key={r.id}>
+                            <td className="px-4 py-3 fw-bold">{r.agreements?.name || "Sin nombre"}</td>
+                            <td className="px-4 py-3">
+                              {/* Se maneja como array o como objeto dependiendo de la relación en Supabase */}
+                              {Array.isArray(r.agreements?.instituciones) 
+                                ? r.agreements?.instituciones[0]?.nombre 
+                                : r.agreements?.instituciones?.nombre || "-"}
+                            </td>
+                            <td className="px-4 py-3 text-center text-danger">
+                              {r.old_expiration_date ? new Date(r.old_expiration_date).toLocaleDateString('es-PE') : "-"}
+                            </td>
+                            <td className="px-4 py-3 text-center text-success fw-bold">
+                              {r.new_expiration_date ? new Date(r.new_expiration_date).toLocaleDateString('es-PE') : "-"}
+                            </td>
+                            <td className="px-4 py-3 text-center text-muted">
+                              {r.changed_at ? new Date(r.changed_at).toLocaleDateString('es-PE') : "-"}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       )}
