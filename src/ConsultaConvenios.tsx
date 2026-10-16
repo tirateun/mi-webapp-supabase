@@ -188,13 +188,27 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       "N° Contraprestaciones": cps.length,
       "Informes Anuales": informesTexto,
       "N° Informes": infs.length,
+      "Link del Documento": c.document_url ? "Ver Documento" : "Sin enlace",
       };
     });
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
-    
-    // Ajustar ancho de columnas
+    // 🆕 INYECTAR FÓRMULA DE HIPERVÍNCULO EN LA COLUMNA 29
+    conveniosFiltrados.forEach((c, i) => {
+      if (c.document_url) {
+        // { r: i + 1 } (salta el encabezado) y { c: 29 } (índice 0-based de la columna "Link del Documento")
+        const cellRef = XLSX.utils.encode_cell({ r: i + 1, c: 29 }); 
+        if (ws[cellRef]) {
+          ws[cellRef] = { 
+            t: 'f', // Define el tipo como "fórmula"
+            f: `HYPERLINK("${c.document_url}", "Ver Documento")` 
+          };
+        }
+      }
+    });
+
+        // Ajustar ancho de columnas
     ws['!cols'] = [
       { wch: 5  }, // N°
       { wch: 55 }, // Convenio
@@ -225,8 +239,11 @@ export default function ConsultaConvenios({ userId, role }: ConsultaConveniosPro
       { wch: 8  }, // N° Contraprestaciones
       { wch: 50 }, // Informes Anuales
       { wch: 8  }, // N° Informes
+      { wch: 50 }, // Informes Anuales
+      { wch: 8  }, // N° Informes
+      { wch: 20 }, // 🆕 Link del Documento
     ];
-
+    
     // Estilo de encabezado (fondo morado)
     const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
     for (let C = range.s.c; C <= range.e.c; C++) {
